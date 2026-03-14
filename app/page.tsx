@@ -74,10 +74,13 @@ type SessionRow = {
   total_seconds: number;
   engaged_seconds: number;
   suspicious_score: number;
+  primary_category: string;
+  route_kind: string;
 };
 
 type PageRow = {
   path: string;
+  route_kind: string;
   entries: number;
   views: number;
   exits: number;
@@ -193,6 +196,34 @@ function sessionTone(score: number) {
   if (score >= 80) return "text-rose-300";
   if (score >= 40) return "text-amber-300";
   return "text-emerald-300";
+}
+
+function routeKindClass(routeKind: string) {
+  switch (routeKind) {
+    case "page":
+      return "border-emerald-500/20 bg-emerald-500/10 text-emerald-300";
+    case "api":
+      return "border-sky-500/20 bg-sky-500/10 text-sky-300";
+    case "probe":
+      return "border-rose-500/20 bg-rose-500/10 text-rose-300";
+    case "asset":
+      return "border-slate-500/20 bg-slate-500/10 text-slate-300";
+    default:
+      return "border-white/10 bg-white/[0.04] text-slate-300";
+  }
+}
+
+function categoryClass(category: string) {
+  switch (category) {
+    case "human":
+      return "border-emerald-500/20 bg-emerald-500/10 text-emerald-300";
+    case "bot":
+      return "border-amber-500/20 bg-amber-500/10 text-amber-300";
+    case "suspicious":
+      return "border-rose-500/20 bg-rose-500/10 text-rose-300";
+    default:
+      return "border-white/10 bg-white/[0.04] text-slate-300";
+  }
 }
 
 function StatCard({
@@ -523,7 +554,7 @@ export default async function Home() {
               Session explorer
             </p>
             <h2 className="mt-2 text-2xl font-semibold text-white">
-              Recent sessions
+              Prioritized recent sessions
             </h2>
 
             <div className="mt-5 space-y-4">
@@ -537,7 +568,23 @@ export default async function Home() {
                       <p className="text-sm uppercase tracking-[0.18em] text-slate-400">
                         {session.project_slug} · {session.host}
                       </p>
-                      <p className="mt-2 text-lg font-semibold text-white">
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <span
+                          className={`rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] ${routeKindClass(
+                            session.route_kind
+                          )}`}
+                        >
+                          {session.route_kind}
+                        </span>
+                        <span
+                          className={`rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] ${categoryClass(
+                            session.primary_category
+                          )}`}
+                        >
+                          {session.primary_category}
+                        </span>
+                      </div>
+                      <p className="mt-3 text-lg font-semibold text-white">
                         {session.country}, {session.area}, {session.city}
                       </p>
                       <p className="mt-1 text-sm text-slate-400">
@@ -591,7 +638,7 @@ export default async function Home() {
                     <span>source: {session.source || "direct"}</span>
                     <span>medium: {session.medium || "unknown"}</span>
                     <span>campaign: {session.campaign || "—"}</span>
-                    <span>pages: {session.page_count}</span>
+                    <span>paths: {session.page_count}</span>
                     <span>events: {session.event_count}</span>
                   </div>
                 </div>
@@ -675,10 +722,10 @@ export default async function Home() {
 
         <section className="mt-6 rounded-3xl border border-white/10 bg-white/[0.03] p-5">
           <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
-            Page intelligence
+            Route intelligence
           </p>
           <h2 className="mt-2 text-2xl font-semibold text-white">
-            Top pages and next steps
+            Top routes and next steps
           </h2>
 
           <div className="mt-5 overflow-x-auto">
@@ -686,6 +733,7 @@ export default async function Home() {
               <thead className="text-slate-400">
                 <tr className="border-b border-white/10">
                   <th className="px-3 py-3 font-medium">Path</th>
+                  <th className="px-3 py-3 font-medium">Kind</th>
                   <th className="px-3 py-3 font-medium">Entries</th>
                   <th className="px-3 py-3 font-medium">Views</th>
                   <th className="px-3 py-3 font-medium">Exits</th>
@@ -700,6 +748,15 @@ export default async function Home() {
                     className="border-b border-white/6 text-slate-200"
                   >
                     <td className="px-3 py-3 font-mono text-white">{page.path}</td>
+                    <td className="px-3 py-3">
+                      <span
+                        className={`rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] ${routeKindClass(
+                          page.route_kind
+                        )}`}
+                      >
+                        {page.route_kind}
+                      </span>
+                    </td>
                     <td className="px-3 py-3">{formatNumber(page.entries)}</td>
                     <td className="px-3 py-3">{formatNumber(page.views)}</td>
                     <td className="px-3 py-3">{formatNumber(page.exits)}</td>
