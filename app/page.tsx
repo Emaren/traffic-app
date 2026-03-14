@@ -76,6 +76,8 @@ type SessionRow = {
   suspicious_score: number;
   primary_category: string;
   route_kind: string;
+  quality_score: number;
+  quality_label: string;
 };
 
 type PageRow = {
@@ -193,9 +195,10 @@ function severityClass(severity: string) {
 }
 
 function sessionTone(score: number) {
-  if (score >= 80) return "text-rose-300";
-  if (score >= 40) return "text-amber-300";
-  return "text-emerald-300";
+  if (score >= 80) return "text-emerald-300";
+  if (score >= 55) return "text-sky-300";
+  if (score >= 30) return "text-amber-300";
+  return "text-slate-300";
 }
 
 function routeKindClass(routeKind: string) {
@@ -223,6 +226,19 @@ function categoryClass(category: string) {
       return "border-rose-500/20 bg-rose-500/10 text-rose-300";
     default:
       return "border-white/10 bg-white/[0.04] text-slate-300";
+  }
+}
+
+function qualityClass(label: string) {
+  switch (label) {
+    case "strong":
+      return "border-emerald-500/20 bg-emerald-500/10 text-emerald-300";
+    case "good":
+      return "border-sky-500/20 bg-sky-500/10 text-sky-300";
+    case "thin":
+      return "border-amber-500/20 bg-amber-500/10 text-amber-300";
+    default:
+      return "border-slate-500/20 bg-slate-500/10 text-slate-300";
   }
 }
 
@@ -356,7 +372,7 @@ export default async function Home() {
                 </h2>
               </div>
               <div className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs uppercase tracking-[0.18em] text-emerald-300">
-                Real log slice live
+                Quality mode live
               </div>
             </div>
 
@@ -554,7 +570,7 @@ export default async function Home() {
               Session explorer
             </p>
             <h2 className="mt-2 text-2xl font-semibold text-white">
-              Prioritized recent sessions
+              Quality-prioritized recent sessions
             </h2>
 
             <div className="mt-5 space-y-4">
@@ -583,6 +599,13 @@ export default async function Home() {
                         >
                           {session.primary_category}
                         </span>
+                        <span
+                          className={`rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] ${qualityClass(
+                            session.quality_label
+                          )}`}
+                        >
+                          {session.quality_label}
+                        </span>
                       </div>
                       <p className="mt-3 text-lg font-semibold text-white">
                         {session.country}, {session.area}, {session.city}
@@ -593,16 +616,12 @@ export default async function Home() {
                     </div>
 
                     <div className="text-right">
-                      <p
-                        className={`text-lg font-semibold ${sessionTone(
-                          session.suspicious_score
-                        )}`}
-                      >
-                        score {session.suspicious_score}
+                      <p className={`text-lg font-semibold ${sessionTone(session.quality_score)}`}>
+                        quality {session.quality_score}
                       </p>
                       <p className="text-sm text-slate-400">
-                        {formatSeconds(session.total_seconds)} total ·{" "}
-                        {formatSeconds(session.engaged_seconds)} engaged
+                        threat {session.suspicious_score} ·{" "}
+                        {formatSeconds(session.total_seconds)} total
                       </p>
                     </div>
                   </div>
@@ -640,6 +659,7 @@ export default async function Home() {
                     <span>campaign: {session.campaign || "—"}</span>
                     <span>paths: {session.page_count}</span>
                     <span>events: {session.event_count}</span>
+                    <span>engaged: {formatSeconds(session.engaged_seconds)}</span>
                   </div>
                 </div>
               ))}
