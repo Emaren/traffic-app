@@ -325,7 +325,7 @@ export default async function Home() {
                 </h2>
               </div>
               <div className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs uppercase tracking-[0.18em] text-emerald-300">
-                Phase 1 shell live
+                Real log slice live
               </div>
             </div>
 
@@ -337,7 +337,10 @@ export default async function Home() {
                 );
 
                 return (
-                  <div key={project.slug} className="rounded-2xl border border-white/8 bg-black/20 p-4">
+                  <div
+                    key={project.slug}
+                    className="rounded-2xl border border-white/8 bg-black/20 p-4"
+                  >
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <p className="text-lg font-semibold text-white">
@@ -436,11 +439,18 @@ export default async function Home() {
                 </thead>
                 <tbody>
                   {overview.hosts.map((host) => (
-                    <tr key={host.host} className="border-b border-white/6 text-slate-200">
-                      <td className="px-3 py-3 font-medium text-white">{host.host}</td>
+                    <tr
+                      key={host.host}
+                      className="border-b border-white/6 text-slate-200"
+                    >
+                      <td className="px-3 py-3 font-medium text-white">
+                        {host.host}
+                      </td>
                       <td className="px-3 py-3">{host.project_slug}</td>
                       <td className="px-3 py-3">{formatNumber(host.requests)}</td>
-                      <td className="px-3 py-3">{formatNumber(host.unique_visitors)}</td>
+                      <td className="px-3 py-3">
+                        {formatNumber(host.unique_visitors)}
+                      </td>
                       <td className="px-3 py-3">{formatNumber(host.sessions)}</td>
                       <td className="px-3 py-3 font-mono text-xs text-emerald-300">
                         {host.top_entry_page}
@@ -448,7 +458,9 @@ export default async function Home() {
                       <td className="px-3 py-3 font-mono text-xs text-amber-300">
                         {host.top_exit_page}
                       </td>
-                      <td className="px-3 py-3">{formatSeconds(host.avg_session_seconds)}</td>
+                      <td className="px-3 py-3">
+                        {formatSeconds(host.avg_session_seconds)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -470,7 +482,9 @@ export default async function Home() {
                   key={row.path}
                   className="flex items-center justify-between rounded-2xl border border-rose-500/20 bg-rose-500/8 px-4 py-3"
                 >
-                  <span className="font-mono text-sm text-rose-100">{row.path}</span>
+                  <span className="font-mono text-sm text-rose-100">
+                    {row.path}
+                  </span>
                   <span className="rounded-full bg-black/20 px-3 py-1 text-sm font-semibold text-rose-200">
                     {formatNumber(row.count)}
                   </span>
@@ -532,7 +546,11 @@ export default async function Home() {
                     </div>
 
                     <div className="text-right">
-                      <p className={`text-lg font-semibold ${sessionTone(session.suspicious_score)}`}>
+                      <p
+                        className={`text-lg font-semibold ${sessionTone(
+                          session.suspicious_score
+                        )}`}
+                      >
                         score {session.suspicious_score}
                       </p>
                       <p className="text-sm text-slate-400">
@@ -544,19 +562,25 @@ export default async function Home() {
 
                   <div className="mt-4 grid gap-3 md:grid-cols-3">
                     <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3">
-                      <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Entry</p>
+                      <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                        Entry
+                      </p>
                       <p className="mt-2 font-mono text-sm text-emerald-300">
                         {session.entry_page}
                       </p>
                     </div>
                     <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3">
-                      <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Next</p>
+                      <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                        Next
+                      </p>
                       <p className="mt-2 font-mono text-sm text-amber-300">
                         {session.next_page}
                       </p>
                     </div>
                     <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3">
-                      <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Exit</p>
+                      <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                        Exit
+                      </p>
                       <p className="mt-2 font-mono text-sm text-rose-300">
                         {session.exit_page}
                       </p>
@@ -671,7 +695,10 @@ export default async function Home() {
               </thead>
               <tbody>
                 {overview.top_pages.map((page) => (
-                  <tr key={page.path} className="border-b border-white/6 text-slate-200">
+                  <tr
+                    key={page.path}
+                    className="border-b border-white/6 text-slate-200"
+                  >
                     <td className="px-3 py-3 font-mono text-white">{page.path}</td>
                     <td className="px-3 py-3">{formatNumber(page.entries)}</td>
                     <td className="px-3 py-3">{formatNumber(page.views)}</td>
