@@ -1,0 +1,215 @@
+export type Severity = "low" | "medium" | "high";
+
+export type OverviewTotals = {
+  requests: number;
+  humans: number;
+  bots: number;
+  suspicious: number;
+  unknown: number;
+  unique_visitors: number;
+  sessions: number;
+  engaged_sessions: number;
+  avg_session_seconds: number;
+  avg_page_seconds: number;
+};
+
+export type ProjectSummary = {
+  slug: string;
+  name: string;
+  category: string;
+  requests: number;
+  sessions: number;
+  engaged_sessions: number;
+  human_confirmed_sessions?: number;
+  suspicious: number;
+};
+
+export type HostSummary = {
+  host: string;
+  project_slug: string;
+  requests: number;
+  unique_visitors: number;
+  sessions: number;
+  human_requests: number;
+  bot_requests: number;
+  suspicious_requests: number;
+  top_entry_page: string;
+  top_exit_page: string;
+  avg_session_seconds: number;
+};
+
+export type SuspiciousPath = {
+  path: string;
+  count: number;
+};
+
+export type SuspiciousIp = {
+  ip: string;
+  country: string;
+  count: number;
+  category: string;
+  last_seen?: string | null;
+};
+
+export type TopPage = {
+  path: string;
+  route_kind: string;
+  entries: number;
+  views: number;
+  exits: number;
+  avg_seconds: number;
+  top_next_paths: Array<{ path: string; count: number }>;
+};
+
+export type GeoRowCountry = {
+  country: string;
+  sessions: number;
+  requests: number;
+};
+
+export type GeoRowArea = {
+  country: string;
+  area: string;
+  sessions: number;
+};
+
+export type GeoRowCity = {
+  country: string;
+  area: string;
+  city: string;
+  sessions: number;
+};
+
+export type AlertRow = {
+  severity: Severity;
+  title: string;
+  count: number;
+};
+
+export type SessionRecord = {
+  session_id: string;
+  visitor_key: string;
+  project_slug: string;
+  project_name: string;
+  project_category: string;
+  host: string;
+  ip: string;
+  started_at: string;
+  ended_at: string;
+  first_seen_at: string;
+  last_seen_at: string;
+  last_page_request_at: string;
+  first_seen_alberta: string;
+  last_seen_alberta: string;
+  country: string;
+  area: string;
+  city: string;
+  device: string;
+  os: string;
+  browser: string;
+  referrer: string;
+  source: string;
+  medium: string;
+  campaign: string;
+  entry_page: string;
+  current_page: string;
+  exit_page: string;
+  next_page: string;
+  page_sequence: string[];
+  page_count: number;
+  event_count: number;
+  total_seconds: number;
+  engaged_seconds: number;
+  idle_seconds: number;
+  active_now: boolean;
+  suspicious_score: number;
+  primary_category: string;
+  route_kind: string;
+  quality_score: number;
+  quality_label: string;
+  human_confidence: number;
+  classification_state:
+    | "candidate"
+    | "likely_human"
+    | "human_confirmed"
+    | "bot"
+    | "suspicious"
+    | "archived";
+  classification_reasons: string[];
+  human_confirmed: boolean;
+  live_priority: number;
+};
+
+export type OverviewResponse = {
+  ok: boolean;
+  generated_at: string;
+  window: string;
+  totals: OverviewTotals;
+  projects: ProjectSummary[];
+  hosts: HostSummary[];
+  suspicious: {
+    top_paths: SuspiciousPath[];
+    top_ips: SuspiciousIp[];
+  };
+  recent_sessions: SessionRecord[];
+  top_pages: TopPage[];
+  geo: {
+    countries: GeoRowCountry[];
+    areas: GeoRowArea[];
+    cities: GeoRowCity[];
+  };
+  alerts: AlertRow[];
+  notes: string[];
+};
+
+export type LiveProjectCount = {
+  slug: string;
+  name: string;
+  human_confirmed: number;
+  likely_human: number;
+  candidate: number;
+  active_now: number;
+};
+
+export type LiveVisitorsResponse = {
+  ok: boolean;
+  generated_at: string;
+  window_hours: number;
+  tower_limit: number;
+  history_count: number;
+  project_counts: LiveProjectCount[];
+  top_25: SessionRecord[];
+  history_preview: SessionRecord[];
+};
+
+export type HumanSeriesPoint = {
+  bucket_start: string;
+  label: string;
+  visitors: number;
+};
+
+export type HumanSeriesProject = {
+  slug: string;
+  name: string;
+  live_humans: number;
+  points: HumanSeriesPoint[];
+};
+
+export type ProjectHumanSeriesResponse = {
+  ok: boolean;
+  generated_at: string;
+  window_hours: number;
+  bucket_minutes: number;
+  series_kind: string;
+  projects: HumanSeriesProject[];
+};
+
+export type VisitsHistoryResponse = {
+  ok: boolean;
+  generated_at: string;
+  window_hours: number;
+  offset: number;
+  limit: number;
+  total: number;
+  items: SessionRecord[];
+};

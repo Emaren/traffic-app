@@ -1,5 +1,7 @@
 export const dynamic = "force-dynamic";
 
+import BuilderTopDeck from "@/components/traffic/builder-top-deck";
+
 type Totals = {
   requests: number;
   humans: number;
@@ -141,7 +143,7 @@ type Overview = {
 };
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_TRAFFIC_API_BASE_URL || "http://127.0.0.1:3345";
+  process.env.NEXT_PUBLIC_TRAFFIC_API_BASE_URL || "http://127.0.0.1:3346";
 
 async function getOverview(): Promise<Overview | null> {
   try {
@@ -277,8 +279,8 @@ export default async function Home() {
           </h1>
           <p className="mt-4 max-w-2xl text-slate-300">
             The dashboard page loaded, but it could not pull data from the
-            Traffic API. Check that the FastAPI server is still running on
-            127.0.0.1:3345.
+            Traffic API. Check that the FastAPI server is still running and that
+            this page is pointing at the correct API base.
           </p>
           <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-slate-300">
             <p>Expected API base:</p>
@@ -330,6 +332,10 @@ export default async function Home() {
           </div>
         </header>
 
+        <div className="mt-6">
+          <BuilderTopDeck />
+        </div>
+
         <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <StatCard
             label="Requests"
@@ -345,7 +351,7 @@ export default async function Home() {
             label="Sessions"
             value={formatNumber(overview.totals.sessions)}
             helper={`${formatNumber(
-              overview.totals.engaged_sessions
+              overview.totals.engaged_sessions,
             )} engaged sessions`}
           />
           <StatCard
@@ -380,7 +386,7 @@ export default async function Home() {
               {overview.projects.map((project) => {
                 const width = Math.max(
                   8,
-                  Math.round((project.requests / projectMax) * 100)
+                  Math.round((project.requests / projectMax) * 100),
                 );
 
                 return (
@@ -587,21 +593,21 @@ export default async function Home() {
                       <div className="mt-2 flex flex-wrap gap-2">
                         <span
                           className={`rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] ${routeKindClass(
-                            session.route_kind
+                            session.route_kind,
                           )}`}
                         >
                           {session.route_kind}
                         </span>
                         <span
                           className={`rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] ${categoryClass(
-                            session.primary_category
+                            session.primary_category,
                           )}`}
                         >
                           {session.primary_category}
                         </span>
                         <span
                           className={`rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] ${qualityClass(
-                            session.quality_label
+                            session.quality_label,
                           )}`}
                         >
                           {session.quality_label}
@@ -678,7 +684,7 @@ export default async function Home() {
               {overview.geo.countries.map((row) => {
                 const width = Math.max(
                   10,
-                  Math.round((row.sessions / countryMax) * 100)
+                  Math.round((row.sessions / countryMax) * 100),
                 );
 
                 return (
@@ -771,7 +777,7 @@ export default async function Home() {
                     <td className="px-3 py-3">
                       <span
                         className={`rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] ${routeKindClass(
-                          page.route_kind
+                          page.route_kind,
                         )}`}
                       >
                         {page.route_kind}
