@@ -6,6 +6,8 @@ import type { SessionRecord } from "@/components/traffic/types";
 
 type Props = {
   session: SessionRecord;
+  showProjectBadge?: boolean;
+  showProjectLink?: boolean;
 };
 
 function formatSeconds(total: number): string {
@@ -32,7 +34,11 @@ function verdictClass(state: SessionRecord["classification_state"]) {
   }
 }
 
-export default function LiveVisitorStreamRow({ session }: Props) {
+export default function LiveVisitorStreamRow({
+  session,
+  showProjectBadge = true,
+  showProjectLink = true,
+}: Props) {
   const journey =
     session.entry_page === session.current_page
       ? session.current_page
@@ -47,9 +53,11 @@ export default function LiveVisitorStreamRow({ session }: Props) {
               <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-white/70">
                 {session.last_seen_alberta}
               </span>
-              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-white/70">
-                {session.project_name}
-              </span>
+              {showProjectBadge ? (
+                <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-white/70">
+                  {session.project_name}
+                </span>
+              ) : null}
               <span
                 className={`rounded-full border px-2.5 py-1 font-medium ${verdictClass(
                   session.classification_state,
@@ -121,14 +129,18 @@ export default function LiveVisitorStreamRow({ session }: Props) {
 
           <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
             <div className="text-[11px] uppercase tracking-wide text-white/45">Open</div>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <Link
-                href={`/projects/${session.project_slug}`}
-                className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-200 transition hover:bg-sky-400/15"
-              >
-                Open {session.project_name}
-              </Link>
-            </div>
+            {showProjectLink ? (
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Link
+                  href={`/projects/${session.project_slug}`}
+                  className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-200 transition hover:bg-sky-400/15"
+                >
+                  Open {session.project_name}
+                </Link>
+              </div>
+            ) : (
+              <div className="mt-2 text-sm text-white/80">{session.project_name}</div>
+            )}
             <div className="mt-3 text-xs text-white/50">
               Route kind {session.route_kind} • {session.page_count} pages • {session.event_count} events
             </div>

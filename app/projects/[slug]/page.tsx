@@ -3,8 +3,8 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fetchProjectDetail } from "@/components/traffic/api";
+import ProjectLiveFeed from "@/components/traffic/project-live-feed";
 import { withFlag } from "@/components/traffic/display";
-import LiveVisitorTile from "@/components/traffic/live-visitor-tile";
 import ProjectDetailGraph from "@/components/traffic/project-detail-graph";
 
 function formatNumber(value: number) {
@@ -132,31 +132,11 @@ export default async function ProjectPage({
         </div>
 
         <section className="mt-6 grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Live Feed</p>
-                <h2 className="mt-2 text-2xl font-semibold text-white">
-                  Live visitors on {detail.project.name}
-                </h2>
-              </div>
-              <div className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-200">
-                {detail.live_feed.length} cards
-              </div>
-            </div>
-
-            <div className="mt-5 space-y-4">
-              {detail.live_feed.length > 0 ? (
-                detail.live_feed.map((session) => (
-                  <LiveVisitorTile key={session.session_id} session={session} />
-                ))
-              ) : (
-                <div className="rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-white/60">
-                  No live human-ish sessions on this project right now.
-                </div>
-              )}
-            </div>
-          </div>
+          <ProjectLiveFeed
+            projectName={detail.project.name}
+            projectSlug={detail.project.slug}
+            initialItems={detail.live_feed}
+          />
 
           <div className="space-y-6">
             <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
@@ -239,7 +219,7 @@ export default async function ProjectPage({
                       </div>
                     </div>
                     <div className="text-xs text-slate-400">
-                      {session.visits_in_window} across Traffic • {formatSeconds(session.total_seconds)}
+                      Last movement {session.last_seen_alberta} • {formatSeconds(session.total_seconds)}
                     </div>
                   </div>
 

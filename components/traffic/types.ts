@@ -284,3 +284,15 @@ export type ProjectDetailResponse = {
     top_ips: SuspiciousIp[];
   };
 };
+
+export type ProjectLiveFeedResponse = {
+  ok: boolean;
+  generated_at: string;
+  window_hours: number;
+  visible_count: number;
+  project: {
+    slug: string;
+    name: string;
+  };
+  live_feed: SessionRecord[];
+};

@@ -29,10 +29,9 @@ function parseTimestamp(value: string): number {
 export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
   const [data, setData] = useState<LiveVisitorsResponse | null>(null);
   const [error, setError] = useState<string>("");
-  const [pinnedToBottom, setPinnedToBottom] = useState(true);
+  const [pinnedToTop, setPinnedToTop] = useState(true);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const shouldStickToBottomRef = useRef(true);
-  const initializedScrollRef = useRef(false);
+  const shouldStickToTopRef = useRef(true);
 
   useEffect(() => {
     let mounted = true;
@@ -59,6 +58,7 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
   }, [pollMs]);
 
   const streamItems = useMemo(() => data?.stream_items ?? [], [data?.stream_items]);
+  const newestFirstItems = useMemo(() => [...streamItems].reverse(), [streamItems]);
   const generatedAt = useMemo(
     () => parseTimestamp(data?.generated_at ?? new Date().toISOString()),
     [data?.generated_at],
@@ -70,7 +70,7 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
     const recent: SessionRecord[] = [];
     const live: SessionRecord[] = [];
 
-    for (const session of streamItems) {
+    for (const session of newestFirstItems) {
       const movementTs = parseTimestamp(session.last_seen_at || session.ended_at);
       if (session.active_now) {
         live.push(session);
@@ -83,69 +83,66 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
 
     const sectionRows: StreamSection[] = [
       {
-        key: "archive",
-        title: "Earlier In Window",
-        description: "Older visible sessions. The oldest item in view sits at the top here.",
-        badgeClass: "border-white/10 bg-white/5 text-white/70",
-        items: archive,
+        key: "live",
+        title: "Happening Now",
+        description: "Newest live movement sits at the top and older movement falls downward.",
+        badgeClass: "border-emerald-400/30 bg-emerald-400/10 text-emerald-200",
+        items: live,
       },
       {
         key: "recent",
         title: "Recently Quiet",
-        description: "Sessions that dropped out of live activity in roughly the last hour.",
+        description: "Newest recently quiet sessions first, followed by older ones underneath.",
         badgeClass: "border-amber-400/30 bg-amber-400/10 text-amber-200",
         items: recent,
       },
       {
-        key: "live",
-        title: "Happening Now",
-        description: "Sessions still moving right now. New movement lands at the bottom.",
-        badgeClass: "border-emerald-400/30 bg-emerald-400/10 text-emerald-200",
-        items: live,
+        key: "archive",
+        title: "Earlier In Window",
+        description: "Older visible sessions in reverse chronology, with the most recent of them first.",
+        badgeClass: "border-white/10 bg-white/5 text-white/70",
+        items: archive,
       },
     ];
 
     return sectionRows.filter((section) => section.items.length > 0);
-  }, [generatedAt, streamItems]);
+  }, [generatedAt, newestFirstItems]);
 
-  const streamTailSignature = useMemo(
+  const streamHeadSignature = useMemo(
     () =>
-      streamItems
-        .slice(-6)
+      newestFirstItems
+        .slice(0, 6)
         .map((session) => `${session.session_id}:${session.last_seen_at}`)
         .join("|"),
-    [streamItems],
+    [newestFirstItems],
   );
 
   useEffect(() => {
     const element = containerRef.current;
     if (!element) return;
-    if (!initializedScrollRef.current || shouldStickToBottomRef.current) {
-      const behavior = initializedScrollRef.current ? "smooth" : "auto";
+    if (shouldStickToTopRef.current) {
       window.requestAnimationFrame(() => {
-        element.scrollTo({ top: element.scrollHeight, behavior });
-        shouldStickToBottomRef.current = true;
-        setPinnedToBottom(true);
+        element.scrollTo({ top: 0, behavior: "smooth" });
+        shouldStickToTopRef.current = true;
+        setPinnedToTop(true);
       });
-      initializedScrollRef.current = true;
     }
-  }, [streamTailSignature]);
+  }, [streamHeadSignature]);
 
   const handleScroll = () => {
     const element = containerRef.current;
     if (!element) return;
-    const distanceFromBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
-    const isPinned = distanceFromBottom < 120;
-    shouldStickToBottomRef.current = isPinned;
-    setPinnedToBottom(isPinned);
+    const isPinned = element.scrollTop < 120;
+    shouldStickToTopRef.current = isPinned;
+    setPinnedToTop(isPinned);
   };
 
-  const jumpToBottom = () => {
+  const jumpToNewest = () => {
     const element = containerRef.current;
     if (!element) return;
-    element.scrollTo({ top: element.scrollHeight, behavior: "smooth" });
-    shouldStickToBottomRef.current = true;
-    setPinnedToBottom(true);
+    element.scrollTo({ top: 0, behavior: "smooth" });
+    shouldStickToTopRef.current = true;
+    setPinnedToTop(true);
   };
 
   return (
@@ -155,7 +152,7 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
           <h2 className="text-2xl font-semibold text-white">Realtime Visitor Stream</h2>
           <p className="max-w-3xl text-sm text-white/60">
             Near realtime, refreshed every 15 seconds. This stream is chronological, not ranked:
-            oldest visible sessions sit at the top, and new activity lands at the bottom.
+            newest movement sits at the top, animates in there, and older sessions get pushed down.
           </p>
         </div>
 
@@ -168,14 +165,14 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
           </div>
           <button
             type="button"
-            onClick={jumpToBottom}
+            onClick={jumpToNewest}
             className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-              pinnedToBottom
+              pinnedToTop
                 ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
                 : "border-amber-400/30 bg-amber-400/10 text-amber-200 hover:bg-amber-400/15"
             }`}
           >
-            {pinnedToBottom ? "Pinned to newest" : "Jump to newest"}
+            {pinnedToTop ? "Pinned to newest" : "Jump to newest"}
           </button>
           <Link
             href="/visits"
@@ -225,9 +222,9 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
                       <motion.div
                         key={`${section.key}-${session.session_id}-${session.last_seen_at}`}
                         layout
-                        initial={{ opacity: 0, y: 18 }}
+                        initial={{ opacity: 0, y: -18 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -12 }}
+                        exit={{ opacity: 0, y: 12 }}
                         transition={{ duration: 0.2 }}
                       >
                         <LiveVisitorStreamRow session={session} />
