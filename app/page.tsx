@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import BuilderTopDeck from "@/components/traffic/builder-top-deck";
 import { fetchOverview } from "@/components/traffic/api";
+import { withFlag } from "@/components/traffic/display";
 import type { OverviewResponse, SessionRecord } from "@/components/traffic/types";
 
 function formatNumber(value: number) {
@@ -148,7 +149,9 @@ function SessionCard({ session }: { session: SessionRecord }) {
             </span>
           </div>
 
-          <h3 className="mt-3 text-xl font-semibold text-white">{session.visitor_alias}</h3>
+          <h3 className="mt-3 text-xl font-semibold text-white">
+            {withFlag(session.country_code, session.visitor_alias)}
+          </h3>
           <p className="mt-1 text-sm text-slate-300">
             {session.city || "Unknown city"}
             {session.area ? `, ${session.area}` : ""}
@@ -185,7 +188,7 @@ function SessionCard({ session }: { session: SessionRecord }) {
         </div>
       </div>
 
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
           <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Journey</div>
           <div className="mt-2 text-sm text-white/85">
@@ -221,6 +224,15 @@ function SessionCard({ session }: { session: SessionRecord }) {
           </div>
           <div className="mt-2 text-xs text-slate-400">Source: {session.source || "direct"}</div>
         </div>
+        </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Link
+          href={`/projects/${session.project_slug}`}
+          className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-200 transition hover:bg-sky-400/15"
+        >
+          Open {session.project_name}
+        </Link>
       </div>
     </div>
   );
@@ -408,6 +420,15 @@ export default async function Home() {
                         className="h-full rounded-full bg-gradient-to-r from-amber-400 to-yellow-200"
                         style={{ width: `${width}%` }}
                       />
+                    </div>
+
+                    <div className="mt-4">
+                      <Link
+                        href={`/projects/${project.slug}`}
+                        className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-white/75 transition hover:bg-white/10"
+                      >
+                        Open project page
+                      </Link>
                     </div>
                   </div>
                 );

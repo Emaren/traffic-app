@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchVisitsHistory } from "@/components/traffic/api";
+import { withFlag } from "@/components/traffic/display";
 import type { SessionRecord, VisitsHistoryResponse } from "@/components/traffic/types";
 
 const PAGE_SIZE = 25;
@@ -219,7 +220,9 @@ export default function VisitsHistoryTable() {
                   </td>
 
                   <td className="px-3 py-3 align-top">
-                    <div className="font-medium text-white">{row.visitor_alias}</div>
+                    <div className="font-medium text-white">
+                      {withFlag(row.country_code, row.visitor_alias)}
+                    </div>
                     <div className="mt-1 text-xs text-white/45">
                       {row.city || "Unknown city"}
                       {row.area ? `, ${row.area}` : ""}

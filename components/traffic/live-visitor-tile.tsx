@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { withFlag } from "@/components/traffic/display";
 import type { LiveProjectCount, SessionRecord } from "@/components/traffic/types";
 
 type Props = {
@@ -103,7 +105,9 @@ export default function LiveVisitorTile({ session, projectCount }: Props) {
             ) : null}
           </div>
 
-          <h3 className="text-2xl font-semibold text-white">{session.visitor_alias}</h3>
+          <h3 className="text-2xl font-semibold text-white">
+            {withFlag(session.country_code, session.visitor_alias)}
+          </h3>
           <p className="mt-1 text-sm text-white/55">
             {session.city || "Unknown city"}
             {session.area ? `, ${session.area}` : ""}
@@ -146,6 +150,15 @@ export default function LiveVisitorTile({ session, projectCount }: Props) {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        <Link
+          href={`/projects/${session.project_slug}`}
+          className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-200 transition hover:bg-sky-400/15"
+        >
+          Open {session.project_name}
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-4">

@@ -110,6 +110,7 @@ export type SessionRecord = {
   first_seen_alberta: string;
   last_seen_alberta: string;
   country: string;
+  country_code: string;
   area: string;
   city: string;
   device: string;
@@ -231,4 +232,51 @@ export type VisitsHistoryResponse = {
   limit: number;
   total: number;
   items: SessionRecord[];
+};
+
+export type ProjectDetailResponse = {
+  ok: boolean;
+  generated_at: string;
+  window_hours: number;
+  bucket_minutes: number;
+  project: {
+    slug: string;
+    name: string;
+    category: string;
+    requests: number;
+    sessions: number;
+    real_humans: number;
+    suspected_bots: number;
+    live_now: number;
+    returning_visitors: number;
+    engaged_sessions: number;
+    avg_session_seconds: number;
+    unique_visitors: number;
+  };
+  graph: {
+    label: string;
+    points: HumanSeriesPoint[];
+  };
+  live_feed: SessionRecord[];
+  recent_sessions: SessionRecord[];
+  hosts: Array<{
+    host: string;
+    project_slug: string;
+    requests: number;
+    unique_visitors: number;
+    sessions: number;
+    top_entry_page: string;
+    top_exit_page: string;
+    avg_session_seconds: number;
+  }>;
+  top_pages: TopPage[];
+  geo: {
+    countries: GeoRowCountry[];
+    areas: GeoRowArea[];
+    cities: GeoRowCity[];
+  };
+  suspicious: {
+    top_paths: SuspiciousPath[];
+    top_ips: SuspiciousIp[];
+  };
 };
