@@ -51,18 +51,18 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
     <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 shadow-2xl shadow-black/20">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-semibold text-white">Visitor View Screen</h2>
+          <h2 className="text-2xl font-semibold text-white">Live Feed</h2>
           <p className="text-sm text-white/60">
-            Top 25 live dossiers. Real humans rise. Garbage gets pushed out.
+            The clearest live visitor list we have right now. New sessions rise to the top and older ones fall away.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
-            Tower: {data?.top_25.length ?? 0}
+            Live cards: {data?.top_25.length ?? 0}
           </div>
           <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
-            History: {data?.history_count ?? 0}
+            Archive behind it: {data?.history_count ?? 0}
           </div>
           <Link
             href="/visits"

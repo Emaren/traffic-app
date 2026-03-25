@@ -5,10 +5,21 @@ import type {
   VisitsHistoryResponse,
 } from "@/components/traffic/types";
 
-function getApiBaseUrl(): string {
-  const raw = process.env.NEXT_PUBLIC_TRAFFIC_API_BASE_URL?.trim();
+function trimBaseUrl(raw: string | undefined): string {
   if (!raw) return "";
   return raw.endsWith("/") ? raw.slice(0, -1) : raw;
+}
+
+function getApiBaseUrl(): string {
+  if (typeof window === "undefined") {
+    return trimBaseUrl(
+      process.env.TRAFFIC_API_BASE_URL ||
+        process.env.NEXT_PUBLIC_TRAFFIC_API_BASE_URL ||
+        "http://127.0.0.1:3345",
+    );
+  }
+
+  return trimBaseUrl(process.env.NEXT_PUBLIC_TRAFFIC_API_BASE_URL);
 }
 
 async function fetchJson<T>(path: string): Promise<T> {

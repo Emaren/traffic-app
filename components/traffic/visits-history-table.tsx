@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchVisitsHistory } from "@/components/traffic/api";
 import type { SessionRecord, VisitsHistoryResponse } from "@/components/traffic/types";
 
 const PAGE_SIZE = 25;
+const POLL_MS = 15000;
 
 function formatSeconds(total: number): string {
   if (total <= 0) return "0s";
@@ -17,7 +18,7 @@ function formatSeconds(total: number): string {
   return `${seconds}s`;
 }
 
-function stateClasses(state: string): string {
+function verdictClass(state: string): string {
   switch (state) {
     case "human_confirmed":
       return "border-emerald-400/30 bg-emerald-400/10 text-emerald-200";
@@ -34,12 +35,28 @@ function stateClasses(state: string): string {
   }
 }
 
+function dataConfidenceClass(label: string): string {
+  switch (label) {
+    case "High":
+      return "border-emerald-400/30 bg-emerald-400/10 text-emerald-200";
+    case "Good":
+      return "border-sky-400/30 bg-sky-400/10 text-sky-200";
+    case "Limited":
+      return "border-amber-400/30 bg-amber-400/10 text-amber-200";
+    default:
+      return "border-slate-500/30 bg-slate-500/10 text-slate-200";
+  }
+}
+
 export default function VisitsHistoryTable() {
   const [data, setData] = useState<VisitsHistoryResponse | null>(null);
   const [error, setError] = useState("");
   const [offset, setOffset] = useState(0);
   const [classification, setClassification] = useState("");
   const [project, setProject] = useState("");
+  const [freshIds, setFreshIds] = useState<string[]>([]);
+  const previousIdsRef = useRef<string[]>([]);
+  const clearFreshTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -55,6 +72,23 @@ export default function VisitsHistoryTable() {
         });
 
         if (!mounted) return;
+
+        if (offset === 0) {
+          const previousIds = new Set(previousIdsRef.current);
+          const nextFreshIds = next.items
+            .map((item) => item.session_id)
+            .filter((id) => previousIds.size > 0 && !previousIds.has(id));
+
+          setFreshIds(nextFreshIds);
+          if (clearFreshTimerRef.current) {
+            window.clearTimeout(clearFreshTimerRef.current);
+          }
+          if (nextFreshIds.length > 0) {
+            clearFreshTimerRef.current = window.setTimeout(() => setFreshIds([]), 5000);
+          }
+          previousIdsRef.current = next.items.map((item) => item.session_id);
+        }
+
         setData(next);
         setError("");
       } catch (err) {
@@ -64,9 +98,14 @@ export default function VisitsHistoryTable() {
     };
 
     void load();
+    const timer = window.setInterval(() => void load(), POLL_MS);
 
     return () => {
       mounted = false;
+      window.clearInterval(timer);
+      if (clearFreshTimerRef.current) {
+        window.clearTimeout(clearFreshTimerRef.current);
+      }
     };
   }, [offset, classification, project]);
 
@@ -76,35 +115,38 @@ export default function VisitsHistoryTable() {
   }, [data]);
 
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
-
   const items: SessionRecord[] = data?.items ?? [];
 
   return (
     <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 shadow-2xl shadow-black/20">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
         <div>
+          <div className="mb-2 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-200">
+            Live refresh every 15s
+          </div>
           <h2 className="text-2xl font-semibold text-white">Visits History</h2>
           <p className="text-sm text-white/60">
-            Archive of human, candidate, bot, and suspicious visit sessions.
+            Newest sessions rise to the top. The archive now stays warm instead of going stale.
           </p>
         </div>
 
         <div className="flex flex-wrap gap-3">
           <label className="flex flex-col gap-1 text-xs text-white/55">
-            Classification
+            Verdict
             <select
               value={classification}
               onChange={(e) => {
                 setOffset(0);
+                previousIdsRef.current = [];
                 setClassification(e.target.value);
               }}
               className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none"
             >
               <option value="">All</option>
-              <option value="human_confirmed">Human confirmed</option>
-              <option value="likely_human">Likely human</option>
-              <option value="candidate">Candidate</option>
-              <option value="bot">Bot</option>
+              <option value="human_confirmed">Likely human</option>
+              <option value="likely_human">Probably human</option>
+              <option value="candidate">Unclear</option>
+              <option value="bot">Known bot</option>
               <option value="suspicious">Suspicious</option>
             </select>
           </label>
@@ -115,6 +157,7 @@ export default function VisitsHistoryTable() {
               value={project}
               onChange={(e) => {
                 setOffset(0);
+                previousIdsRef.current = [];
                 setProject(e.target.value);
               }}
               className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none"
@@ -139,63 +182,123 @@ export default function VisitsHistoryTable() {
       ) : null}
 
       <div className="overflow-x-auto">
-        <table className="min-w-full border-separate border-spacing-y-2">
+        <table className="min-w-full border-separate border-spacing-y-2 text-left text-sm">
           <thead>
-            <tr className="text-left text-xs uppercase tracking-wide text-white/45">
+            <tr className="text-xs uppercase tracking-wide text-white/45">
               <th className="px-3 py-2">When</th>
+              <th className="px-3 py-2">Visitor</th>
               <th className="px-3 py-2">Project</th>
-              <th className="px-3 py-2">State</th>
-              <th className="px-3 py-2">Location</th>
+              <th className="px-3 py-2">Verdict</th>
+              <th className="px-3 py-2">Why</th>
               <th className="px-3 py-2">Journey</th>
-              <th className="px-3 py-2">Human</th>
-              <th className="px-3 py-2">Quality</th>
+              <th className="px-3 py-2">Visits</th>
               <th className="px-3 py-2">Time</th>
             </tr>
           </thead>
           <tbody>
-            {items.map((row) => (
-              <tr key={row.session_id} className="rounded-2xl bg-black/20 text-sm text-white/85">
-                <td className="rounded-l-2xl px-3 py-3 align-top text-white/70">
-                  <div>{row.first_seen_alberta}</div>
-                  <div className="mt-1 text-xs text-white/45">last: {row.last_seen_alberta}</div>
-                </td>
-                <td className="px-3 py-3 align-top">
-                  <div className="font-medium">{row.project_name}</div>
-                  <div className="mt-1 text-xs text-white/45">{row.host}</div>
-                </td>
-                <td className="px-3 py-3 align-top">
-                  <span
-                    className={`rounded-full border px-3 py-1 text-xs font-semibold ${stateClasses(
-                      row.classification_state,
-                    )}`}
-                  >
-                    {row.classification_state.replaceAll("_", " ")}
-                  </span>
-                </td>
-                <td className="px-3 py-3 align-top text-white/70">
-                  <div>{row.city || "Unknown city"}</div>
-                  <div className="mt-1 text-xs text-white/45">
-                    {[row.area, row.country].filter(Boolean).join(", ")}
-                  </div>
-                </td>
-                <td className="px-3 py-3 align-top">
-                  <div className="font-medium">
-                    {row.entry_page} → {row.exit_page}
-                  </div>
-                  <div className="mt-1 text-xs text-white/45">
-                    {row.page_count} pages • {row.event_count} events
-                  </div>
-                </td>
-                <td className="px-3 py-3 align-top">{row.human_confidence}</td>
-                <td className="px-3 py-3 align-top">{row.quality_score}</td>
-                <td className="rounded-r-2xl px-3 py-3 align-top text-white/70">
-                  <div>{formatSeconds(row.total_seconds)}</div>
-                  <div className="mt-1 text-xs text-white/45">
-                    engaged {formatSeconds(row.engaged_seconds)}
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {items.map((row) => {
+              const isFresh = freshIds.includes(row.session_id);
+
+              return (
+                <tr
+                  key={row.session_id}
+                  className={`rounded-2xl text-white/85 transition ${
+                    isFresh
+                      ? "bg-amber-400/10 shadow-[0_0_0_1px_rgba(251,191,36,0.35)]"
+                      : "bg-black/20"
+                  }`}
+                >
+                  <td className="rounded-l-2xl px-3 py-3 align-top text-white/70">
+                    <div>{row.first_seen_alberta}</div>
+                    <div className="mt-1 text-xs text-white/45">last: {row.last_seen_alberta}</div>
+                    {isFresh ? (
+                      <div className="mt-2 inline-flex rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold text-amber-200">
+                        New
+                      </div>
+                    ) : null}
+                  </td>
+
+                  <td className="px-3 py-3 align-top">
+                    <div className="font-medium text-white">{row.visitor_alias}</div>
+                    <div className="mt-1 text-xs text-white/45">
+                      {row.city || "Unknown city"}
+                      {row.area ? `, ${row.area}` : ""}
+                      {row.country ? `, ${row.country}` : ""}
+                    </div>
+                    <div className="mt-1 text-xs text-white/45">
+                      {row.device} • {row.os} • {row.browser}
+                    </div>
+                  </td>
+
+                  <td className="px-3 py-3 align-top">
+                    <div className="font-medium">{row.project_name}</div>
+                    <div className="mt-1 text-xs text-white/45">{row.host}</div>
+                  </td>
+
+                  <td className="px-3 py-3 align-top">
+                    <div
+                      className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${verdictClass(
+                        row.classification_state,
+                      )}`}
+                    >
+                      {row.verdict_label}
+                    </div>
+                    <div className="mt-2 text-xs text-white/60">
+                      Human likelihood {row.human_confidence}%
+                    </div>
+                    <div
+                      className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-[11px] ${dataConfidenceClass(
+                        row.data_confidence_label,
+                      )}`}
+                    >
+                      Data confidence: {row.data_confidence_label}
+                    </div>
+                  </td>
+
+                  <td className="px-3 py-3 align-top">
+                    <div className="max-w-[320px] text-sm text-white/80">{row.classification_summary}</div>
+                    <div className="mt-2 flex max-w-[340px] flex-wrap gap-1.5">
+                      {row.classification_reason_labels.slice(0, 3).map((reason) => (
+                        <span
+                          key={`${row.session_id}-${reason}`}
+                          className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/60"
+                        >
+                          {reason}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+
+                  <td className="px-3 py-3 align-top">
+                    <div className="font-medium">
+                      {row.entry_page} → {row.exit_page}
+                    </div>
+                    <div className="mt-1 text-xs text-white/45">
+                      {row.page_count} pages • {row.event_count} events
+                    </div>
+                    <div className="mt-1 text-xs text-white/45">source: {row.source || "direct"}</div>
+                  </td>
+
+                  <td className="px-3 py-3 align-top text-white/70">
+                    <div>{row.visits_in_window} in this window</div>
+                    <div className="mt-1 text-xs text-white/45">
+                      {row.project_visits_in_window} on this project
+                    </div>
+                    <div className="mt-1 text-xs text-white/45">
+                      {row.returning_visitor ? "Returning visitor" : "First sighting"}
+                    </div>
+                  </td>
+
+                  <td className="rounded-r-2xl px-3 py-3 align-top text-white/70">
+                    <div>{formatSeconds(row.total_seconds)}</div>
+                    <div className="mt-1 text-xs text-white/45">
+                      engaged {formatSeconds(row.engaged_seconds)}
+                    </div>
+                    <div className="mt-1 text-xs text-white/45">{row.attention_label} attention</div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -203,7 +306,7 @@ export default function VisitsHistoryTable() {
       <div className="mt-4 flex items-center justify-between">
         <div className="text-sm text-white/55">
           Page {currentPage} of {totalPages}
-          {data ? ` • ${data.total} total sessions` : ""}
+          {data ? ` • ${data.total} total sessions in the current 24h window` : ""}
         </div>
 
         <div className="flex gap-2">

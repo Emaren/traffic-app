@@ -7,6 +7,12 @@ export type OverviewTotals = {
   suspicious: number;
   unknown: number;
   unique_visitors: number;
+  total_visitors: number;
+  real_humans: number;
+  suspected_bots: number;
+  live_now: number;
+  returning_visitors: number;
+  projects_active: number;
   sessions: number;
   engaged_sessions: number;
   avg_session_seconds: number;
@@ -89,6 +95,8 @@ export type AlertRow = {
 export type SessionRecord = {
   session_id: string;
   visitor_key: string;
+  person_key: string;
+  visitor_alias: string;
   project_slug: string;
   project_name: string;
   project_category: string;
@@ -135,8 +143,19 @@ export type SessionRecord = {
     | "bot"
     | "suspicious"
     | "archived";
+  verdict_label: string;
+  classification_summary: string;
   classification_reasons: string[];
+  classification_reason_labels: string[];
+  data_confidence_label: string;
+  data_confidence_summary: string;
+  attention_label: string;
+  attention_summary: string;
   human_confirmed: boolean;
+  visits_in_window: number;
+  project_visits_in_window: number;
+  projects_visited_in_window: number;
+  returning_visitor: boolean;
   live_priority: number;
 };
 

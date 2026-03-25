@@ -14,14 +14,14 @@ export default function BuilderTopDeck() {
           </div>
 
           <h2 className="text-2xl font-semibold text-white">
-            Live Human Intake Layer
+            Live Traffic Layer
           </h2>
 
           <p className="mt-2 max-w-2xl text-sm text-white/60">
-            This is the new Traffic layer we are building on top of the existing
+            This is the clearer live layer we are building on top of the
             command center, not instead of it. Human graphs sit up top, the
-            25-card live visitor tower sits below, and the legacy analytics
-            surface continues underneath unchanged.
+            live feed sits below, and the broader analytics surface continues
+            underneath.
           </p>
 
           <div className="mt-4 flex flex-wrap gap-2">
@@ -55,10 +55,10 @@ export default function BuilderTopDeck() {
                 New surface
               </div>
               <div className="mt-2 text-base font-semibold text-white">
-                25-card live tower
+                Live visitor feed
               </div>
               <div className="mt-1 text-sm text-white/55">
-                Thick dossiers for real humans, ranked by signal.
+                Clear visitor dossiers ranked by signal and activity.
               </div>
             </div>
 
