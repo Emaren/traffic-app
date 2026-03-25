@@ -20,14 +20,6 @@ function formatSeconds(total: number): string {
   return `${seconds}s`;
 }
 
-function maskIp(ip: string): string {
-  if (ip.includes(".")) {
-    const parts = ip.split(".");
-    if (parts.length === 4) return `${parts[0]}.${parts[1]}.x.x`;
-  }
-  return ip;
-}
-
 function verdictClass(state: SessionRecord["classification_state"]) {
   switch (state) {
     case "human_confirmed":
@@ -117,6 +109,17 @@ export default function LiveVisitorTile({ session, projectCount }: Props) {
           <p className="mt-3 max-w-3xl text-sm leading-6 text-white/75">
             {session.classification_summary}
           </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <span className="rounded-full border border-white/15 bg-black/20 px-3 py-1 font-mono text-xs text-white/80">
+              IP {session.ip}
+            </span>
+            <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-200">
+              Times Returned: {session.times_returned_in_project}
+            </span>
+            <span className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-xs font-semibold text-sky-200">
+              Total Project Visits: {session.total_project_visits}
+            </span>
+          </div>
         </div>
 
         <div className="grid min-w-[240px] grid-cols-2 gap-2">
@@ -143,10 +146,10 @@ export default function LiveVisitorTile({ session, projectCount }: Props) {
           </div>
 
           <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
-            <div className="text-[11px] uppercase tracking-wide text-white/45">Visits in window</div>
+            <div className="text-[11px] uppercase tracking-wide text-white/45">Traffic visits</div>
             <div className="mt-2 text-2xl font-semibold text-white">{session.visits_in_window}</div>
             <div className="mt-1 text-xs text-white/45">
-              {session.project_visits_in_window} on this project • {projectLiveNow} live here now
+              All projects in this window • {projectLiveNow} live here now
             </div>
           </div>
         </div>
@@ -199,7 +202,7 @@ export default function LiveVisitorTile({ session, projectCount }: Props) {
           <div className="space-y-1 text-sm text-white/80">
             <div>Projects visited: {session.projects_visited_in_window}</div>
             <div>Host: {session.host}</div>
-            <div>IP: {maskIp(session.ip)}</div>
+            <div className="font-mono">IP: {session.ip}</div>
             <div>Route kind: {session.route_kind}</div>
           </div>
         </div>

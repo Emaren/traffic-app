@@ -161,6 +161,17 @@ function SessionCard({ session }: { session: SessionRecord }) {
           <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
             {session.classification_summary}
           </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 font-mono text-xs text-white/75">
+              IP {session.ip}
+            </span>
+            <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-200">
+              Times Returned: {session.times_returned_in_project}
+            </span>
+            <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-xs font-medium text-sky-200">
+              Total Project Visits: {session.total_project_visits}
+            </span>
+          </div>
         </div>
 
         <div className="grid min-w-[220px] gap-3 md:grid-cols-2">
@@ -176,19 +187,19 @@ function SessionCard({ session }: { session: SessionRecord }) {
 
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
             <div className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
-              Visits in window
+              Traffic Visits
             </div>
             <div className="mt-2 text-2xl font-semibold text-white">
               {session.visits_in_window}
             </div>
             <div className="mt-1 text-xs text-slate-400">
-              {session.project_visits_in_window} on {session.project_name}
+              All projects in the current window
             </div>
           </div>
         </div>
       </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
           <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Journey</div>
           <div className="mt-2 text-sm text-white/85">
@@ -216,15 +227,18 @@ function SessionCard({ session }: { session: SessionRecord }) {
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
           <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Identity</div>
           <div className="mt-2 text-sm text-white/85">
-            {session.projects_visited_in_window} projects •{" "}
-            {session.returning_visitor ? "Returning in this window" : "First sighting in this window"}
+            {session.projects_visited_in_window} projects across Traffic
+          </div>
+          <div className="mt-2 text-xs text-slate-400">
+            <span className="font-mono">IP {session.ip}</span> •{" "}
+            {session.returning_visitor ? "Seen earlier in this window" : "First sighting in this window"}
           </div>
           <div className="mt-2 text-xs text-slate-400">
             {session.first_seen_alberta} to {session.last_seen_alberta}
           </div>
           <div className="mt-2 text-xs text-slate-400">Source: {session.source || "direct"}</div>
         </div>
-        </div>
+      </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
         <Link

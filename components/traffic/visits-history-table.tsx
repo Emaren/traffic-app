@@ -223,6 +223,7 @@ export default function VisitsHistoryTable() {
                     <div className="font-medium text-white">
                       {withFlag(row.country_code, row.visitor_alias)}
                     </div>
+                    <div className="mt-1 font-mono text-xs text-sky-200/80">IP {row.ip}</div>
                     <div className="mt-1 text-xs text-white/45">
                       {row.city || "Unknown city"}
                       {row.area ? `, ${row.area}` : ""}
@@ -283,12 +284,12 @@ export default function VisitsHistoryTable() {
                   </td>
 
                   <td className="px-3 py-3 align-top text-white/70">
-                    <div>{row.visits_in_window} in this window</div>
+                    <div>Times Returned: {row.times_returned_in_project}</div>
                     <div className="mt-1 text-xs text-white/45">
-                      {row.project_visits_in_window} on this project
+                      Total Project Visits: {row.total_project_visits}
                     </div>
                     <div className="mt-1 text-xs text-white/45">
-                      {row.returning_visitor ? "Returning visitor" : "First sighting"}
+                      Traffic Visits: {row.visits_in_window}
                     </div>
                   </td>
 

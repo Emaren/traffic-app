@@ -226,9 +226,20 @@ export default async function ProjectPage({
                         {session.verdict_label} • {session.data_confidence_label} data confidence •{" "}
                         {session.attention_label} attention
                       </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 font-mono text-[11px] text-white/75">
+                          IP {session.ip}
+                        </span>
+                        <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] font-medium text-amber-200">
+                          Times Returned: {session.times_returned_in_project}
+                        </span>
+                        <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-[11px] font-medium text-sky-200">
+                          Total Project Visits: {session.total_project_visits}
+                        </span>
+                      </div>
                     </div>
                     <div className="text-xs text-slate-400">
-                      {session.visits_in_window} visits • {formatSeconds(session.total_seconds)}
+                      {session.visits_in_window} across Traffic • {formatSeconds(session.total_seconds)}
                     </div>
                   </div>
 

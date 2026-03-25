@@ -155,6 +155,8 @@ export type SessionRecord = {
   human_confirmed: boolean;
   visits_in_window: number;
   project_visits_in_window: number;
+  total_project_visits: number;
+  times_returned_in_project: number;
   projects_visited_in_window: number;
   returning_visitor: boolean;
   live_priority: number;
