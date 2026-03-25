@@ -199,6 +199,8 @@ export type LiveVisitorsResponse = {
   window_hours: number;
   tower_limit: number;
   history_count: number;
+  stream_total: number;
+  stream_items: SessionRecord[];
   project_counts: LiveProjectCount[];
   top_25: SessionRecord[];
   history_preview: SessionRecord[];

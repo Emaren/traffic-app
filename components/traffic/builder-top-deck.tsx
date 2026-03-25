@@ -20,7 +20,7 @@ export default function BuilderTopDeck() {
           <p className="mt-2 max-w-2xl text-sm text-white/60">
             This is the clearer live layer we are building on top of the
             command center, not instead of it. Human graphs sit up top, the
-            live feed sits below, and the broader analytics surface continues
+            realtime stream sits below, and the broader analytics surface continues
             underneath.
           </p>
 
@@ -55,10 +55,10 @@ export default function BuilderTopDeck() {
                 New surface
               </div>
               <div className="mt-2 text-base font-semibold text-white">
-                Live visitor feed
+                Realtime visitor stream
               </div>
               <div className="mt-1 text-sm text-white/55">
-                Clear visitor dossiers ranked by signal and activity.
+                Chronological visitor rows that stay pinned to the newest activity.
               </div>
             </div>
 
@@ -70,7 +70,7 @@ export default function BuilderTopDeck() {
                 Visits history page
               </div>
               <div className="mt-1 text-sm text-white/55">
-                Older sessions roll off the tower into a searchable log.
+                Older sessions stay readable in a searchable chronological log.
               </div>
             </div>
           </div>

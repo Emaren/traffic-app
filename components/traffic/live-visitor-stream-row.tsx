@@ -1,0 +1,151 @@
+"use client";
+
+import Link from "next/link";
+import { withFlag } from "@/components/traffic/display";
+import type { SessionRecord } from "@/components/traffic/types";
+
+type Props = {
+  session: SessionRecord;
+};
+
+function formatSeconds(total: number): string {
+  if (total <= 0) return "0s";
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+}
+
+function verdictClass(state: SessionRecord["classification_state"]) {
+  switch (state) {
+    case "human_confirmed":
+      return "border-emerald-400/30 bg-emerald-400/10 text-emerald-200";
+    case "likely_human":
+      return "border-sky-400/30 bg-sky-400/10 text-sky-200";
+    case "candidate":
+      return "border-amber-400/30 bg-amber-400/10 text-amber-200";
+    default:
+      return "border-white/10 bg-white/5 text-white/70";
+  }
+}
+
+export default function LiveVisitorStreamRow({ session }: Props) {
+  const journey =
+    session.entry_page === session.current_page
+      ? session.current_page
+      : `${session.entry_page} -> ${session.current_page}`;
+
+  return (
+    <details className="group rounded-2xl border border-white/10 bg-black/20 transition open:bg-black/30">
+      <summary className="cursor-pointer list-none px-4 py-3 [&::-webkit-details-marker]:hidden">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-white/70">
+                {session.last_seen_alberta}
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-white/70">
+                {session.project_name}
+              </span>
+              <span
+                className={`rounded-full border px-2.5 py-1 font-medium ${verdictClass(
+                  session.classification_state,
+                )}`}
+              >
+                {session.verdict_label}
+              </span>
+              {session.active_now ? (
+                <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 font-medium text-emerald-200">
+                  Active now
+                </span>
+              ) : null}
+            </div>
+
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="text-base font-semibold text-white">
+                {withFlag(session.country_code, session.visitor_alias)}
+              </span>
+              <span className="font-mono text-xs text-white/55">IP {session.ip}</span>
+              <span className="text-sm text-white/55">
+                {session.city || "Unknown city"}
+                {session.area ? `, ${session.area}` : ""}
+                {session.country ? `, ${session.country}` : ""}
+              </span>
+            </div>
+
+            <div className="mt-1 text-sm text-white/60">
+              {journey} • {session.device} • {session.browser}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2 text-xs">
+            <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 font-medium text-amber-200">
+              Times Returned: {session.times_returned_in_project}
+            </span>
+            <span className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 font-medium text-sky-200">
+              Total Project Visits: {session.total_project_visits}
+            </span>
+          </div>
+        </div>
+      </summary>
+
+      <div className="border-t border-white/10 px-4 py-4">
+        <div className="grid gap-3 lg:grid-cols-4">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+            <div className="text-[11px] uppercase tracking-wide text-white/45">Why</div>
+            <div className="mt-2 text-sm text-white/80">{session.classification_summary}</div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+            <div className="text-[11px] uppercase tracking-wide text-white/45">Session</div>
+            <div className="mt-2 space-y-1 text-sm text-white/80">
+              <div>First seen: {session.first_seen_alberta}</div>
+              <div>Last movement: {session.last_seen_alberta}</div>
+              <div>Engaged: {formatSeconds(session.engaged_seconds)}</div>
+              <div>Total: {formatSeconds(session.total_seconds)}</div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+            <div className="text-[11px] uppercase tracking-wide text-white/45">Context</div>
+            <div className="mt-2 space-y-1 text-sm text-white/80">
+              <div>Traffic visits: {session.visits_in_window}</div>
+              <div>Projects visited: {session.projects_visited_in_window}</div>
+              <div>Source: {session.source || "direct"}</div>
+              <div>Referrer: {session.referrer || "direct"}</div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+            <div className="text-[11px] uppercase tracking-wide text-white/45">Open</div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Link
+                href={`/projects/${session.project_slug}`}
+                className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-200 transition hover:bg-sky-400/15"
+              >
+                Open {session.project_name}
+              </Link>
+            </div>
+            <div className="mt-3 text-xs text-white/50">
+              Route kind {session.route_kind} • {session.page_count} pages • {session.event_count} events
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          {session.classification_reason_labels.slice(0, 5).map((reason) => (
+            <span
+              key={`${session.session_id}-${reason}`}
+              className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-white/60"
+            >
+              {reason}
+            </span>
+          ))}
+        </div>
+      </div>
+    </details>
+  );
+}
