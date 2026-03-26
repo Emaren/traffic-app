@@ -1,11 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { fetchLiveVisitors } from "@/components/traffic/api";
+import {
+  buildLiveVisitorsStreamUrl,
+  fetchLiveVisitors,
+} from "@/components/traffic/api";
 import LiveVisitorStreamRow from "@/components/traffic/live-visitor-stream-row";
-import type { LiveVisitorsResponse, SessionRecord } from "@/components/traffic/types";
+import type {
+  LiveTransportMode,
+  LiveVisitorsResponse,
+  SessionRecord,
+} from "@/components/traffic/types";
 
 type Props = {
   pollMs?: number;
@@ -26,34 +33,136 @@ function parseTimestamp(value: string): number {
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
+function transportBadge(mode: LiveTransportMode, pollMs: number) {
+  if (mode === "streaming") {
+    return {
+      label: "Streaming live",
+      className: "border-emerald-400/30 bg-emerald-400/10 text-emerald-200",
+    };
+  }
+  if (mode === "connecting") {
+    return {
+      label: "Connecting live stream",
+      className: "border-sky-400/30 bg-sky-400/10 text-sky-200",
+    };
+  }
+  return {
+    label: `Fallback refresh ${Math.round(pollMs / 1000)}s`,
+    className: "border-amber-400/30 bg-amber-400/10 text-amber-200",
+  };
+}
+
 export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
   const [data, setData] = useState<LiveVisitorsResponse | null>(null);
   const [error, setError] = useState<string>("");
+  const [transportMode, setTransportMode] = useState<LiveTransportMode>("connecting");
+  const [transportNotice, setTransportNotice] = useState("");
   const [pinnedToTop, setPinnedToTop] = useState(true);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const shouldStickToTopRef = useRef(true);
 
   useEffect(() => {
     let mounted = true;
+    let eventSource: EventSource | null = null;
+    let pollingTimer: number | null = null;
+    let pollingStarted = false;
 
     const load = async () => {
       try {
         const next = await fetchLiveVisitors(25);
         if (!mounted) return;
-        setData(next);
-        setError("");
+
+        startTransition(() => {
+          setData(next);
+          setError("");
+        });
       } catch (err) {
         if (!mounted) return;
         setError(err instanceof Error ? err.message : "Failed to load live visitors");
       }
     };
 
-    void load();
-    const timer = window.setInterval(() => void load(), pollMs);
+    const startPollingFallback = (notice: string) => {
+      if (!mounted || pollingStarted) return;
+      pollingStarted = true;
+      setTransportMode("polling");
+      setTransportNotice(notice);
+      void load();
+      pollingTimer = window.setInterval(() => void load(), pollMs);
+    };
+
+    if (typeof window === "undefined" || typeof window.EventSource === "undefined") {
+      window.setTimeout(() => {
+        startPollingFallback("Live stream is unavailable here, so Traffic is using refresh fallback.");
+      }, 0);
+      return () => {
+        mounted = false;
+        if (pollingTimer !== null) {
+          window.clearInterval(pollingTimer);
+        }
+      };
+    }
+
+    try {
+      eventSource = new EventSource(buildLiveVisitorsStreamUrl({ limit: 25 }));
+
+      eventSource.onopen = () => {
+        if (!mounted) return;
+        setTransportMode("streaming");
+        setTransportNotice("");
+        setError("");
+        if (pollingTimer !== null) {
+          window.clearInterval(pollingTimer);
+          pollingTimer = null;
+        }
+      };
+
+      eventSource.onmessage = (event) => {
+        if (!mounted) return;
+
+        try {
+          const next = JSON.parse(event.data) as LiveVisitorsResponse;
+          if (!next.ok) {
+            setTransportNotice("The live stream is connected, but Traffic has no visible stream data right now.");
+            return;
+          }
+
+          startTransition(() => {
+            setData(next);
+            setTransportMode("streaming");
+            setTransportNotice("");
+            setError("");
+          });
+        } catch {
+          if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+          }
+          startPollingFallback("The live stream got out of shape, so Traffic fell back to refresh.");
+        }
+      };
+
+      eventSource.onerror = () => {
+        if (eventSource) {
+          eventSource.close();
+          eventSource = null;
+        }
+        startPollingFallback("The live stream dropped, so Traffic fell back to refresh.");
+      };
+    } catch {
+      window.setTimeout(() => {
+        startPollingFallback("Traffic could not open the live stream, so refresh fallback is active.");
+      }, 0);
+    }
 
     return () => {
       mounted = false;
-      window.clearInterval(timer);
+      if (eventSource) {
+        eventSource.close();
+      }
+      if (pollingTimer !== null) {
+        window.clearInterval(pollingTimer);
+      }
     };
   }, [pollMs]);
 
@@ -63,6 +172,7 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
     () => parseTimestamp(data?.generated_at ?? new Date().toISOString()),
     [data?.generated_at],
   );
+  const transport = useMemo(() => transportBadge(transportMode, pollMs), [pollMs, transportMode]);
 
   const sections = useMemo<StreamSection[]>(() => {
     const recentCutoff = generatedAt - RECENT_WINDOW_MINUTES * 60 * 1000;
@@ -151,14 +261,14 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
         <div>
           <h2 className="text-2xl font-semibold text-white">Realtime Visitor Stream</h2>
           <p className="max-w-3xl text-sm text-white/60">
-            Near realtime, refreshed every 15 seconds. This stream is chronological, not ranked:
-            newest movement sits at the top, animates in there, and older sessions get pushed down.
+            Chronological, not ranked. When the stream is healthy, new movement pushes in live at the
+            top; if that pipe drops, Traffic falls back to timed refresh.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200">
-            Refreshes every {Math.round(pollMs / 1000)}s
+          <div className={`rounded-full border px-3 py-1 text-xs ${transport.className}`}>
+            {transport.label}
           </div>
           <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
             Visible in stream: {streamItems.length}
@@ -182,6 +292,12 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
           </Link>
         </div>
       </div>
+
+      {transportNotice ? (
+        <div className="mb-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-200">
+          {transportNotice}
+        </div>
+      ) : null}
 
       {error ? (
         <div className="rounded-2xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-200">

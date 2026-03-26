@@ -115,6 +115,34 @@ export function buildVisitorProfileStreamUrl(
   return buildApiUrl(`/api/visitors/${visitorId}/stream${query ? `?${query}` : ""}`);
 }
 
+export function buildLiveVisitorsStreamUrl(params?: {
+  limit?: number;
+  historyLimit?: number;
+  windowHours?: number;
+}): string {
+  const search = new URLSearchParams();
+
+  if (params?.limit) search.set("limit", String(params.limit));
+  if (params?.historyLimit) search.set("history_limit", String(params.historyLimit));
+  if (params?.windowHours) search.set("window_hours", String(params.windowHours));
+
+  const query = search.toString();
+  return buildApiUrl(`/api/live-visitors/stream${query ? `?${query}` : ""}`);
+}
+
+export function buildProjectLiveFeedStreamUrl(
+  slug: string,
+  params?: { windowHours?: number; limit?: number },
+): string {
+  const search = new URLSearchParams();
+
+  if (params?.windowHours) search.set("window_hours", String(params.windowHours));
+  if (params?.limit) search.set("limit", String(params.limit));
+
+  const query = search.toString();
+  return buildApiUrl(`/api/projects/${slug}/live-feed/stream${query ? `?${query}` : ""}`);
+}
+
 export async function fetchVisitsHistory(params?: {
   limit?: number;
   offset?: number;
