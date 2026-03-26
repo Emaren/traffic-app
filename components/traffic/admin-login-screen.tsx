@@ -13,7 +13,7 @@ export default function AdminLoginScreen({ configured }: { configured: boolean }
     setError("");
 
     try {
-      const response = await fetch("/api/admin/session", {
+      const response = await fetch("/admin-api/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password }),

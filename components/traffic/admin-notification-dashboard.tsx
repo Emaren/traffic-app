@@ -90,7 +90,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
 
   async function refreshDashboard(options?: { quiet?: boolean; mounted?: boolean }) {
     try {
-      const response = await fetch("/api/admin/notifications/dashboard", { cache: "no-store" });
+      const response = await fetch("/admin-api/notifications/dashboard", { cache: "no-store" });
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
         throw new Error(payload?.detail || "Could not refresh the notification cockpit.");
@@ -140,7 +140,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
     setMessage(null);
 
     try {
-      const response = await fetch("/api/admin/notifications/settings", {
+      const response = await fetch("/admin-api/notifications/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings),
@@ -168,7 +168,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
     setBusy("test");
     setMessage(null);
     try {
-      const response = await fetch("/api/admin/notifications/test", {
+      const response = await fetch("/admin-api/notifications/test", {
         method: "POST",
       });
       if (!response.ok) {
@@ -192,7 +192,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
 
   async function logout() {
     setBusy("logout");
-    await fetch("/api/admin/session", { method: "DELETE" }).catch(() => null);
+    await fetch("/admin-api/session", { method: "DELETE" }).catch(() => null);
     window.location.href = "/admin";
   }
 
@@ -200,7 +200,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
     setBusy("mute");
     setMessage(null);
     try {
-      const response = await fetch("/api/admin/notifications/mutes", {
+      const response = await fetch("/admin-api/notifications/mutes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(draft),
@@ -227,7 +227,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
     setBusy(`delete-mute-${muteId}`);
     setMessage(null);
     try {
-      const response = await fetch(`/api/admin/notifications/mutes/${muteId}`, {
+      const response = await fetch(`/admin-api/notifications/mutes/${muteId}`, {
         method: "DELETE",
       });
       if (!response.ok) {
