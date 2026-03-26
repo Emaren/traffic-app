@@ -141,7 +141,7 @@ export default function VisitorActivityReel({ session, pollMs = 5000 }: Props) {
       </div>
 
       {session ? (
-        <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+        <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
           <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
             <div className="flex flex-wrap items-center gap-2 text-xs">
               <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-white/70">
@@ -167,17 +167,17 @@ export default function VisitorActivityReel({ session, pollMs = 5000 }: Props) {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-start content-start gap-2 self-start lg:max-w-[360px] lg:justify-end">
             <Link
               href={`/projects/${session.project_slug}`}
-              className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-200 transition hover:bg-sky-400/15"
+              className="whitespace-nowrap rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-200 transition hover:bg-sky-400/15"
             >
               Open {session.project_name}
             </Link>
-            <div className="rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-medium text-amber-200">
+            <div className="whitespace-nowrap rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-medium text-amber-200">
               Times Returned: {session.times_returned_in_project}
             </div>
-            <div className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-200">
+            <div className="whitespace-nowrap rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-200">
               Total Project Visits: {session.total_project_visits}
             </div>
           </div>
