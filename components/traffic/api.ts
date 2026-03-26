@@ -1,4 +1,5 @@
 import type {
+  HistoryRangeKey,
   LiveVisitorsResponse,
   OverviewResponse,
   ProjectDetailResponse,
@@ -100,11 +101,11 @@ export async function fetchProjectLiveFeed(
 
 export async function fetchVisitorProfile(
   visitorId: string,
-  params?: { windowHours?: number },
+  params?: { rangeKey?: HistoryRangeKey },
 ): Promise<VisitorProfileResponse> {
   const search = new URLSearchParams();
 
-  if (params?.windowHours) search.set("window_hours", String(params.windowHours));
+  if (params?.rangeKey) search.set("range_key", params.rangeKey);
 
   const query = search.toString();
   return fetchJson<VisitorProfileResponse>(
@@ -114,11 +115,11 @@ export async function fetchVisitorProfile(
 
 export function buildVisitorProfileStreamUrl(
   visitorId: string,
-  params?: { windowHours?: number },
+  params?: { rangeKey?: HistoryRangeKey },
 ): string {
   const search = new URLSearchParams();
 
-  if (params?.windowHours) search.set("window_hours", String(params.windowHours));
+  if (params?.rangeKey) search.set("range_key", params.rangeKey);
 
   const query = search.toString();
   return buildApiUrl(`/api/visitors/${visitorId}/stream${query ? `?${query}` : ""}`);

@@ -226,6 +226,7 @@ export type HumanSeriesPoint = {
 };
 
 export type ProjectGraphRangeKey = "24h" | "7d" | "30d" | "all";
+export type HistoryRangeKey = ProjectGraphRangeKey;
 
 export type ProjectGraphData = {
   label: string;
@@ -335,7 +336,14 @@ export type ProjectLiveFeedResponse = {
 export type VisitorProfileResponse = {
   ok: boolean;
   generated_at: string;
-  window_hours: number;
+  window_hours: number | null;
+  range_key: HistoryRangeKey;
+  range_label: string;
+  coverage_mode: string;
+  coverage_started_at?: string | null;
+  coverage_started_alberta?: string | null;
+  note?: string | null;
+  session_limit: number;
   visitor: {
     id: string;
     alias: string;

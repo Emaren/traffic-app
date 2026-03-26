@@ -10,10 +10,18 @@ import { withFlag } from "@/components/traffic/display";
 import LiveVisitorStreamRow from "@/components/traffic/live-visitor-stream-row";
 import VisitorActivityReel from "@/components/traffic/visitor-activity-reel";
 import type {
+  HistoryRangeKey,
   LiveTransportMode,
   SessionRecord,
   VisitorProfileResponse,
 } from "@/components/traffic/types";
+
+const RANGE_OPTIONS: Array<{ key: HistoryRangeKey; label: string }> = [
+  { key: "24h", label: "24 Hours" },
+  { key: "7d", label: "1 Week" },
+  { key: "30d", label: "1 Month" },
+  { key: "all", label: "All Time" },
+];
 
 type Props = {
   initialProfile: VisitorProfileResponse;
@@ -62,6 +70,10 @@ function transportBadge(mode: LiveTransportMode, pollMs: number) {
   };
 }
 
+function rangeMissNotice(label: string) {
+  return `Traffic has no ${label.toLowerCase()} history for this visitor yet, so the current snapshot stayed in place.`;
+}
+
 export default function VisitorProfileScreen({
   initialProfile,
   pollMs = 5000,
@@ -71,6 +83,15 @@ export default function VisitorProfileScreen({
   const [error, setError] = useState("");
   const [transportMode, setTransportMode] = useState<LiveTransportMode>("connecting");
   const [transportNotice, setTransportNotice] = useState("");
+  const [pendingRange, setPendingRange] = useState<HistoryRangeKey | null>(null);
+
+  useEffect(() => {
+    setProfile(initialProfile);
+    setPendingRange(null);
+    setError("");
+    setTransportNotice("");
+    setTransportMode("connecting");
+  }, [initialProfile, visitorId]);
 
   useEffect(() => {
     let mounted = true;
@@ -78,10 +99,17 @@ export default function VisitorProfileScreen({
     let pollingTimer: number | null = null;
     let pollingStarted = false;
 
+    const activeRangeKey = profile.range_key;
+
     const load = async () => {
       try {
-        const next = await fetchVisitorProfile(visitorId);
-        if (!mounted || !next.ok) return;
+        const next = await fetchVisitorProfile(visitorId, { rangeKey: activeRangeKey });
+        if (!mounted) return;
+        if (!next.ok) {
+          setTransportNotice(rangeMissNotice(profile.range_label));
+          return;
+        }
+
         startTransition(() => {
           setProfile(next);
           setError("");
@@ -114,7 +142,9 @@ export default function VisitorProfileScreen({
     }
 
     try {
-      eventSource = new EventSource(buildVisitorProfileStreamUrl(visitorId));
+      eventSource = new EventSource(
+        buildVisitorProfileStreamUrl(visitorId, { rangeKey: activeRangeKey }),
+      );
 
       eventSource.onopen = () => {
         if (!mounted) return;
@@ -133,7 +163,7 @@ export default function VisitorProfileScreen({
         try {
           const next = JSON.parse(event.data) as VisitorProfileResponse;
           if (!next.ok) {
-            setTransportNotice("This visitor has fallen out of the current live window.");
+            setTransportNotice(rangeMissNotice(profile.range_label));
             return;
           }
 
@@ -174,13 +204,44 @@ export default function VisitorProfileScreen({
         window.clearInterval(pollingTimer);
       }
     };
-  }, [pollMs, visitorId]);
+  }, [pollMs, profile.range_key, profile.range_label, visitorId]);
+
+  const loadRange = async (rangeKey: HistoryRangeKey) => {
+    if (rangeKey === profile.range_key || pendingRange) return;
+
+    const rangeLabel = RANGE_OPTIONS.find((option) => option.key === rangeKey)?.label ?? rangeKey;
+    setPendingRange(rangeKey);
+    setError("");
+    setTransportNotice("");
+
+    try {
+      const next = await fetchVisitorProfile(visitorId, { rangeKey });
+      if (!next.ok) {
+        setTransportNotice(rangeMissNotice(rangeLabel));
+        return;
+      }
+
+      startTransition(() => {
+        setProfile(next);
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load this visitor range");
+    } finally {
+      setPendingRange(null);
+    }
+  };
 
   const watchedSession = useMemo(
     () => pickWatchedSession(profile.sessions),
     [profile.sessions],
   );
   const transport = useMemo(() => transportBadge(transportMode, pollMs), [pollMs, transportMode]);
+  const sessionCoverageLabel =
+    profile.range_key === "all" ? "stored history" : `${profile.range_label.toLowerCase()} view`;
+  const sessionSummary =
+    profile.visitor.total_sessions > profile.sessions.length
+      ? `Showing newest ${profile.sessions.length} of ${profile.visitor.total_sessions} sessions in this range.`
+      : "Newest session first. Expand a row to see the full stored path and why Traffic ties it to this visitor.";
 
   return (
     <main className="min-h-screen bg-[#06070a] text-slate-100">
@@ -193,9 +254,9 @@ export default function VisitorProfileScreen({
                 {withFlag(profile.visitor.country_code, profile.visitor.alias)}
               </h1>
               <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
-                Current 24-hour visitor profile for this fingerprint. This view now live-streams so
-                you can watch path movement without reloading, and it is backed by the durable
-                traffic store so deeper history can grow from here.
+                {profile.range_label} profile for this fingerprint. This page can still live-stream
+                current movement when the visitor is active, but it now reaches back through the
+                durable store instead of disappearing outside the day window.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 font-mono text-xs text-white/75">
@@ -212,6 +273,37 @@ export default function VisitorProfileScreen({
                 <span className={`rounded-full border px-3 py-1 text-xs font-medium ${transport.className}`}>
                   {transport.label}
                 </span>
+                <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-200">
+                  {profile.coverage_mode === "durable_store" ? "Durable history" : "Live log fallback"}
+                </span>
+                {profile.coverage_started_alberta ? (
+                  <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/75">
+                    Stored since {profile.coverage_started_alberta}
+                  </span>
+                ) : null}
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                {RANGE_OPTIONS.map((option) => {
+                  const isActive = profile.range_key === option.key;
+                  const isPending = pendingRange === option.key;
+
+                  return (
+                    <button
+                      key={option.key}
+                      type="button"
+                      onClick={() => void loadRange(option.key)}
+                      disabled={Boolean(pendingRange)}
+                      className={`cursor-pointer rounded-full border px-3 py-1 font-medium transition disabled:cursor-not-allowed ${
+                        isActive
+                          ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+                          : "border-white/10 bg-black/20 text-white/70 hover:border-white/20 hover:text-white"
+                      } ${isPending ? "opacity-70" : ""}`}
+                    >
+                      {isPending ? `Loading ${option.label}` : option.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -233,6 +325,12 @@ export default function VisitorProfileScreen({
           </div>
         </header>
 
+        {profile.note ? (
+          <div className="mt-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm text-emerald-200">
+            {profile.note}
+          </div>
+        ) : null}
+
         {transportNotice ? (
           <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-200">
             {transportNotice}
@@ -249,12 +347,12 @@ export default function VisitorProfileScreen({
           <StatCard
             label="Sessions"
             value={String(profile.visitor.total_sessions)}
-            helper="Sessions tied to this visitor fingerprint in the current 24-hour window."
+            helper={`Sessions tied to this visitor fingerprint in this ${sessionCoverageLabel}.`}
           />
           <StatCard
             label="Projects"
             value={String(profile.visitor.projects_visited)}
-            helper="How many projects this visitor touched in the current window."
+            helper="How many projects this visitor touched in the selected range."
           />
           <StatCard
             label="Status"
@@ -270,7 +368,7 @@ export default function VisitorProfileScreen({
 
         <div className="mt-6">
           <VisitorActivityReel
-            key={watchedSession?.session_id ?? "no-session"}
+            key={`${profile.range_key}:${watchedSession?.session_id ?? "no-session"}`}
             session={watchedSession}
             pollMs={pollMs}
             transportMode={transportMode}
@@ -281,6 +379,9 @@ export default function VisitorProfileScreen({
           <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
             <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Projects</p>
             <h2 className="mt-2 text-2xl font-semibold text-white">Where this visitor showed up</h2>
+            <p className="mt-2 text-sm text-slate-300">
+              Project touches inside the selected {profile.range_label.toLowerCase()} range.
+            </p>
 
             <div className="mt-5 space-y-3">
               {profile.projects.map((project) => (
@@ -311,10 +412,7 @@ export default function VisitorProfileScreen({
           <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
             <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Sessions</p>
             <h2 className="mt-2 text-2xl font-semibold text-white">Full session paths</h2>
-            <p className="mt-2 text-sm text-slate-300">
-              Newest session first. Expand a row to see the unlimited full page path and why Traffic
-              thinks it belongs to this visitor.
-            </p>
+            <p className="mt-2 text-sm text-slate-300">{sessionSummary}</p>
 
             <div className="mt-5 space-y-3">
               {profile.sessions.map((session) => (

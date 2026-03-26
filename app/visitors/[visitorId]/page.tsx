@@ -10,7 +10,7 @@ export default async function VisitorPage({
   params: Promise<{ visitorId: string }>;
 }) {
   const { visitorId } = await params;
-  const profile = await fetchVisitorProfile(visitorId).catch(() => null);
+  const profile = await fetchVisitorProfile(visitorId, { rangeKey: "all" }).catch(() => null);
 
   if (!profile?.ok) {
     notFound();
