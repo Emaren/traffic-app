@@ -4,6 +4,7 @@ import type {
   ProjectDetailResponse,
   ProjectLiveFeedResponse,
   ProjectHumanSeriesResponse,
+  VisitorProfileResponse,
   VisitsHistoryResponse,
 } from "@/components/traffic/types";
 
@@ -81,6 +82,20 @@ export async function fetchProjectLiveFeed(
   const query = search.toString();
   return fetchJson<ProjectLiveFeedResponse>(
     `/api/projects/${slug}/live-feed${query ? `?${query}` : ""}`,
+  );
+}
+
+export async function fetchVisitorProfile(
+  visitorId: string,
+  params?: { windowHours?: number },
+): Promise<VisitorProfileResponse> {
+  const search = new URLSearchParams();
+
+  if (params?.windowHours) search.set("window_hours", String(params.windowHours));
+
+  const query = search.toString();
+  return fetchJson<VisitorProfileResponse>(
+    `/api/visitors/${visitorId}${query ? `?${query}` : ""}`,
   );
 }
 

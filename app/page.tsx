@@ -150,7 +150,12 @@ function SessionCard({ session }: { session: SessionRecord }) {
           </div>
 
           <h3 className="mt-3 text-xl font-semibold text-white">
-            {withFlag(session.country_code, session.visitor_alias)}
+            <Link
+              href={`/visitors/${session.visitor_profile_id}`}
+              className="transition hover:text-sky-200"
+            >
+              {withFlag(session.country_code, session.visitor_alias)}
+            </Link>
           </h3>
           <p className="mt-1 text-sm text-slate-300">
             {session.city || "Unknown city"}
@@ -202,7 +207,7 @@ function SessionCard({ session }: { session: SessionRecord }) {
       <div className="mt-4 grid gap-3 md:grid-cols-3">
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
           <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Journey</div>
-          <div className="mt-2 text-sm text-white/85">
+          <div className="mt-2 font-mono text-xs text-white/85 break-all">
             {session.entry_page} → {session.current_page}
           </div>
           <div className="mt-2 text-xs text-slate-400">
@@ -229,8 +234,10 @@ function SessionCard({ session }: { session: SessionRecord }) {
           <div className="mt-2 text-sm text-white/85">
             {session.projects_visited_in_window} projects across Traffic
           </div>
+          <div className="mt-2 font-mono text-xs text-slate-400 break-all">
+            IP {session.ip}
+          </div>
           <div className="mt-2 text-xs text-slate-400">
-            <span className="font-mono">IP {session.ip}</span> •{" "}
             {session.returning_visitor ? "Seen earlier in this window" : "First sighting in this window"}
           </div>
           <div className="mt-2 text-xs text-slate-400">
@@ -246,6 +253,12 @@ function SessionCard({ session }: { session: SessionRecord }) {
           className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-200 transition hover:bg-sky-400/15"
         >
           Open {session.project_name}
+        </Link>
+        <Link
+          href={`/visitors/${session.visitor_profile_id}`}
+          className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-200 transition hover:bg-emerald-400/15"
+        >
+          Open visitor profile
         </Link>
       </div>
     </div>

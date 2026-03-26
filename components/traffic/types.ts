@@ -96,6 +96,7 @@ export type SessionRecord = {
   session_id: string;
   visitor_key: string;
   person_key: string;
+  visitor_profile_id: string;
   visitor_alias: string;
   project_slug: string;
   project_name: string;
@@ -295,4 +296,37 @@ export type ProjectLiveFeedResponse = {
     name: string;
   };
   live_feed: SessionRecord[];
+};
+
+export type VisitorProfileResponse = {
+  ok: boolean;
+  generated_at: string;
+  window_hours: number;
+  visitor: {
+    id: string;
+    alias: string;
+    person_key: string;
+    ip: string;
+    country: string;
+    country_code: string;
+    area: string;
+    city: string;
+    device: string;
+    os: string;
+    browser: string;
+    first_seen_at: string;
+    last_seen_at: string;
+    first_seen_alberta: string;
+    last_seen_alberta: string;
+    projects_visited: number;
+    total_sessions: number;
+    active_now: boolean;
+  };
+  projects: Array<{
+    slug: string;
+    name: string;
+    visits: number;
+    last_seen_at: string;
+  }>;
+  sessions: SessionRecord[];
 };

@@ -220,12 +220,12 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
                   <AnimatePresence initial={false}>
                     {section.items.map((session) => (
                       <motion.div
-                        key={`${section.key}-${session.session_id}-${session.last_seen_at}`}
-                        layout
+                        key={`${section.key}-${session.session_id}`}
+                        layout="position"
                         initial={{ opacity: 0, y: -18 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 12 }}
-                        transition={{ duration: 0.2 }}
+                        transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
                       >
                         <LiveVisitorStreamRow session={session} />
                       </motion.div>

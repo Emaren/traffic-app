@@ -200,7 +200,12 @@ export default async function ProjectPage({
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <div className="font-medium text-white">
-                        {withFlag(session.country_code, session.visitor_alias)}
+                        <Link
+                          href={`/visitors/${session.visitor_profile_id}`}
+                          className="transition hover:text-sky-200"
+                        >
+                          {withFlag(session.country_code, session.visitor_alias)}
+                        </Link>
                       </div>
                       <div className="mt-1 text-xs text-slate-400">
                         {session.verdict_label} • {session.data_confidence_label} data confidence •{" "}
@@ -216,6 +221,12 @@ export default async function ProjectPage({
                         <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-[11px] font-medium text-sky-200">
                           Total Project Visits: {session.total_project_visits}
                         </span>
+                        <Link
+                          href={`/visitors/${session.visitor_profile_id}`}
+                          className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-[11px] font-medium text-emerald-200 transition hover:bg-emerald-400/15"
+                        >
+                          Open visitor profile
+                        </Link>
                       </div>
                     </div>
                     <div className="text-xs text-slate-400">

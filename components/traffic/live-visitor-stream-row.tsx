@@ -8,6 +8,7 @@ type Props = {
   session: SessionRecord;
   showProjectBadge?: boolean;
   showProjectLink?: boolean;
+  showVisitorLink?: boolean;
 };
 
 function formatSeconds(total: number): string {
@@ -38,6 +39,7 @@ export default function LiveVisitorStreamRow({
   session,
   showProjectBadge = true,
   showProjectLink = true,
+  showVisitorLink = true,
 }: Props) {
   const journey =
     session.entry_page === session.current_page
@@ -47,7 +49,7 @@ export default function LiveVisitorStreamRow({
   return (
     <details className="group rounded-2xl border border-white/10 bg-black/20 transition open:bg-black/30">
       <summary className="cursor-pointer list-none px-4 py-3 [&::-webkit-details-marker]:hidden">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2 text-xs">
               <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-white/70">
@@ -73,23 +75,38 @@ export default function LiveVisitorStreamRow({
             </div>
 
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="text-base font-semibold text-white">
-                {withFlag(session.country_code, session.visitor_alias)}
-              </span>
+              {showVisitorLink ? (
+                <Link
+                  href={`/visitors/${session.visitor_profile_id}`}
+                  className="text-base font-semibold text-white transition hover:text-sky-200"
+                >
+                  {withFlag(session.country_code, session.visitor_alias)}
+                </Link>
+              ) : (
+                <span className="text-base font-semibold text-white">
+                  {withFlag(session.country_code, session.visitor_alias)}
+                </span>
+              )}
               <span className="font-mono text-xs text-white/55">IP {session.ip}</span>
-              <span className="text-sm text-white/55">
+            </div>
+
+            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-white/55">
+              <span>
                 {session.city || "Unknown city"}
                 {session.area ? `, ${session.area}` : ""}
                 {session.country ? `, ${session.country}` : ""}
               </span>
+              <span>
+                {session.device} • {session.os} • {session.browser}
+              </span>
             </div>
 
-            <div className="mt-1 text-sm text-white/60">
-              {journey} • {session.device} • {session.browser}
+            <div className="mt-2 font-mono text-xs text-sky-100/70 break-all">
+              {journey}
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2 text-xs">
+          <div className="flex flex-wrap gap-2 text-xs lg:justify-end">
             <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 font-medium text-amber-200">
               Times Returned: {session.times_returned_in_project}
             </span>
@@ -129,21 +146,42 @@ export default function LiveVisitorStreamRow({
 
           <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
             <div className="text-[11px] uppercase tracking-wide text-white/45">Open</div>
-            {showProjectLink ? (
-              <div className="mt-2 flex flex-wrap gap-2">
+            <div className="mt-2 flex flex-wrap gap-2">
+              {showProjectLink ? (
                 <Link
                   href={`/projects/${session.project_slug}`}
                   className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-200 transition hover:bg-sky-400/15"
                 >
                   Open {session.project_name}
                 </Link>
-              </div>
-            ) : (
-              <div className="mt-2 text-sm text-white/80">{session.project_name}</div>
-            )}
+              ) : null}
+              {showVisitorLink ? (
+                <Link
+                  href={`/visitors/${session.visitor_profile_id}`}
+                  className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-200 transition hover:bg-emerald-400/15"
+                >
+                  Open visitor profile
+                </Link>
+              ) : null}
+            </div>
+            {!showProjectLink ? <div className="mt-2 text-sm text-white/80">{session.project_name}</div> : null}
             <div className="mt-3 text-xs text-white/50">
               Route kind {session.route_kind} • {session.page_count} pages • {session.event_count} events
             </div>
+          </div>
+        </div>
+
+        <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 p-3">
+          <div className="text-[11px] uppercase tracking-wide text-white/45">Full Path</div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {session.page_sequence.map((page, index) => (
+              <span
+                key={`${session.session_id}-${page}-${index}`}
+                className="rounded-full border border-white/10 bg-black/20 px-3 py-1 font-mono text-[11px] text-white/70"
+              >
+                {index + 1}. {page}
+              </span>
+            ))}
           </div>
         </div>
 
