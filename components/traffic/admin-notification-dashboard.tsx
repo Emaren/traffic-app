@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { startTransition, useEffect, useEffectEvent, useState } from "react";
+import AdminWebPushCard from "@/components/traffic/admin-web-push-card";
 import { withFlag } from "@/components/traffic/display";
 import PwaInstallCard from "@/components/traffic/pwa-install-card";
 import type {
@@ -406,6 +407,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                 >
                   <option value="pushover">Pushover</option>
                   <option value="ntfy">ntfy</option>
+                  <option value="web_push">Traffic web push</option>
                 </select>
               </label>
 
@@ -511,7 +513,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                     />
                   </label>
                 </>
-              ) : (
+              ) : settings.provider === "ntfy" ? (
                 <>
                   <label className="grid gap-2">
                     <span className="text-xs uppercase tracking-[0.18em] text-slate-400">Base URL</span>
@@ -597,6 +599,16 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                     />
                   </label>
                 </>
+              ) : (
+                <div className="md:col-span-2">
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <p className="text-sm font-medium text-white">Traffic-native delivery</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-300">
+                      Server VAPID keys stay on the API host. What you manage here are the devices
+                      allowed to receive direct-open Traffic web push.
+                    </p>
+                  </div>
+                </div>
               )}
 
               <label className="grid gap-2 md:col-span-2">
@@ -633,6 +645,13 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                 {busy === "test" ? "Sending..." : "Send test notification"}
               </button>
             </div>
+
+            <AdminWebPushCard
+              webPush={data.web_push}
+              selected={settings.provider === "web_push"}
+              busy={Boolean(busy)}
+              onRefresh={() => refreshDashboard({ quiet: true })}
+            />
           </div>
 
           <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">

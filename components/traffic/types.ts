@@ -296,7 +296,7 @@ export type VisitsHistoryResponse = {
   items: SessionRecord[];
 };
 
-export type NotificationProviderKey = "pushover" | "ntfy";
+export type NotificationProviderKey = "pushover" | "ntfy" | "web_push";
 
 export type NotificationSettings = {
   enabled: boolean;
@@ -317,6 +317,9 @@ export type NotificationSettings = {
       token: string;
       priority: number;
       tags: string;
+    };
+    web_push: {
+      ttl_seconds: number;
     };
   };
   policy: {
@@ -392,6 +395,25 @@ export type NotificationDashboardResponse = {
   projects: Array<{ slug: string; name: string }>;
   settings: NotificationSettings;
   provider_ready: boolean;
+  web_push: {
+    configured: boolean;
+    public_key: string;
+    subject: string;
+    ready: boolean;
+    active_count: number;
+    subscriptions: Array<{
+      id: number;
+      endpoint: string;
+      endpoint_tail: string;
+      device_label: string;
+      user_agent: string;
+      active: boolean;
+      last_error: string;
+      created_at: string;
+      updated_at: string;
+      last_success_at?: string | null;
+    }>;
+  };
   mutes: NotificationMuteRule[];
   recent_events: NotificationEventRecord[];
   stats: {
