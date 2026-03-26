@@ -49,6 +49,12 @@ export async function fetchOverview(): Promise<OverviewResponse> {
   return fetchJson<OverviewResponse>("/api/overview");
 }
 
+export async function fetchOverviewRange(
+  rangeKey: HistoryRangeKey = "24h",
+): Promise<OverviewResponse> {
+  return fetchJson<OverviewResponse>(`/api/overview?range_key=${rangeKey}`);
+}
+
 export async function fetchLiveVisitors(limit = 25): Promise<LiveVisitorsResponse> {
   return fetchJson<LiveVisitorsResponse>(`/api/live-visitors?limit=${limit}`);
 }

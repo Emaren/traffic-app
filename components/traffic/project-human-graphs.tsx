@@ -21,6 +21,7 @@ import type {
 type Props = {
   pollMs?: number;
   uniqueLivePeople: number;
+  initialRangeKey?: ProjectGraphRangeKey;
 };
 
 const DEFAULT_RANGE_KEY: ProjectGraphRangeKey = "7d";
@@ -44,11 +45,19 @@ function formatBucketSize(bucketMinutes: number) {
 export default function ProjectHumanGraphs({
   pollMs = 15000,
   uniqueLivePeople,
+  initialRangeKey = DEFAULT_RANGE_KEY,
 }: Props) {
   const [data, setData] = useState<ProjectHumanSeriesResponse | null>(null);
   const [error, setError] = useState<string>("");
+  const [activeRangeKey, setActiveRangeKey] =
+    useState<ProjectGraphRangeKey>(initialRangeKey);
   const [pendingRange, setPendingRange] = useState<ProjectGraphRangeKey | null>(null);
-  const activeRangeKey = data?.range_key ?? DEFAULT_RANGE_KEY;
+
+  useEffect(() => {
+    setActiveRangeKey(initialRangeKey);
+    setPendingRange(null);
+    setError("");
+  }, [initialRangeKey]);
 
   useEffect(() => {
     let mounted = true;
@@ -90,6 +99,7 @@ export default function ProjectHumanGraphs({
   const loadRange = (rangeKey: ProjectGraphRangeKey) => {
     if (rangeKey === activeRangeKey || pendingRange) return;
     setPendingRange(rangeKey);
+    setActiveRangeKey(rangeKey);
     setError("");
 
     void (async () => {
@@ -100,6 +110,7 @@ export default function ProjectHumanGraphs({
         });
         setError("");
       } catch (err) {
+        setActiveRangeKey(data?.range_key ?? initialRangeKey);
         setError(err instanceof Error ? err.message : "Failed to load project graphs");
       } finally {
         setPendingRange(null);

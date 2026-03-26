@@ -3,8 +3,15 @@
 import Link from "next/link";
 import ProjectHumanGraphs from "@/components/traffic/project-human-graphs";
 import LiveVisitorScreen from "@/components/traffic/live-visitor-screen";
+import type { ProjectGraphRangeKey } from "@/components/traffic/types";
 
-export default function BuilderTopDeck({ uniqueLivePeople }: { uniqueLivePeople: number }) {
+export default function BuilderTopDeck({
+  uniqueLivePeople,
+  historyRangeKey = "7d",
+}: {
+  uniqueLivePeople: number;
+  historyRangeKey?: ProjectGraphRangeKey;
+}) {
   return (
     <div className="space-y-6">
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-[0.9fr_1.1fr]">
@@ -76,7 +83,11 @@ export default function BuilderTopDeck({ uniqueLivePeople }: { uniqueLivePeople:
           </div>
         </div>
 
-        <ProjectHumanGraphs pollMs={30000} uniqueLivePeople={uniqueLivePeople} />
+        <ProjectHumanGraphs
+          pollMs={30000}
+          uniqueLivePeople={uniqueLivePeople}
+          initialRangeKey={historyRangeKey}
+        />
       </section>
 
       <LiveVisitorScreen pollMs={15000} />

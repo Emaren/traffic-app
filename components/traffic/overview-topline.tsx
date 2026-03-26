@@ -1,12 +1,10 @@
 "use client";
 
-import { startTransition, useEffect, useState } from "react";
-import { fetchOverview } from "@/components/traffic/api";
 import type { OverviewTotals } from "@/components/traffic/types";
 
 type Props = {
-  initialGeneratedAt: string;
-  initialTotals: OverviewTotals;
+  generatedAt: string;
+  totals: OverviewTotals;
   pollMs?: number;
 };
 
@@ -33,37 +31,10 @@ function StatCard({
 }
 
 export default function OverviewTopline({
-  initialGeneratedAt,
-  initialTotals,
+  generatedAt,
+  totals,
   pollMs = 15000,
 }: Props) {
-  const [totals, setTotals] = useState(initialTotals);
-  const [generatedAt, setGeneratedAt] = useState(initialGeneratedAt);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const load = async () => {
-      try {
-        const next = await fetchOverview();
-        if (!mounted || !next.ok) return;
-
-        startTransition(() => {
-          setTotals(next.totals);
-          setGeneratedAt(next.generated_at);
-        });
-      } catch {
-        // Keep the last good snapshot if a refresh fails.
-      }
-    };
-
-    const timer = window.setInterval(() => void load(), pollMs);
-    return () => {
-      mounted = false;
-      window.clearInterval(timer);
-    };
-  }, [pollMs]);
-
   return (
     <section className="mt-6">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">

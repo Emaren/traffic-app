@@ -178,7 +178,14 @@ export type SessionRecord = {
 export type OverviewResponse = {
   ok: boolean;
   generated_at: string;
+  range_key: HistoryRangeKey;
+  range_label: string;
+  window_hours: number | null;
   window: string;
+  coverage_mode: string;
+  coverage_started_at?: string | null;
+  coverage_started_alberta?: string | null;
+  note?: string | null;
   totals: OverviewTotals;
   projects: ProjectSummary[];
   hosts: HostSummary[];
