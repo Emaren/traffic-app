@@ -41,6 +41,7 @@ a {
 
 a[href],
 button:not(:disabled),
+select,
 summary,
 [role="button"] {
   cursor: pointer;

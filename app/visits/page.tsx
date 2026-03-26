@@ -8,11 +8,12 @@ export default function VisitsPage() {
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="mb-2 inline-flex rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-200">
-              Live archive
+              Historical archive
             </div>
             <h1 className="text-3xl font-semibold tracking-tight text-white">Visits History</h1>
             <p className="mt-2 text-sm text-white/60">
-              Scrollable session log with live refreshing, clearer verdicts, and better visitor context.
+              Scrollable session log with live refreshing, clearer verdicts, better visitor context,
+              and honest stored-history ranges.
             </p>
           </div>
 

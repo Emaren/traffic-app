@@ -270,7 +270,13 @@ export type ProjectGraphResponse = {
 export type VisitsHistoryResponse = {
   ok: boolean;
   generated_at: string;
-  window_hours: number;
+  window_hours: number | null;
+  range_key: HistoryRangeKey;
+  range_label: string;
+  coverage_mode: string;
+  coverage_started_at?: string | null;
+  coverage_started_alberta?: string | null;
+  note?: string | null;
   offset: number;
   limit: number;
   total: number;

@@ -158,7 +158,7 @@ export async function fetchVisitsHistory(params?: {
   offset?: number;
   classification?: string;
   project?: string;
-  windowHours?: number;
+  rangeKey?: HistoryRangeKey;
 }): Promise<VisitsHistoryResponse> {
   const search = new URLSearchParams();
 
@@ -166,7 +166,7 @@ export async function fetchVisitsHistory(params?: {
   if (params?.offset) search.set("offset", String(params.offset));
   if (params?.classification) search.set("classification", params.classification);
   if (params?.project) search.set("project", params.project);
-  if (params?.windowHours) search.set("window_hours", String(params.windowHours));
+  if (params?.rangeKey) search.set("range_key", params.rangeKey);
 
   const query = search.toString();
   return fetchJson<VisitsHistoryResponse>(`/api/visits/history${query ? `?${query}` : ""}`);

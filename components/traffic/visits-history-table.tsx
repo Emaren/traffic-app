@@ -3,10 +3,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchVisitsHistory } from "@/components/traffic/api";
 import { withFlag } from "@/components/traffic/display";
-import type { SessionRecord, VisitsHistoryResponse } from "@/components/traffic/types";
+import type {
+  HistoryRangeKey,
+  SessionRecord,
+  VisitsHistoryResponse,
+} from "@/components/traffic/types";
 
 const PAGE_SIZE = 25;
 const POLL_MS = 15000;
+const RANGE_OPTIONS: Array<{ key: HistoryRangeKey; label: string }> = [
+  { key: "24h", label: "24 Hours" },
+  { key: "7d", label: "1 Week" },
+  { key: "30d", label: "1 Month" },
+  { key: "all", label: "All Time" },
+];
 
 function formatSeconds(total: number): string {
   if (total <= 0) return "0s";
@@ -53,6 +63,7 @@ export default function VisitsHistoryTable() {
   const [data, setData] = useState<VisitsHistoryResponse | null>(null);
   const [error, setError] = useState("");
   const [offset, setOffset] = useState(0);
+  const [rangeKey, setRangeKey] = useState<HistoryRangeKey>("all");
   const [classification, setClassification] = useState("");
   const [project, setProject] = useState("");
   const [freshIds, setFreshIds] = useState<string[]>([]);
@@ -69,7 +80,7 @@ export default function VisitsHistoryTable() {
           offset,
           classification: classification || undefined,
           project: project || undefined,
-          windowHours: 24,
+          rangeKey,
         });
 
         if (!mounted) return;
@@ -108,7 +119,7 @@ export default function VisitsHistoryTable() {
         window.clearTimeout(clearFreshTimerRef.current);
       }
     };
-  }, [offset, classification, project]);
+  }, [offset, classification, project, rangeKey]);
 
   const totalPages = useMemo(() => {
     if (!data) return 1;
@@ -127,11 +138,38 @@ export default function VisitsHistoryTable() {
           </div>
           <h2 className="text-2xl font-semibold text-white">Visits History</h2>
           <p className="text-sm text-white/60">
-            Newest sessions rise to the top. The archive now stays warm instead of going stale.
+            Newest sessions stay at the top. This archive now reaches through stored history instead
+            of pretending everything older than a day is gone.
           </p>
         </div>
 
         <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2">
+            {RANGE_OPTIONS.map((option) => {
+              const isActive = (data?.range_key ?? rangeKey) === option.key;
+
+              return (
+                <button
+                  key={option.key}
+                  type="button"
+                  onClick={() => {
+                    setOffset(0);
+                    previousIdsRef.current = [];
+                    setFreshIds([]);
+                    setRangeKey(option.key);
+                  }}
+                  className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition ${
+                    isActive
+                      ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+                      : "border-white/10 bg-black/20 text-white/70 hover:border-white/20 hover:text-white"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+
           <label className="flex flex-col gap-1 text-xs text-white/55">
             Verdict
             <select
@@ -139,9 +177,10 @@ export default function VisitsHistoryTable() {
               onChange={(e) => {
                 setOffset(0);
                 previousIdsRef.current = [];
+                setFreshIds([]);
                 setClassification(e.target.value);
               }}
-              className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none"
+              className="cursor-pointer rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none"
             >
               <option value="">All</option>
               <option value="human_confirmed">Likely human</option>
@@ -159,9 +198,10 @@ export default function VisitsHistoryTable() {
               onChange={(e) => {
                 setOffset(0);
                 previousIdsRef.current = [];
+                setFreshIds([]);
                 setProject(e.target.value);
               }}
-              className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none"
+              className="cursor-pointer rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none"
             >
               <option value="">All</option>
               <option value="aoe2hdbets">AoE2HDBets</option>
@@ -176,9 +216,29 @@ export default function VisitsHistoryTable() {
         </div>
       </div>
 
+      <div className="mb-4 flex flex-wrap gap-2 text-xs">
+        <div className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 font-medium text-emerald-200">
+          {data?.coverage_mode === "durable_store" ? "Durable history" : "Live log fallback"}
+        </div>
+        <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
+          {data?.range_label ?? "All Time"}
+        </div>
+        {data?.coverage_started_alberta ? (
+          <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
+            Stored since {data.coverage_started_alberta}
+          </div>
+        ) : null}
+      </div>
+
       {error ? (
         <div className="rounded-2xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-200">
           {error}
+        </div>
+      ) : null}
+
+      {data?.note ? (
+        <div className="mb-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm text-emerald-200">
+          {data.note}
         </div>
       ) : null}
 
@@ -310,7 +370,7 @@ export default function VisitsHistoryTable() {
       <div className="mt-4 flex items-center justify-between">
         <div className="text-sm text-white/55">
           Page {currentPage} of {totalPages}
-          {data ? ` • ${data.total} total sessions in the current 24h window` : ""}
+          {data ? ` • ${data.total} total sessions in this ${data.range_label.toLowerCase()}` : ""}
         </div>
 
         <div className="flex gap-2">
