@@ -20,6 +20,7 @@ import type {
 
 type Props = {
   pollMs?: number;
+  uniqueLivePeople: number;
 };
 
 const DEFAULT_RANGE_KEY: ProjectGraphRangeKey = "7d";
@@ -40,7 +41,10 @@ function formatBucketSize(bucketMinutes: number) {
   return `${Math.round(bucketMinutes / 1440)}d buckets`;
 }
 
-export default function ProjectHumanGraphs({ pollMs = 15000 }: Props) {
+export default function ProjectHumanGraphs({
+  pollMs = 15000,
+  uniqueLivePeople,
+}: Props) {
   const [data, setData] = useState<ProjectHumanSeriesResponse | null>(null);
   const [error, setError] = useState<string>("");
   const [pendingRange, setPendingRange] = useState<ProjectGraphRangeKey | null>(null);
@@ -75,6 +79,10 @@ export default function ProjectHumanGraphs({ pollMs = 15000 }: Props) {
   }, [activeRangeKey, pollMs]);
 
   const projects = useMemo<HumanSeriesProject[]>(() => data?.projects ?? [], [data]);
+  const projectLiveTotal = useMemo(
+    () => projects.reduce((sum, project) => sum + project.live_humans, 0),
+    [projects],
+  );
   const description =
     data?.note ||
     `${data?.range_label ?? "1 Week"} of human-confirmed visitor flow across the observatory.`;
@@ -150,7 +158,20 @@ export default function ProjectHumanGraphs({ pollMs = 15000 }: Props) {
             Stored since {data.coverage_started_alberta}
           </div>
         ) : null}
+        <div className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 font-medium text-sky-200">
+          Unique live people: {uniqueLivePeople}
+        </div>
+        <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
+          Project live badges: {projectLiveTotal}
+        </div>
       </div>
+
+      <p className="mb-4 text-sm leading-6 text-white/60">
+        Project badges count who is active inside each project. The homepage
+        <span className="font-medium text-white"> Live Right Now </span>
+        tile counts unique live people across all of Traffic, so one person can
+        raise multiple project badges while only counting once there.
+      </p>
 
       {error ? (
         <div className="rounded-2xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-200">
@@ -170,8 +191,8 @@ export default function ProjectHumanGraphs({ pollMs = 15000 }: Props) {
             key={project.slug}
             className="rounded-2xl border border-white/10 bg-black/20 p-4"
           >
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div>
+            <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
                 <h3 className="text-base font-semibold text-white">
                   {prettyProjectName(project.name)}
                 </h3>
@@ -179,7 +200,7 @@ export default function ProjectHumanGraphs({ pollMs = 15000 }: Props) {
               </div>
               <div className="flex flex-wrap items-center justify-end gap-2">
                 <div className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-200">
-                  Live now: {project.live_humans}
+                  Live on project: {project.live_humans}
                 </div>
                 <Link
                   href={`/projects/${project.slug}`}

@@ -111,7 +111,7 @@ function StatCard({
   return (
     <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]">
       <p className="text-xs uppercase tracking-[0.24em] text-slate-400">{label}</p>
-      <p className="mt-3 text-3xl font-semibold text-white">{value}</p>
+      <p className="mt-3 text-2xl font-semibold text-white sm:text-3xl">{value}</p>
       <p className="mt-2 text-sm leading-6 text-slate-400">{helper}</p>
     </div>
   );
@@ -121,7 +121,7 @@ function SessionCard({ session }: { session: SessionRecord }) {
   return (
     <div className="rounded-3xl border border-white/10 bg-black/20 p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-white/75">
               {session.project_name}
@@ -179,7 +179,7 @@ function SessionCard({ session }: { session: SessionRecord }) {
           </div>
         </div>
 
-        <div className="grid min-w-[220px] gap-3 md:grid-cols-2">
+        <div className="grid w-full min-w-0 gap-3 md:w-auto md:min-w-[220px] md:grid-cols-2">
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
             <div className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
               Human likelihood
@@ -270,7 +270,7 @@ export default async function Home() {
 
   if (!overview) {
     return (
-      <main className="min-h-screen bg-[#06070a] px-6 py-10 text-slate-100">
+      <main className="min-h-screen bg-[#06070a] px-4 py-8 text-slate-100 sm:px-6 sm:py-10">
         <div className="mx-auto max-w-4xl rounded-3xl border border-rose-500/30 bg-rose-500/10 p-8">
           <p className="text-xs uppercase tracking-[0.25em] text-rose-200">Traffic observatory</p>
           <h1 className="mt-3 text-3xl font-semibold text-white">API not reachable</h1>
@@ -288,7 +288,7 @@ export default async function Home() {
 
   return (
     <main className="min-h-screen bg-[#06070a] text-slate-100">
-      <div className="mx-auto max-w-7xl px-6 py-8">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
         <header className="rounded-[32px] border border-amber-500/20 bg-[linear-gradient(180deg,rgba(245,158,11,0.08),rgba(255,255,255,0.03))] p-6 shadow-[0_25px_80px_rgba(0,0,0,0.45)]">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -338,7 +338,7 @@ export default async function Home() {
           <StatCard
             label="Live Right Now"
             value={formatNumber(overview.totals.live_now)}
-            helper="Human-ish visitors still active in the last few minutes."
+            helper="Unique live people across all of Traffic right now."
           />
           <StatCard
             label="Returning Visitors"
@@ -400,7 +400,7 @@ export default async function Home() {
         </section>
 
         <div className="mt-6">
-          <BuilderTopDeck />
+          <BuilderTopDeck uniqueLivePeople={overview.totals.live_now} />
         </div>
 
         <section className="mt-6 grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
@@ -490,7 +490,9 @@ export default async function Home() {
               <p className="text-sm font-medium text-white">What the dashboard is doing</p>
               <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-300">
                 {(overview.notes || []).map((note) => (
-                  <li key={note}>• {note}</li>
+                  <li key={note} className="break-all">
+                    • {note}
+                  </li>
                 ))}
               </ul>
             </div>
@@ -595,9 +597,11 @@ export default async function Home() {
                 {overview.suspicious.top_paths.map((row) => (
                   <div
                     key={row.path}
-                    className="flex items-center justify-between rounded-2xl border border-rose-500/20 bg-rose-500/8 px-4 py-3"
+                    className="flex items-start justify-between gap-3 rounded-2xl border border-rose-500/20 bg-rose-500/8 px-4 py-3"
                   >
-                    <span className="font-mono text-sm text-rose-100">{row.path}</span>
+                    <span className="min-w-0 flex-1 break-all font-mono text-sm text-rose-100">
+                      {row.path}
+                    </span>
                     <span className="rounded-full bg-black/20 px-3 py-1 text-sm font-semibold text-rose-200">
                       {formatNumber(row.count)}
                     </span>

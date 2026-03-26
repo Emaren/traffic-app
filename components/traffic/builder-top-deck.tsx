@@ -4,7 +4,7 @@ import Link from "next/link";
 import ProjectHumanGraphs from "@/components/traffic/project-human-graphs";
 import LiveVisitorScreen from "@/components/traffic/live-visitor-screen";
 
-export default function BuilderTopDeck() {
+export default function BuilderTopDeck({ uniqueLivePeople }: { uniqueLivePeople: number }) {
   return (
     <div className="space-y-6">
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-[0.9fr_1.1fr]">
@@ -76,7 +76,7 @@ export default function BuilderTopDeck() {
           </div>
         </div>
 
-        <ProjectHumanGraphs pollMs={30000} />
+        <ProjectHumanGraphs pollMs={30000} uniqueLivePeople={uniqueLivePeople} />
       </section>
 
       <LiveVisitorScreen pollMs={15000} />
