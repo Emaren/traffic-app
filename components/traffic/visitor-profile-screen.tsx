@@ -193,9 +193,9 @@ export default function VisitorProfileScreen({
                 {withFlag(profile.visitor.country_code, profile.visitor.alias)}
               </h1>
               <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
-                Current 24-hour visitor profile for this fingerprint. This view now live-refreshes so
-                you can watch path movement without reloading, but the underlying truth is still the
-                current window until persistence lands.
+                Current 24-hour visitor profile for this fingerprint. This view now live-streams so
+                you can watch path movement without reloading, and it is backed by the durable
+                traffic store so deeper history can grow from here.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 font-mono text-xs text-white/75">
