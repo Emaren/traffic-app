@@ -296,6 +296,122 @@ export type VisitsHistoryResponse = {
   items: SessionRecord[];
 };
 
+export type NotificationProviderKey = "pushover" | "ntfy";
+
+export type NotificationSettings = {
+  enabled: boolean;
+  provider: NotificationProviderKey;
+  armed_at?: string | null;
+  site_base_url: string;
+  providers: {
+    pushover: {
+      app_token: string;
+      user_key: string;
+      device: string;
+      priority: number;
+      sound: string;
+    };
+    ntfy: {
+      base_url: string;
+      topic: string;
+      token: string;
+      priority: number;
+      tags: string;
+    };
+  };
+  policy: {
+    page_hits_only: boolean;
+    include_human_confirmed: boolean;
+    include_likely_human: boolean;
+    include_unclear: boolean;
+    include_suspicious: boolean;
+    include_bots: boolean;
+    include_returning: boolean;
+    new_visitors_only: boolean;
+    selected_projects: string[];
+    max_notifications_per_visitor_per_hour: number;
+    max_notifications_per_session: number;
+    max_notifications_per_path_per_visitor_per_hour: number;
+  };
+};
+
+export type NotificationMuteRule = {
+  id: number;
+  rule_type:
+    | "person_key"
+    | "visitor_profile_id"
+    | "ip"
+    | "path"
+    | "project_slug"
+    | "host";
+  match_value: string;
+  label: string;
+  reason: string;
+  active: boolean;
+  created_at: string;
+};
+
+export type NotificationEventRecord = {
+  id: number;
+  traffic_event_id: string;
+  session_id: string;
+  event_timestamp: string;
+  event_timestamp_alberta: string;
+  project_slug: string;
+  project_name: string;
+  host: string;
+  path: string;
+  route_kind: string;
+  person_key: string;
+  visitor_profile_id: string;
+  visitor_alias: string;
+  ip: string;
+  country_code: string;
+  country: string;
+  classification_state: string;
+  verdict_label: string;
+  returning_visitor: boolean;
+  total_project_visits: number;
+  projects_visited_in_window: number;
+  status: "delivered" | "suppressed" | "error";
+  suppression_reason: string;
+  provider: string;
+  provider_message_id: string;
+  delivery_error: string;
+  notification_title: string;
+  notification_body: string;
+  destination_url: string;
+  details: Record<string, unknown>;
+  created_at: string;
+  delivered_at?: string | null;
+};
+
+export type NotificationDashboardResponse = {
+  ok: boolean;
+  generated_at: string;
+  projects: Array<{ slug: string; name: string }>;
+  settings: NotificationSettings;
+  provider_ready: boolean;
+  mutes: NotificationMuteRule[];
+  recent_events: NotificationEventRecord[];
+  stats: {
+    delivered: number;
+    suppressed: number;
+    errors: number;
+    total: number;
+    last_delivered_at?: string | null;
+  };
+  loop: {
+    mode?: string;
+    checked?: number;
+    delivered?: number;
+    suppressed?: number;
+    errors?: number;
+    last_run_at?: string | null;
+    message?: string;
+  };
+};
+
 export type ProjectDetailResponse = {
   ok: boolean;
   generated_at: string;
