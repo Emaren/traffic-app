@@ -38,3 +38,14 @@ a {
   color: inherit;
   text-decoration: none;
 }
+
+a[href],
+button:not(:disabled),
+summary,
+[role="button"] {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}

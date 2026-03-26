@@ -318,7 +318,7 @@ export default function VisitsHistoryTable() {
             type="button"
             onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
             disabled={offset === 0}
-            className="rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm text-white/75 disabled:cursor-not-allowed disabled:opacity-40"
+            className="cursor-pointer rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm text-white/75 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Prev
           </button>
@@ -330,7 +330,7 @@ export default function VisitsHistoryTable() {
               }
             }}
             disabled={!data || offset + PAGE_SIZE >= data.total}
-            className="rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm text-white/75 disabled:cursor-not-allowed disabled:opacity-40"
+            className="cursor-pointer rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm text-white/75 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Next
           </button>

@@ -276,7 +276,7 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
           <button
             type="button"
             onClick={jumpToNewest}
-            className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+            className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition ${
               pinnedToTop
                 ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
                 : "border-amber-400/30 bg-amber-400/10 text-amber-200 hover:bg-amber-400/15"

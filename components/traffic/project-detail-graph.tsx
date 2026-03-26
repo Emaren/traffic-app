@@ -89,7 +89,7 @@ export default function ProjectDetailGraph({
                 type="button"
                 onClick={() => void loadRange(option.key)}
                 disabled={Boolean(pendingRange)}
-                className={`rounded-full border px-3 py-1 font-medium transition ${
+                className={`cursor-pointer rounded-full border px-3 py-1 font-medium transition disabled:cursor-not-allowed ${
                   isActive
                     ? "border-sky-400/30 bg-sky-400/10 text-sky-200"
                     : "border-white/10 bg-black/20 text-white/70 hover:border-white/20 hover:text-white"
