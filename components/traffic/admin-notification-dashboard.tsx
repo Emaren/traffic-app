@@ -77,6 +77,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
   const [settings, setSettings] = useState<NotificationSettings | null>(
     initialData?.settings ? cloneSettings(initialData.settings) : null,
   );
+  const [hasLocalEdits, setHasLocalEdits] = useState(false);
   const [muteDraft, setMuteDraft] = useState<MuteDraft>(defaultMuteDraft());
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(
@@ -86,6 +87,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
   useEffect(() => {
     setData(initialData);
     setSettings(initialData?.settings ? cloneSettings(initialData.settings) : null);
+    setHasLocalEdits(false);
   }, [initialData]);
 
   async function refreshDashboard(options?: { quiet?: boolean; mounted?: boolean }) {
@@ -98,14 +100,20 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
 
       const next = (await response.json()) as NotificationDashboardResponse;
       if (options?.mounted === false) return;
+      const preserveLocalEdits = busy === "save" || hasLocalEdits;
 
       startTransition(() => {
         setData(next);
-        setSettings((current) => (busy === "save" ? current : cloneSettings(next.settings)));
+        setSettings((current) => (preserveLocalEdits ? current : cloneSettings(next.settings)));
       });
 
       if (!options?.quiet) {
-        setMessage({ tone: "success", text: "Notification cockpit refreshed." });
+        setMessage({
+          tone: "success",
+          text: preserveLocalEdits
+            ? "Live stats refreshed. Your unsaved notification edits were kept."
+            : "Notification cockpit refreshed.",
+        });
       }
     } catch (err) {
       if (!options?.quiet) {
@@ -152,6 +160,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
 
       const payload = (await response.json()) as { settings: NotificationSettings };
       setSettings(cloneSettings(payload.settings));
+      setHasLocalEdits(false);
       await refreshDashboard({ quiet: true });
       setMessage({ tone: "success", text: "Notification settings saved." });
     } catch (err) {
@@ -350,17 +359,34 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
           ) : null}
         </header>
 
-        <section className="mt-6 grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+        <section
+          className="mt-6 grid gap-6 xl:grid-cols-[1.05fr_0.95fr]"
+          onChangeCapture={() => setHasLocalEdits(true)}
+        >
           <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Provider</p>
                 <h2 className="mt-2 text-2xl font-semibold text-white">Delivery lane</h2>
               </div>
-              <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
-                {data.provider_ready ? "Provider ready" : "Provider needs setup"}
+              <div className="flex flex-wrap items-center gap-2">
+                {hasLocalEdits ? (
+                  <div className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-100">
+                    Unsaved edits held locally
+                  </div>
+                ) : null}
+                <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
+                  {data.provider_ready ? "Provider ready" : "Provider needs setup"}
+                </div>
               </div>
             </div>
+
+            {hasLocalEdits ? (
+              <p className="mt-3 text-sm text-cyan-100/80">
+                You can tab out of fields safely now. Save delivery settings when you want these
+                values written to Traffic.
+              </p>
+            ) : null}
 
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               <label className="grid gap-2">
