@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { startTransition, useEffect, useEffectEvent, useState } from "react";
 import { withFlag } from "@/components/traffic/display";
+import PwaInstallCard from "@/components/traffic/pwa-install-card";
 import type {
   NotificationDashboardResponse,
   NotificationEventRecord,
@@ -358,6 +359,8 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
             </div>
           ) : null}
         </header>
+
+        <PwaInstallCard className="mt-6" />
 
         <section
           className="mt-6 grid gap-6 xl:grid-cols-[1.05fr_0.95fr]"
