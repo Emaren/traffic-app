@@ -10,6 +10,8 @@ type Props = {
   session: SessionRecord | null;
 };
 
+const LIVE_REEL_LIMIT = 180;
+
 function routeKindClass(routeKind: string) {
   switch (routeKind) {
     case "page":
@@ -39,7 +41,8 @@ function badgeClass(isLatest: boolean, isFresh: boolean) {
 }
 
 export default function VisitorActivityReel({ session, pollMs = 5000 }: Props) {
-  const steps = useMemo(() => session?.activity_sequence ?? [], [session?.activity_sequence]);
+  const allSteps = useMemo(() => session?.activity_sequence ?? [], [session?.activity_sequence]);
+  const steps = useMemo(() => allSteps.slice(-LIVE_REEL_LIMIT), [allSteps]);
   const latestStep = steps.at(-1) ?? null;
   const [freshIds, setFreshIds] = useState<string[]>([]);
   const [pinnedToLatest, setPinnedToLatest] = useState(true);
@@ -108,8 +111,8 @@ export default function VisitorActivityReel({ session, pollMs = 5000 }: Props) {
             {session?.active_now ? "Watching this visitor move in near realtime" : "Latest known movement trail"}
           </h2>
           <p className="mt-2 max-w-3xl text-sm text-slate-300">
-            The old 50-step ceiling is gone here. This rail shows each trackable page or event in
-            order, and new movement slides in on the right while the unlimited full path stays below.
+            The old 50-step ceiling is gone from the full path below. This live rail stays focused on
+            the latest movement so it remains readable, and new trackable events slide in on the right.
           </p>
         </div>
 
@@ -118,7 +121,10 @@ export default function VisitorActivityReel({ session, pollMs = 5000 }: Props) {
             Refreshes every {Math.round(pollMs / 1000)}s
           </div>
           <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
-            {steps.length} trackable events
+            {allSteps.length} trackable events
+          </div>
+          <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
+            Showing latest {steps.length}
           </div>
           <button
             type="button"
