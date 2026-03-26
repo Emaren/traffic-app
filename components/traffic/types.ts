@@ -92,6 +92,15 @@ export type AlertRow = {
   count: number;
 };
 
+export type SessionActivityItem = {
+  id: string;
+  path: string;
+  route_kind: string;
+  category: string;
+  timestamp: string;
+  timestamp_alberta: string;
+};
+
 export type SessionRecord = {
   session_id: string;
   visitor_key: string;
@@ -126,6 +135,7 @@ export type SessionRecord = {
   exit_page: string;
   next_page: string;
   page_sequence: string[];
+  activity_sequence?: SessionActivityItem[];
   page_count: number;
   event_count: number;
   total_seconds: number;
