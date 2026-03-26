@@ -245,12 +245,13 @@ export default function HomeOverviewScreen({
   initialOverview,
   pollMs = 15000,
 }: {
-  initialOverview: OverviewResponse;
+  initialOverview: OverviewResponse | null;
   pollMs?: number;
 }) {
   const [overview, setOverview] = useState(initialOverview);
   const [pendingRange, setPendingRange] = useState<HistoryRangeKey | null>(null);
   const [error, setError] = useState("");
+  const activeRangeKey = overview?.range_key ?? "24h";
 
   useEffect(() => {
     setOverview(initialOverview);
@@ -259,11 +260,40 @@ export default function HomeOverviewScreen({
   }, [initialOverview]);
 
   useEffect(() => {
+    if (!overview) {
+      let mounted = true;
+
+      const loadInitial = async () => {
+        try {
+          const next = await fetchOverviewRange("24h");
+          if (!mounted || !next.ok) return;
+
+          startTransition(() => {
+            setOverview(next);
+            setError("");
+          });
+        } catch (err) {
+          if (!mounted) return;
+          setError(err instanceof Error ? err.message : "Failed to load Traffic overview");
+        }
+      };
+
+      void loadInitial();
+
+      return () => {
+        mounted = false;
+      };
+    }
+  }, [overview]);
+
+  useEffect(() => {
+    if (!overview) return;
+
     let mounted = true;
 
     const load = async () => {
       try {
-        const next = await fetchOverviewRange(overview.range_key);
+        const next = await fetchOverviewRange(activeRangeKey);
         if (!mounted || !next.ok) return;
 
         startTransition(() => {
@@ -281,9 +311,10 @@ export default function HomeOverviewScreen({
       mounted = false;
       window.clearInterval(timer);
     };
-  }, [overview.range_key, pollMs]);
+  }, [activeRangeKey, overview, pollMs]);
 
   const loadRange = async (rangeKey: HistoryRangeKey) => {
+    if (!overview) return;
     if (rangeKey === overview.range_key || pendingRange) return;
 
     setPendingRange(rangeKey);
@@ -306,13 +337,51 @@ export default function HomeOverviewScreen({
   };
 
   const countryMax = useMemo(
-    () => maxCount(overview.geo.countries.map((row) => row.sessions)),
-    [overview.geo.countries],
+    () => maxCount(overview?.geo.countries.map((row) => row.sessions) ?? []),
+    [overview?.geo.countries],
   );
   const projectMax = useMemo(
-    () => maxCount(overview.projects.map((row) => row.requests)),
-    [overview.projects],
+    () => maxCount(overview?.projects.map((row) => row.requests) ?? []),
+    [overview?.projects],
   );
+
+  if (!overview) {
+    return (
+      <main className="min-h-screen bg-[#06070a] text-slate-100">
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+          <header className="rounded-[32px] border border-amber-500/20 bg-[linear-gradient(180deg,rgba(245,158,11,0.08),rgba(255,255,255,0.03))] p-6 shadow-[0_25px_80px_rgba(0,0,0,0.45)]">
+            <p className="text-xs uppercase tracking-[0.28em] text-amber-200/80">
+              traffic.tokentap.ca
+            </p>
+            <h1 className="mt-3 text-4xl font-semibold tracking-tight text-white">
+              Traffic observatory
+            </h1>
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
+              The shell is up. Traffic is loading the observatory data in the browser so the page
+              can appear fast even when analytics queries are heavy.
+            </p>
+            <div className="mt-4 inline-flex rounded-full border border-sky-400/30 bg-sky-400/10 px-4 py-2 text-sm font-medium text-sky-200">
+              Loading live overview…
+            </div>
+            {error ? (
+              <div className="mt-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-100">
+                {error}
+              </div>
+            ) : null}
+          </header>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div
+                key={`overview-loading-${index}`}
+                className="h-36 animate-pulse rounded-3xl border border-white/10 bg-white/[0.03]"
+              />
+            ))}
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#06070a] text-slate-100">
