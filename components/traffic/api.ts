@@ -25,9 +25,13 @@ function getApiBaseUrl(): string {
   return trimBaseUrl(process.env.NEXT_PUBLIC_TRAFFIC_API_BASE_URL);
 }
 
-async function fetchJson<T>(path: string): Promise<T> {
+export function buildApiUrl(path: string): string {
   const base = getApiBaseUrl();
-  const response = await fetch(`${base}${path}`, {
+  return base ? `${base}${path}` : path;
+}
+
+async function fetchJson<T>(path: string): Promise<T> {
+  const response = await fetch(buildApiUrl(path), {
     cache: "no-store",
   });
 
@@ -97,6 +101,18 @@ export async function fetchVisitorProfile(
   return fetchJson<VisitorProfileResponse>(
     `/api/visitors/${visitorId}${query ? `?${query}` : ""}`,
   );
+}
+
+export function buildVisitorProfileStreamUrl(
+  visitorId: string,
+  params?: { windowHours?: number },
+): string {
+  const search = new URLSearchParams();
+
+  if (params?.windowHours) search.set("window_hours", String(params.windowHours));
+
+  const query = search.toString();
+  return buildApiUrl(`/api/visitors/${visitorId}/stream${query ? `?${query}` : ""}`);
 }
 
 export async function fetchVisitsHistory(params?: {

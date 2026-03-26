@@ -101,6 +101,8 @@ export type SessionActivityItem = {
   timestamp_alberta: string;
 };
 
+export type LiveTransportMode = "connecting" | "streaming" | "polling";
+
 export type SessionRecord = {
   session_id: string;
   visitor_key: string;

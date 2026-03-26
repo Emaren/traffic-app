@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import type { SessionRecord } from "@/components/traffic/types";
+import type { LiveTransportMode, SessionRecord } from "@/components/traffic/types";
 
 type Props = {
   pollMs?: number;
   session: SessionRecord | null;
+  transportMode: LiveTransportMode;
 };
 
 const LIVE_REEL_LIMIT = 180;
@@ -40,7 +41,30 @@ function badgeClass(isLatest: boolean, isFresh: boolean) {
   return "border-white/10 bg-white/[0.04]";
 }
 
-export default function VisitorActivityReel({ session, pollMs = 5000 }: Props) {
+function transportBadge(mode: LiveTransportMode, pollMs: number) {
+  if (mode === "streaming") {
+    return {
+      label: "Streaming live",
+      className: "border-emerald-400/30 bg-emerald-400/10 text-emerald-200",
+    };
+  }
+  if (mode === "connecting") {
+    return {
+      label: "Connecting live stream",
+      className: "border-sky-400/30 bg-sky-400/10 text-sky-200",
+    };
+  }
+  return {
+    label: `Fallback refresh ${Math.round(pollMs / 1000)}s`,
+    className: "border-amber-400/30 bg-amber-400/10 text-amber-200",
+  };
+}
+
+export default function VisitorActivityReel({
+  session,
+  pollMs = 5000,
+  transportMode,
+}: Props) {
   const allSteps = useMemo(() => session?.activity_sequence ?? [], [session?.activity_sequence]);
   const steps = useMemo(() => allSteps.slice(-LIVE_REEL_LIMIT), [allSteps]);
   const latestStep = steps.at(-1) ?? null;
@@ -51,6 +75,7 @@ export default function VisitorActivityReel({ session, pollMs = 5000 }: Props) {
   const shouldStickToRightRef = useRef(true);
 
   const stepSignature = useMemo(() => steps.map((step) => step.id).join("|"), [steps]);
+  const transport = transportBadge(transportMode, pollMs);
 
   useEffect(() => {
     const previousIds = new Set(previousStepIdsRef.current);
@@ -117,8 +142,8 @@ export default function VisitorActivityReel({ session, pollMs = 5000 }: Props) {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-200">
-            Refreshes every {Math.round(pollMs / 1000)}s
+          <div className={`rounded-full border px-3 py-1 text-xs font-medium ${transport.className}`}>
+            {transport.label}
           </div>
           <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
             {allSteps.length} trackable events
