@@ -42,6 +42,10 @@ function formatBucketSize(bucketMinutes: number) {
   return `${Math.round(bucketMinutes / 1440)}d buckets`;
 }
 
+function rangeLabelFor(rangeKey: ProjectGraphRangeKey) {
+  return RANGE_OPTIONS.find((option) => option.key === rangeKey)?.label ?? "24 Hours";
+}
+
 export default function ProjectHumanGraphs({
   pollMs = 15000,
   uniqueLivePeople,
@@ -92,9 +96,10 @@ export default function ProjectHumanGraphs({
     () => projects.reduce((sum, project) => sum + project.live_humans, 0),
     [projects],
   );
+  const fallbackRangeLabel = rangeLabelFor(activeRangeKey);
   const description =
     data?.note ||
-    `${data?.range_label ?? "1 Week"} of human-confirmed visitor flow across the observatory.`;
+    `${data?.range_label ?? fallbackRangeLabel} of human-confirmed visitor flow across the observatory.`;
 
   const loadRange = (rangeKey: ProjectGraphRangeKey) => {
     if (rangeKey === activeRangeKey || pendingRange) return;
@@ -159,7 +164,7 @@ export default function ProjectHumanGraphs({
               : "Live log fallback"}
         </div>
         <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
-          {data?.range_label ?? "1 Week"}
+          {data?.range_label ?? fallbackRangeLabel}
         </div>
         <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
           {formatBucketSize(data?.bucket_minutes ?? 180)}
@@ -190,9 +195,15 @@ export default function ProjectHumanGraphs({
         </div>
       ) : null}
 
-      {!error && projects.length === 0 ? (
+      {!error && !data ? (
         <div className="rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-white/60">
-          No human series yet.
+          Loading project history for {fallbackRangeLabel.toLowerCase()}.
+        </div>
+      ) : null}
+
+      {!error && data && projects.length === 0 ? (
+        <div className="rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-white/60">
+          No human series yet in this range.
         </div>
       ) : null}
 
