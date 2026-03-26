@@ -225,6 +225,21 @@ export type HumanSeriesPoint = {
   visitors: number;
 };
 
+export type ProjectGraphRangeKey = "24h" | "7d" | "30d" | "all";
+
+export type ProjectGraphData = {
+  label: string;
+  range_key: ProjectGraphRangeKey;
+  range_label: string;
+  window_hours?: number | null;
+  bucket_minutes: number;
+  coverage_mode: string;
+  coverage_started_at?: string | null;
+  coverage_started_alberta?: string | null;
+  note?: string | null;
+  points: HumanSeriesPoint[];
+};
+
 export type HumanSeriesProject = {
   slug: string;
   name: string;
@@ -239,6 +254,16 @@ export type ProjectHumanSeriesResponse = {
   bucket_minutes: number;
   series_kind: string;
   projects: HumanSeriesProject[];
+};
+
+export type ProjectGraphResponse = {
+  ok: boolean;
+  generated_at: string;
+  project: {
+    slug: string;
+    name: string;
+  };
+  graph: ProjectGraphData;
 };
 
 export type VisitsHistoryResponse = {
@@ -270,10 +295,7 @@ export type ProjectDetailResponse = {
     avg_session_seconds: number;
     unique_visitors: number;
   };
-  graph: {
-    label: string;
-    points: HumanSeriesPoint[];
-  };
+  graph: ProjectGraphData;
   live_feed: SessionRecord[];
   recent_sessions: SessionRecord[];
   hosts: Array<{

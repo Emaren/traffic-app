@@ -2,6 +2,8 @@ import type {
   LiveVisitorsResponse,
   OverviewResponse,
   ProjectDetailResponse,
+  ProjectGraphRangeKey,
+  ProjectGraphResponse,
   ProjectLiveFeedResponse,
   ProjectHumanSeriesResponse,
   VisitorProfileResponse,
@@ -72,6 +74,13 @@ export async function fetchProjectDetail(
   return fetchJson<ProjectDetailResponse>(
     `/api/projects/${slug}${query ? `?${query}` : ""}`,
   );
+}
+
+export async function fetchProjectGraph(
+  slug: string,
+  rangeKey: ProjectGraphRangeKey = "24h",
+): Promise<ProjectGraphResponse> {
+  return fetchJson<ProjectGraphResponse>(`/api/projects/${slug}/graph?range_key=${rangeKey}`);
 }
 
 export async function fetchProjectLiveFeed(

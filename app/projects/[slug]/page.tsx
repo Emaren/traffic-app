@@ -128,7 +128,7 @@ export default async function ProjectPage({
         </section>
 
         <div className="mt-6">
-          <ProjectDetailGraph label={detail.graph.label} points={detail.graph.points} />
+          <ProjectDetailGraph projectSlug={detail.project.slug} initialGraph={detail.graph} />
         </div>
 
         <section className="mt-6 grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
