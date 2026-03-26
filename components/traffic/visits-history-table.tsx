@@ -59,6 +59,112 @@ function dataConfidenceClass(label: string): string {
   }
 }
 
+function MobileVisitCard({
+  row,
+  isFresh,
+}: {
+  row: SessionRecord;
+  isFresh: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-2xl border p-4 transition ${
+        isFresh
+          ? "border-amber-400/35 bg-amber-400/10 shadow-[0_0_0_1px_rgba(251,191,36,0.3)]"
+          : "border-white/10 bg-black/20"
+      }`}
+    >
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-white/70">
+          {row.first_seen_alberta}
+        </span>
+        <span
+          className={`rounded-full border px-2.5 py-1 font-medium ${verdictClass(
+            row.classification_state,
+          )}`}
+        >
+          {row.verdict_label}
+        </span>
+        <span
+          className={`rounded-full border px-2.5 py-1 ${dataConfidenceClass(
+            row.data_confidence_label,
+          )}`}
+        >
+          {row.data_confidence_label}
+        </span>
+        {isFresh ? (
+          <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 font-semibold text-amber-200">
+            New
+          </span>
+        ) : null}
+      </div>
+
+      <div className="mt-3">
+        <div className="font-medium text-white">{withFlag(row.country_code, row.visitor_alias)}</div>
+        <div className="mt-1 font-mono text-xs text-sky-200/80 break-all">IP {row.ip}</div>
+        <div className="mt-1 text-xs text-white/45">
+          {row.city || "Unknown city"}
+          {row.area ? `, ${row.area}` : ""}
+          {row.country ? `, ${row.country}` : ""}
+        </div>
+        <div className="mt-1 text-xs text-white/45">
+          {row.device} • {row.os} • {row.browser}
+        </div>
+      </div>
+
+      <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+        <div className="text-xs uppercase tracking-wide text-white/45">Project</div>
+        <div className="mt-2 text-sm font-medium text-white">{row.project_name}</div>
+        <div className="mt-1 break-all text-xs text-white/45">{row.host}</div>
+      </div>
+
+      <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+        <div className="text-xs uppercase tracking-wide text-white/45">Why</div>
+        <div className="mt-2 text-sm text-white/80">{row.classification_summary}</div>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {row.classification_reason_labels.slice(0, 3).map((reason) => (
+            <span
+              key={`${row.session_id}-${reason}`}
+              className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/60"
+            >
+              {reason}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+          <div className="text-xs uppercase tracking-wide text-white/45">Journey</div>
+          <div className="mt-2 break-all text-sm text-white/80">
+            {row.entry_page} → {row.exit_page}
+          </div>
+          <div className="mt-2 text-xs text-white/45">
+            {row.page_count} pages • {row.event_count} events
+          </div>
+          <div className="mt-1 text-xs text-white/45">source: {row.source || "direct"}</div>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+          <div className="text-xs uppercase tracking-wide text-white/45">Visits and time</div>
+          <div className="mt-2 text-sm text-white/80">
+            Times Returned: {row.times_returned_in_project}
+          </div>
+          <div className="mt-1 text-xs text-white/45">
+            Total Project Visits: {row.total_project_visits}
+          </div>
+          <div className="mt-1 text-xs text-white/45">Traffic Visits: {row.visits_in_window}</div>
+          <div className="mt-2 text-sm text-white/80">{formatSeconds(row.total_seconds)} total</div>
+          <div className="mt-1 text-xs text-white/45">
+            engaged {formatSeconds(row.engaged_seconds)} • {row.attention_label} attention
+          </div>
+          <div className="mt-2 text-xs text-white/45">last movement {row.last_seen_alberta}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function VisitsHistoryTable() {
   const [data, setData] = useState<VisitsHistoryResponse | null>(null);
   const [error, setError] = useState("");
@@ -131,7 +237,7 @@ export default function VisitsHistoryTable() {
 
   return (
     <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 shadow-2xl shadow-black/20">
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="mb-2 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-200">
             Live refresh every 15s
@@ -143,7 +249,7 @@ export default function VisitsHistoryTable() {
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-3">
+        <div className="flex w-full flex-col gap-3 sm:w-auto">
           <div className="flex flex-wrap gap-2">
             {RANGE_OPTIONS.map((option) => {
               const isActive = (data?.range_key ?? rangeKey) === option.key;
@@ -170,7 +276,8 @@ export default function VisitsHistoryTable() {
             })}
           </div>
 
-          <label className="flex flex-col gap-1 text-xs text-white/55">
+          <div className="flex flex-col gap-3 sm:flex-row">
+          <label className="flex w-full flex-col gap-1 text-xs text-white/55 sm:w-auto">
             Verdict
             <select
               value={classification}
@@ -180,7 +287,7 @@ export default function VisitsHistoryTable() {
                 setFreshIds([]);
                 setClassification(e.target.value);
               }}
-              className="cursor-pointer rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none"
+              className="w-full cursor-pointer rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none sm:w-auto"
             >
               <option value="">All</option>
               <option value="human_confirmed">Likely human</option>
@@ -191,7 +298,7 @@ export default function VisitsHistoryTable() {
             </select>
           </label>
 
-          <label className="flex flex-col gap-1 text-xs text-white/55">
+          <label className="flex w-full flex-col gap-1 text-xs text-white/55 sm:w-auto">
             Project
             <select
               value={project}
@@ -201,7 +308,7 @@ export default function VisitsHistoryTable() {
                 setFreshIds([]);
                 setProject(e.target.value);
               }}
-              className="cursor-pointer rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none"
+              className="w-full cursor-pointer rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none sm:w-auto"
             >
               <option value="">All</option>
               <option value="aoe2hdbets">AoE2HDBets</option>
@@ -213,6 +320,7 @@ export default function VisitsHistoryTable() {
               <option value="traffic">Traffic</option>
             </select>
           </label>
+          </div>
         </div>
       </div>
 
@@ -242,7 +350,15 @@ export default function VisitsHistoryTable() {
         </div>
       ) : null}
 
-      <div className="overflow-x-auto">
+      <div className="space-y-3 md:hidden">
+        {items.map((row) => {
+          const isFresh = freshIds.includes(row.session_id);
+
+          return <MobileVisitCard key={row.session_id} row={row} isFresh={isFresh} />;
+        })}
+      </div>
+
+      <div className="hidden overflow-x-auto md:block">
         <table className="min-w-full border-separate border-spacing-y-2 text-left text-sm">
           <thead>
             <tr className="text-xs uppercase tracking-wide text-white/45">
@@ -367,7 +483,7 @@ export default function VisitsHistoryTable() {
         </table>
       </div>
 
-      <div className="mt-4 flex items-center justify-between">
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm text-white/55">
           Page {currentPage} of {totalPages}
           {data ? ` • ${data.total} total sessions in this ${data.range_label.toLowerCase()}` : ""}

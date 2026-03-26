@@ -41,7 +41,7 @@ function StatCard({
   return (
     <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]">
       <p className="text-xs uppercase tracking-[0.24em] text-slate-400">{label}</p>
-      <p className="mt-3 text-3xl font-semibold text-white">{value}</p>
+      <p className="mt-3 text-2xl font-semibold text-white sm:text-3xl">{value}</p>
       <p className="mt-2 text-sm leading-6 text-slate-400">{helper}</p>
     </div>
   );
@@ -245,12 +245,12 @@ export default function VisitorProfileScreen({
 
   return (
     <main className="min-h-screen bg-[#06070a] text-slate-100">
-      <div className="mx-auto max-w-7xl px-6 py-8">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
         <header className="rounded-[32px] border border-emerald-500/20 bg-[linear-gradient(180deg,rgba(16,185,129,0.08),rgba(255,255,255,0.03))] p-6 shadow-[0_25px_80px_rgba(0,0,0,0.45)]">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.28em] text-emerald-200/80">Visitor profile</p>
-              <h1 className="mt-3 text-4xl font-semibold tracking-tight text-white">
+              <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
                 {withFlag(profile.visitor.country_code, profile.visitor.alias)}
               </h1>
               <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
@@ -307,7 +307,7 @@ export default function VisitorProfileScreen({
               </div>
             </div>
 
-            <div className="grid gap-3 text-sm text-slate-300">
+            <div className="grid w-full gap-3 text-sm text-slate-300 lg:w-auto">
               <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
                 <span className="text-slate-400">First seen:</span>{" "}
                 <span className="text-white">{profile.visitor.first_seen_alberta}</span>
@@ -326,13 +326,13 @@ export default function VisitorProfileScreen({
         </header>
 
         {profile.note ? (
-          <div className="mt-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm text-emerald-200">
+          <div className="mt-4 break-words rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm text-emerald-200">
             {profile.note}
           </div>
         ) : null}
 
         {transportNotice ? (
-          <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-200">
+          <div className="mt-4 break-words rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-200">
             {transportNotice}
           </div>
         ) : null}
@@ -389,8 +389,8 @@ export default function VisitorProfileScreen({
                   key={project.slug}
                   className="rounded-2xl border border-white/10 bg-black/20 p-4"
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="font-medium text-white">{project.name}</div>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="break-words font-medium text-white">{project.name}</div>
                     <div className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-200">
                       {project.visits} visits
                     </div>

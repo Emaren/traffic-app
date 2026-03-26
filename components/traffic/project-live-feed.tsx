@@ -159,8 +159,8 @@ export default function ProjectLiveFeed({
 
   return (
     <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
           <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Realtime Visitor Stream</p>
           <h2 className="mt-2 text-2xl font-semibold text-white">
             Newest movement first on {projectName}

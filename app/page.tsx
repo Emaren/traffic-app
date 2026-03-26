@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import BuilderTopDeck from "@/components/traffic/builder-top-deck";
+import OverviewTopline from "@/components/traffic/overview-topline";
 import { fetchOverview } from "@/components/traffic/api";
 import { withFlag } from "@/components/traffic/display";
 import type { OverviewResponse, SessionRecord } from "@/components/traffic/types";
@@ -97,24 +98,6 @@ function routeKindClass(routeKind: string) {
     default:
       return "border-white/10 bg-white/[0.04] text-slate-300";
   }
-}
-
-function StatCard({
-  label,
-  value,
-  helper,
-}: {
-  label: string;
-  value: string;
-  helper: string;
-}) {
-  return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]">
-      <p className="text-xs uppercase tracking-[0.24em] text-slate-400">{label}</p>
-      <p className="mt-3 text-2xl font-semibold text-white sm:text-3xl">{value}</p>
-      <p className="mt-2 text-sm leading-6 text-slate-400">{helper}</p>
-    </div>
-  );
 }
 
 function SessionCard({ session }: { session: SessionRecord }) {
@@ -319,38 +302,10 @@ export default async function Home() {
           </div>
         </header>
 
-        <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-          <StatCard
-            label="Total Visitors"
-            value={formatNumber(overview.totals.total_visitors)}
-            helper="Distinct visitor fingerprints seen in this time range."
-          />
-          <StatCard
-            label="Real Humans"
-            value={formatNumber(overview.totals.real_humans)}
-            helper="Visitors Traffic believes are probably real people."
-          />
-          <StatCard
-            label="Suspected Bots"
-            value={formatNumber(overview.totals.suspected_bots)}
-            helper="Known bots plus clearly automated or suspicious actors."
-          />
-          <StatCard
-            label="Live Right Now"
-            value={formatNumber(overview.totals.live_now)}
-            helper="Unique live people across all of Traffic right now."
-          />
-          <StatCard
-            label="Returning Visitors"
-            value={formatNumber(overview.totals.returning_visitors)}
-            helper="Visitors Traffic has already seen more than once in this window."
-          />
-          <StatCard
-            label="Projects Active"
-            value={formatNumber(overview.totals.projects_active)}
-            helper="Projects with live human-ish traffic right now."
-          />
-        </section>
+        <OverviewTopline
+          initialGeneratedAt={overview.generated_at}
+          initialTotals={overview.totals}
+        />
 
         <section className="mt-6 rounded-3xl border border-white/10 bg-white/[0.03] p-5">
           <div className="flex flex-wrap items-start justify-between gap-4">

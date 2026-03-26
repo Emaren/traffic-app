@@ -39,7 +39,7 @@ function StatCard({
   return (
     <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]">
       <p className="text-xs uppercase tracking-[0.24em] text-slate-400">{label}</p>
-      <p className="mt-3 text-3xl font-semibold text-white">{value}</p>
+      <p className="mt-3 text-2xl font-semibold text-white sm:text-3xl">{value}</p>
       <p className="mt-2 text-sm leading-6 text-slate-400">{helper}</p>
     </div>
   );
@@ -59,12 +59,12 @@ export default async function ProjectPage({
 
   return (
     <main className="min-h-screen bg-[#06070a] text-slate-100">
-      <div className="mx-auto max-w-7xl px-6 py-8">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
         <header className="rounded-[32px] border border-sky-500/20 bg-[linear-gradient(180deg,rgba(56,189,248,0.08),rgba(255,255,255,0.03))] p-6 shadow-[0_25px_80px_rgba(0,0,0,0.45)]">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.28em] text-sky-200/80">Project page</p>
-              <h1 className="mt-3 text-4xl font-semibold tracking-tight text-white">
+              <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
                 {detail.project.name}
               </h1>
               <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
@@ -73,7 +73,7 @@ export default async function ProjectPage({
               </p>
             </div>
 
-            <div className="grid gap-3 text-sm text-slate-300">
+            <div className="grid w-full gap-3 text-sm text-slate-300 lg:w-auto">
               <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
                 <span className="text-slate-400">Window:</span>{" "}
                 <span className="text-white">{detail.window_hours} hours</span>
@@ -149,12 +149,12 @@ export default async function ProjectPage({
                     key={page.path}
                     className="rounded-2xl border border-white/10 bg-black/20 p-4"
                   >
-                    <div className="font-mono text-sm text-white">{page.path}</div>
+                    <div className="break-all font-mono text-sm text-white">{page.path}</div>
                     <div className="mt-2 text-xs text-slate-400">
                       {formatNumber(page.views)} views • {formatNumber(page.entries)} entries •{" "}
                       {formatSeconds(page.avg_seconds)} avg
                     </div>
-                    <div className="mt-2 text-xs text-slate-400">
+                    <div className="mt-2 break-all text-xs text-slate-400">
                       Next: {page.top_next_paths[0]?.path || "—"}
                     </div>
                   </div>
@@ -172,11 +172,11 @@ export default async function ProjectPage({
                     key={host.host}
                     className="rounded-2xl border border-white/10 bg-black/20 p-4"
                   >
-                    <div className="font-medium text-white">{host.host}</div>
+                    <div className="break-all font-medium text-white">{host.host}</div>
                     <div className="mt-2 text-xs text-slate-400">
                       {formatNumber(host.requests)} requests • {formatNumber(host.unique_visitors)} visitors
                     </div>
-                    <div className="mt-2 text-xs text-slate-400">
+                    <div className="mt-2 break-all text-xs text-slate-400">
                       Entry {host.top_entry_page} • Exit {host.top_exit_page}
                     </div>
                   </div>
@@ -197,8 +197,8 @@ export default async function ProjectPage({
                   key={session.session_id}
                   className="rounded-2xl border border-white/10 bg-black/20 p-4"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
                       <div className="font-medium text-white">
                         <Link
                           href={`/visitors/${session.visitor_profile_id}`}
@@ -229,7 +229,7 @@ export default async function ProjectPage({
                         </Link>
                       </div>
                     </div>
-                    <div className="text-xs text-slate-400">
+                    <div className="text-xs text-slate-400 sm:text-right">
                       Last movement {session.last_seen_alberta} • {formatSeconds(session.total_seconds)}
                     </div>
                   </div>
@@ -249,9 +249,9 @@ export default async function ProjectPage({
                 {detail.geo.countries.map((row) => (
                   <div
                     key={row.country}
-                    className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 px-4 py-3"
+                    className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3"
                   >
-                    <span className="text-sm text-white">{row.country}</span>
+                    <span className="min-w-0 flex-1 break-words text-sm text-white">{row.country}</span>
                     <span className="text-sm font-semibold text-sky-300">
                       {formatNumber(row.sessions)} sessions
                     </span>
@@ -269,9 +269,11 @@ export default async function ProjectPage({
                   detail.suspicious.top_paths.map((row) => (
                     <div
                       key={row.path}
-                      className="flex items-center justify-between rounded-2xl border border-rose-500/20 bg-rose-500/8 px-4 py-3"
+                      className="flex items-start justify-between gap-3 rounded-2xl border border-rose-500/20 bg-rose-500/8 px-4 py-3"
                     >
-                      <span className="font-mono text-sm text-rose-100">{row.path}</span>
+                      <span className="min-w-0 flex-1 break-all font-mono text-sm text-rose-100">
+                        {row.path}
+                      </span>
                       <span className="rounded-full bg-black/20 px-3 py-1 text-sm font-semibold text-rose-200">
                         {formatNumber(row.count)}
                       </span>
