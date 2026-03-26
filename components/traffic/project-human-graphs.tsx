@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { startTransition, useEffect, useMemo, useState } from "react";
 import {
   CartesianGrid,
   Line,
@@ -11,32 +12,56 @@ import {
   YAxis,
 } from "recharts";
 import { fetchProjectHumanSeries } from "@/components/traffic/api";
-import type { HumanSeriesProject, ProjectHumanSeriesResponse } from "@/components/traffic/types";
+import type {
+  HumanSeriesProject,
+  ProjectGraphRangeKey,
+  ProjectHumanSeriesResponse,
+} from "@/components/traffic/types";
 
 type Props = {
   pollMs?: number;
 };
 
+const DEFAULT_RANGE_KEY: ProjectGraphRangeKey = "7d";
+const RANGE_OPTIONS: Array<{ key: ProjectGraphRangeKey; label: string }> = [
+  { key: "24h", label: "24 Hours" },
+  { key: "7d", label: "1 Week" },
+  { key: "30d", label: "1 Month" },
+  { key: "all", label: "All Time" },
+];
+
 function prettyProjectName(name: string): string {
   return name;
+}
+
+function formatBucketSize(bucketMinutes: number) {
+  if (bucketMinutes < 60) return `${bucketMinutes}m buckets`;
+  if (bucketMinutes < 1440) return `${Math.round(bucketMinutes / 60)}h buckets`;
+  return `${Math.round(bucketMinutes / 1440)}d buckets`;
 }
 
 export default function ProjectHumanGraphs({ pollMs = 15000 }: Props) {
   const [data, setData] = useState<ProjectHumanSeriesResponse | null>(null);
   const [error, setError] = useState<string>("");
+  const [pendingRange, setPendingRange] = useState<ProjectGraphRangeKey | null>(null);
+  const activeRangeKey = data?.range_key ?? DEFAULT_RANGE_KEY;
 
   useEffect(() => {
     let mounted = true;
 
     const load = async () => {
       try {
-        const next = await fetchProjectHumanSeries(24, 30);
+        const next = await fetchProjectHumanSeries(activeRangeKey);
         if (!mounted) return;
-        setData(next);
+        startTransition(() => {
+          setData(next);
+        });
         setError("");
+        setPendingRange(null);
       } catch (err) {
         if (!mounted) return;
         setError(err instanceof Error ? err.message : "Failed to load project graphs");
+        setPendingRange(null);
       }
     };
 
@@ -47,22 +72,84 @@ export default function ProjectHumanGraphs({ pollMs = 15000 }: Props) {
       mounted = false;
       window.clearInterval(timer);
     };
-  }, [pollMs]);
+  }, [activeRangeKey, pollMs]);
 
   const projects = useMemo<HumanSeriesProject[]>(() => data?.projects ?? [], [data]);
+  const description =
+    data?.note ||
+    `${data?.range_label ?? "1 Week"} of human-confirmed visitor flow across the observatory.`;
+
+  const loadRange = (rangeKey: ProjectGraphRangeKey) => {
+    if (rangeKey === activeRangeKey || pendingRange) return;
+    setPendingRange(rangeKey);
+    setError("");
+
+    void (async () => {
+      try {
+        const next = await fetchProjectHumanSeries(rangeKey);
+        startTransition(() => {
+          setData(next);
+        });
+        setError("");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load project graphs");
+      } finally {
+        setPendingRange(null);
+      }
+    })();
+  };
 
   return (
     <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 shadow-2xl shadow-black/20">
-      <div className="mb-4 flex items-center justify-between gap-4">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-xl font-semibold text-white">Human Visitor Graphs</h2>
-          <p className="text-sm text-white/60">
-            New human-confirmed visitors per project over the last 24 hours.
-          </p>
+          <p className="text-sm text-white/60">{description}</p>
         </div>
-        <div className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-300">
-          Live graphs
+
+        <div className="flex flex-wrap gap-2 text-xs">
+          {RANGE_OPTIONS.map((option) => {
+            const isActive = activeRangeKey === option.key;
+            const isPending = pendingRange === option.key;
+
+            return (
+              <button
+                key={option.key}
+                type="button"
+                onClick={() => loadRange(option.key)}
+                disabled={Boolean(pendingRange)}
+                className={`cursor-pointer rounded-full border px-3 py-1 font-medium transition disabled:cursor-not-allowed ${
+                  isActive
+                    ? "border-sky-400/30 bg-sky-400/10 text-sky-200"
+                    : "border-white/10 bg-black/20 text-white/70 hover:border-white/20 hover:text-white"
+                } ${isPending ? "opacity-70" : ""}`}
+              >
+                {isPending ? `Loading ${option.label}` : option.label}
+              </button>
+            );
+          })}
         </div>
+      </div>
+
+      <div className="mb-4 flex flex-wrap gap-2 text-xs">
+        <div className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 font-medium text-emerald-300">
+          {!data
+            ? "Loading history"
+            : data.coverage_mode === "durable_store"
+              ? "Durable history"
+              : "Live log fallback"}
+        </div>
+        <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
+          {data?.range_label ?? "1 Week"}
+        </div>
+        <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
+          {formatBucketSize(data?.bucket_minutes ?? 180)}
+        </div>
+        {data?.coverage_started_alberta ? (
+          <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
+            Stored since {data.coverage_started_alberta}
+          </div>
+        ) : null}
       </div>
 
       {error ? (
@@ -90,8 +177,16 @@ export default function ProjectHumanGraphs({ pollMs = 15000 }: Props) {
                 </h3>
                 <p className="text-xs text-white/50">Human-confirmed visitor flow</p>
               </div>
-              <div className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-200">
-                Live now: {project.live_humans}
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <div className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-200">
+                  Live now: {project.live_humans}
+                </div>
+                <Link
+                  href={`/projects/${project.slug}`}
+                  className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-medium text-white/70 transition hover:border-white/20 hover:text-white"
+                >
+                  Open project
+                </Link>
               </div>
             </div>
 

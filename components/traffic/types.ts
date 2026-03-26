@@ -251,8 +251,14 @@ export type HumanSeriesProject = {
 export type ProjectHumanSeriesResponse = {
   ok: boolean;
   generated_at: string;
-  window_hours: number;
+  range_key: ProjectGraphRangeKey;
+  range_label: string;
+  window_hours: number | null;
   bucket_minutes: number;
+  coverage_mode: string;
+  coverage_started_at?: string | null;
+  coverage_started_alberta?: string | null;
+  note?: string | null;
   series_kind: string;
   projects: HumanSeriesProject[];
 };

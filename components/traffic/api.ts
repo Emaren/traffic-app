@@ -54,11 +54,10 @@ export async function fetchLiveVisitors(limit = 25): Promise<LiveVisitorsRespons
 }
 
 export async function fetchProjectHumanSeries(
-  windowHours = 24,
-  bucketMinutes = 30,
+  rangeKey: ProjectGraphRangeKey = "24h",
 ): Promise<ProjectHumanSeriesResponse> {
   return fetchJson<ProjectHumanSeriesResponse>(
-    `/api/project-human-series?window_hours=${windowHours}&bucket_minutes=${bucketMinutes}`,
+    `/api/project-human-series?range_key=${rangeKey}`,
   );
 }
 
