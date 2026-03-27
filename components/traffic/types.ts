@@ -355,6 +355,17 @@ export type NotificationMuteRule = {
   created_at: string;
 };
 
+export type NotificationOperatorIdentity = {
+  id: number;
+  rule_type: "person_key" | "visitor_profile_id" | "ip";
+  match_value: string;
+  label: string;
+  notes: string;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type NotificationEventRecord = {
   id: number;
   traffic_event_id: string;
@@ -385,6 +396,7 @@ export type NotificationEventRecord = {
   notification_title: string;
   notification_body: string;
   destination_url: string;
+  operator_identity?: NotificationOperatorIdentity | null;
   details: Record<string, unknown>;
   created_at: string;
   delivered_at?: string | null;
@@ -415,6 +427,7 @@ export type NotificationDashboardResponse = {
       last_success_at?: string | null;
     }>;
   };
+  operators: NotificationOperatorIdentity[];
   mutes: NotificationMuteRule[];
   recent_events: NotificationEventRecord[];
   stats: {

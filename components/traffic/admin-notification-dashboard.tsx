@@ -9,6 +9,7 @@ import type {
   NotificationDashboardResponse,
   NotificationEventRecord,
   NotificationMuteRule,
+  NotificationOperatorIdentity,
   NotificationProviderKey,
   NotificationSettings,
 } from "@/components/traffic/types";
@@ -33,6 +34,10 @@ function formatTimestamp(value: string | null | undefined): string {
 
 function humanizeReason(value: string): string {
   if (!value) return "Allowed";
+  return value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function humanizeRuleType(value: string): string {
   return value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
@@ -268,6 +273,68 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
       match_value: matchValue,
       label,
       reason,
+    });
+  }
+
+  async function createOperatorIdentity(draft: {
+    rule_type: NotificationOperatorIdentity["rule_type"];
+    match_value: string;
+    label: string;
+    notes: string;
+  }) {
+    setBusy("operator");
+    setMessage(null);
+    try {
+      const response = await fetch("/admin-api/notifications/operators", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(draft),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.detail || "Could not save operator identity.");
+      }
+      await refreshDashboard({ quiet: true });
+      setMessage({ tone: "success", text: "Operator identity saved. Self traffic will stay quieter now." });
+    } catch (err) {
+      setMessage({
+        tone: "error",
+        text: err instanceof Error ? err.message : "Could not save operator identity.",
+      });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function deleteOperatorIdentity(operatorId: number) {
+    setBusy(`delete-operator-${operatorId}`);
+    setMessage(null);
+    try {
+      const response = await fetch(`/admin-api/notifications/operators/${operatorId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.detail || "Could not remove operator identity.");
+      }
+      await refreshDashboard({ quiet: true });
+      setMessage({ tone: "success", text: "Operator identity removed." });
+    } catch (err) {
+      setMessage({
+        tone: "error",
+        text: err instanceof Error ? err.message : "Could not remove operator identity.",
+      });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function quickMarkAsMe(event: NotificationEventRecord) {
+    await createOperatorIdentity({
+      rule_type: "person_key",
+      match_value: event.person_key,
+      label: `${event.visitor_alias} self traffic`,
+      notes: "Marked as self traffic from a delivery-log quick action",
     });
   }
 
@@ -859,6 +926,69 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
           <div className="min-w-0 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-5">
             <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Mutes</p>
             <h2 className="mt-2 text-2xl font-semibold text-white">Kill switches</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-300">
+              Mark your own fingerprints first so Traffic knows what is operator activity, then use
+              hard mutes for bots, scanners, or background noise you never want to hear about.
+            </p>
+
+            <div className="mt-5 overflow-hidden rounded-3xl border border-cyan-300/15 bg-cyan-300/5 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-white">Operator identities</p>
+                  <p className="text-sm text-slate-400">
+                    Self-traffic fingerprints that should suppress phone pushes as operator activity.
+                  </p>
+                </div>
+                <div className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-100">
+                  {data.operators.length} tagged
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {data.operators.length === 0 ? (
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/60">
+                    Nothing is tagged as you yet. Use <span className="text-white">Mark as me</span>{" "}
+                    on a delivery-log row when Traffic catches your own fingerprint.
+                  </div>
+                ) : (
+                  data.operators.map((operator) => (
+                    <div
+                      key={operator.id}
+                      className="rounded-2xl border border-white/10 bg-black/20 p-4"
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-100">
+                              Operator
+                            </span>
+                            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/75">
+                              {humanizeRuleType(operator.rule_type)}
+                            </span>
+                            <span className="break-words text-sm font-medium text-white">
+                              {operator.label}
+                            </span>
+                          </div>
+                          <p className="mt-2 break-all font-mono text-xs text-slate-400">
+                            {operator.match_value}
+                          </p>
+                          <p className="mt-2 break-words text-sm text-slate-300">{operator.notes}</p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => void deleteOperatorIdentity(operator.id)}
+                          disabled={busy === `delete-operator-${operator.id}`}
+                          className="w-full cursor-pointer rounded-full border border-rose-400/30 bg-rose-400/10 px-3 py-1 text-xs font-medium text-rose-100 transition hover:bg-rose-400/15 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                        >
+                          Remove self tag
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
 
             <div className="mt-5 grid gap-4">
               <div className="grid gap-4 lg:grid-cols-2">
@@ -1007,6 +1137,11 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                           <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
                             {event.status}
                           </span>
+                          {event.operator_identity ? (
+                            <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-100">
+                              Operator
+                            </span>
+                          ) : null}
                           <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
                             {event.project_name}
                           </span>
@@ -1050,6 +1185,25 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                         >
                           Open visitor
                         </Link>
+                        {event.operator_identity ? (
+                          <button
+                            type="button"
+                            onClick={() => void deleteOperatorIdentity(event.operator_identity!.id)}
+                            disabled={busy === `delete-operator-${event.operator_identity.id}`}
+                            className="cursor-pointer rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs font-medium text-cyan-100 transition hover:bg-cyan-300/15 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            Remove self tag
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => void quickMarkAsMe(event)}
+                            disabled={busy === "operator"}
+                            className="cursor-pointer rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs font-medium text-cyan-100 transition hover:bg-cyan-300/15 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            Mark as me
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() =>
