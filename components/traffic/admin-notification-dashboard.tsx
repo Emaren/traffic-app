@@ -9,7 +9,6 @@ import type {
   NotificationDashboardResponse,
   NotificationEventRecord,
   NotificationMuteRule,
-  NotificationOperatorIdentity,
   NotificationProviderKey,
   NotificationSettings,
 } from "@/components/traffic/types";
@@ -276,36 +275,6 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
     });
   }
 
-  async function createOperatorIdentity(draft: {
-    rule_type: NotificationOperatorIdentity["rule_type"];
-    match_value: string;
-    label: string;
-    notes: string;
-  }) {
-    setBusy("operator");
-    setMessage(null);
-    try {
-      const response = await fetch("/admin-api/notifications/operators", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(draft),
-      });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null);
-        throw new Error(payload?.detail || "Could not save operator identity.");
-      }
-      await refreshDashboard({ quiet: true });
-      setMessage({ tone: "success", text: "Operator identity saved. Self traffic will stay quieter now." });
-    } catch (err) {
-      setMessage({
-        tone: "error",
-        text: err instanceof Error ? err.message : "Could not save operator identity.",
-      });
-    } finally {
-      setBusy(null);
-    }
-  }
-
   async function deleteOperatorIdentity(operatorId: number) {
     setBusy(`delete-operator-${operatorId}`);
     setMessage(null);
@@ -327,15 +296,6 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
     } finally {
       setBusy(null);
     }
-  }
-
-  async function quickMarkAsMe(event: NotificationEventRecord) {
-    await createOperatorIdentity({
-      rule_type: "person_key",
-      match_value: event.person_key,
-      label: `${event.visitor_alias} self traffic`,
-      notes: "Marked as self traffic from a delivery-log quick action",
-    });
   }
 
   if (!data || !settings) {
@@ -928,8 +888,8 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
             <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Mutes</p>
             <h2 className="mt-2 text-2xl font-semibold text-white">Kill switches</h2>
             <p className="mt-2 text-sm leading-6 text-slate-300">
-              Mark your own fingerprints first so Traffic knows what is operator activity, then use
-              hard mutes for bots, scanners, or background noise you never want to hear about.
+              Operator identities stay visible here so Traffic can recognize self traffic, and hard
+              mutes handle bots, scanners, or background noise you never want to hear about.
             </p>
 
             <div className="mt-5 overflow-hidden rounded-3xl border border-cyan-300/15 bg-cyan-300/5 p-4">
@@ -948,8 +908,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
               <div className="mt-4 space-y-3">
                 {data.operators.length === 0 ? (
                   <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/60">
-                    Nothing is tagged as you yet. Use <span className="text-white">Mark as me</span>{" "}
-                    on a delivery-log row when Traffic catches your own fingerprint.
+                    No operator identities are tagged right now.
                   </div>
                 ) : (
                   data.operators.map((operator) => (
@@ -1201,16 +1160,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                           >
                             Remove self tag
                           </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => void quickMarkAsMe(event)}
-                            disabled={busy === "operator"}
-                            className="cursor-pointer rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs font-medium text-cyan-100 transition hover:bg-cyan-300/15 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            Mark as me
-                          </button>
-                        )}
+                        ) : null}
                         <button
                           type="button"
                           onClick={() =>
