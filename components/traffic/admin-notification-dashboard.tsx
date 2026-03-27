@@ -281,7 +281,29 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
     );
   }
 
-  const selectedProjects = new Set(settings.policy.selected_projects);
+  const allProjectSlugs = data.projects.map((project) => project.slug);
+  const projectScopeIsWideOpen = settings.policy.selected_projects.length === 0;
+  const selectedProjects = new Set(
+    projectScopeIsWideOpen
+      ? allProjectSlugs
+      : settings.policy.selected_projects.filter((slug) => allProjectSlugs.includes(slug)),
+  );
+  const allProjectsSelected = selectedProjects.size === allProjectSlugs.length;
+
+  function updateSelectedProjects(next: Set<string>) {
+    const ordered = allProjectSlugs.filter((slug) => next.has(slug));
+    setSettings((current) =>
+      current
+        ? {
+            ...current,
+            policy: {
+              ...current.policy,
+              selected_projects: ordered.length === allProjectSlugs.length ? [] : ordered,
+            },
+          }
+        : current,
+    );
+  }
 
   return (
     <main className="min-h-screen overflow-x-clip bg-[#06070a] text-slate-100">
@@ -764,27 +786,37 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                     Leave everything selected for wide-open mode, or trim it to a few projects.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSettings({
-                      ...settings,
-                      policy: {
-                        ...settings.policy,
-                        selected_projects:
-                          settings.policy.selected_projects.length === data.projects.length
-                            ? []
-                            : data.projects.map((project) => project.slug),
-                      },
-                    })
-                  }
-                  className="cursor-pointer rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-white/75 transition hover:bg-white/10"
-                >
-                  {settings.policy.selected_projects.length === data.projects.length
-                    ? "Clear project filter"
-                    : "Select all"}
-                </button>
+                <div className="min-w-0 flex flex-wrap items-center gap-2">
+                  <div className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-100">
+                    {projectScopeIsWideOpen
+                      ? "Wide-open mode: every project is currently included."
+                      : `${selectedProjects.size} of ${allProjectSlugs.length} projects included.`}
+                  </div>
+                  {!projectScopeIsWideOpen ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSettings({
+                          ...settings,
+                          policy: {
+                            ...settings.policy,
+                            selected_projects: [],
+                          },
+                        })
+                      }
+                      className="cursor-pointer rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-white/75 transition hover:bg-white/10"
+                    >
+                      Include every project
+                    </button>
+                  ) : null}
+                </div>
               </div>
+
+              <p className="mt-3 text-xs leading-6 text-slate-500">
+                Project scope changes are saved with the rest of the notification settings. In
+                wide-open mode, Traffic stores an empty project list internally, but every project
+                stays visually selected here.
+              </p>
 
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {data.projects.map((project) => (
@@ -796,25 +828,29 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                       type="checkbox"
                       checked={selectedProjects.has(project.slug)}
                       onChange={(event) => {
-                        const next = new Set(settings.policy.selected_projects);
+                        const next = new Set(projectScopeIsWideOpen ? allProjectSlugs : selectedProjects);
                         if (event.target.checked) {
                           next.add(project.slug);
                         } else {
                           next.delete(project.slug);
                         }
-                        setSettings({
-                          ...settings,
-                          policy: {
-                            ...settings.policy,
-                            selected_projects: Array.from(next),
-                          },
-                        });
+                        updateSelectedProjects(next);
                       }}
                     />
                     <span className="min-w-0 break-words text-sm text-white">{project.name}</span>
                   </label>
                 ))}
               </div>
+
+              {!allProjectsSelected ? (
+                <button
+                  type="button"
+                  onClick={() => updateSelectedProjects(new Set(allProjectSlugs))}
+                  className="mt-4 cursor-pointer rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-white/75 transition hover:bg-white/10"
+                >
+                  Select every listed project
+                </button>
+              ) : null}
             </div>
           </div>
         </section>
