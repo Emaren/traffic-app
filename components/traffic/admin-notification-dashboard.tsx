@@ -284,11 +284,11 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
   const selectedProjects = new Set(settings.policy.selected_projects);
 
   return (
-    <main className="min-h-screen bg-[#06070a] text-slate-100">
+    <main className="min-h-screen overflow-x-clip bg-[#06070a] text-slate-100">
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-        <header className="rounded-[32px] border border-cyan-400/20 bg-[linear-gradient(180deg,rgba(34,211,238,0.08),rgba(255,255,255,0.03))] p-6 shadow-[0_25px_80px_rgba(0,0,0,0.45)]">
+        <header className="overflow-hidden rounded-[32px] border border-cyan-400/20 bg-[linear-gradient(180deg,rgba(34,211,238,0.08),rgba(255,255,255,0.03))] p-5 shadow-[0_25px_80px_rgba(0,0,0,0.45)] sm:p-6">
           <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-            <div>
+            <div className="min-w-0">
               <p className="text-xs uppercase tracking-[0.28em] text-cyan-200/80">Traffic Admin</p>
               <h1 className="mt-3 text-4xl font-semibold tracking-tight text-white">
                 Visitor notification cockpit
@@ -299,7 +299,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="min-w-0 flex flex-wrap items-center gap-2">
               <div className={`rounded-full border px-3 py-1 text-xs font-medium ${loopTone(data.loop.mode)}`}>
                 Loop: {data.loop.mode || "booting"}
               </div>
@@ -367,13 +367,13 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
           className="mt-6 grid gap-6 xl:grid-cols-[1.05fr_0.95fr]"
           onChangeCapture={() => setHasLocalEdits(true)}
         >
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
+          <div className="min-w-0 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+              <div className="min-w-0">
                 <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Provider</p>
                 <h2 className="mt-2 text-2xl font-semibold text-white">Delivery lane</h2>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="min-w-0 flex flex-wrap items-center gap-2">
                 {hasLocalEdits ? (
                   <div className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-100">
                     Unsaved edits held locally
@@ -393,7 +393,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
             ) : null}
 
             <div className="mt-5 grid gap-4 md:grid-cols-2">
-              <label className="grid gap-2">
+              <label className="grid min-w-0 gap-2">
                 <span className="text-xs uppercase tracking-[0.18em] text-slate-400">Provider</span>
                 <select
                   value={settings.provider}
@@ -403,7 +403,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                       provider: event.target.value as NotificationProviderKey,
                     })
                   }
-                  className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
+                  className="w-full min-w-0 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
                 >
                   <option value="pushover">Pushover</option>
                   <option value="ntfy">ntfy</option>
@@ -411,7 +411,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                 </select>
               </label>
 
-              <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+              <label className="flex min-w-0 items-center gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
                 <input
                   type="checkbox"
                   checked={settings.enabled}
@@ -427,7 +427,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
 
               {settings.provider === "pushover" ? (
                 <>
-                  <label className="grid gap-2">
+                  <label className="grid min-w-0 gap-2">
                     <span className="text-xs uppercase tracking-[0.18em] text-slate-400">App token</span>
                     <input
                       value={settings.providers.pushover.app_token}
@@ -443,12 +443,12 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                           },
                         })
                       }
-                      className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
+                      className="w-full min-w-0 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
                       placeholder="Your Pushover app token"
                     />
                   </label>
 
-                  <label className="grid gap-2">
+                  <label className="grid min-w-0 gap-2">
                     <span className="text-xs uppercase tracking-[0.18em] text-slate-400">User key</span>
                     <input
                       value={settings.providers.pushover.user_key}
@@ -464,12 +464,12 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                           },
                         })
                       }
-                      className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
+                      className="w-full min-w-0 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
                       placeholder="Your Pushover user key"
                     />
                   </label>
 
-                  <label className="grid gap-2">
+                  <label className="grid min-w-0 gap-2">
                     <span className="text-xs uppercase tracking-[0.18em] text-slate-400">Device</span>
                     <input
                       value={settings.providers.pushover.device}
@@ -485,12 +485,12 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                           },
                         })
                       }
-                      className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
+                      className="w-full min-w-0 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
                       placeholder="Optional device name"
                     />
                   </label>
 
-                  <label className="grid gap-2">
+                  <label className="grid min-w-0 gap-2">
                     <span className="text-xs uppercase tracking-[0.18em] text-slate-400">Priority</span>
                     <input
                       type="number"
@@ -509,13 +509,13 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                           },
                         })
                       }
-                      className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
+                      className="w-full min-w-0 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
                     />
                   </label>
                 </>
               ) : settings.provider === "ntfy" ? (
                 <>
-                  <label className="grid gap-2">
+                  <label className="grid min-w-0 gap-2">
                     <span className="text-xs uppercase tracking-[0.18em] text-slate-400">Base URL</span>
                     <input
                       value={settings.providers.ntfy.base_url}
@@ -531,12 +531,12 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                           },
                         })
                       }
-                      className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
+                      className="w-full min-w-0 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
                       placeholder="https://ntfy.sh"
                     />
                   </label>
 
-                  <label className="grid gap-2">
+                  <label className="grid min-w-0 gap-2">
                     <span className="text-xs uppercase tracking-[0.18em] text-slate-400">Topic</span>
                     <input
                       value={settings.providers.ntfy.topic}
@@ -552,12 +552,12 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                           },
                         })
                       }
-                      className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
+                      className="w-full min-w-0 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
                       placeholder="traffic-tony"
                     />
                   </label>
 
-                  <label className="grid gap-2">
+                  <label className="grid min-w-0 gap-2">
                     <span className="text-xs uppercase tracking-[0.18em] text-slate-400">Bearer token</span>
                     <input
                       value={settings.providers.ntfy.token}
@@ -573,12 +573,12 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                           },
                         })
                       }
-                      className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
+                      className="w-full min-w-0 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
                       placeholder="Optional ntfy bearer token"
                     />
                   </label>
 
-                  <label className="grid gap-2">
+                  <label className="grid min-w-0 gap-2">
                     <span className="text-xs uppercase tracking-[0.18em] text-slate-400">Tags</span>
                     <input
                       value={settings.providers.ntfy.tags}
@@ -594,7 +594,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                           },
                         })
                       }
-                      className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
+                      className="w-full min-w-0 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
                       placeholder="traffic,eyes"
                     />
                   </label>
@@ -611,7 +611,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                 </div>
               )}
 
-              <label className="grid gap-2 md:col-span-2">
+              <label className="grid min-w-0 gap-2 md:col-span-2">
                 <span className="text-xs uppercase tracking-[0.18em] text-slate-400">Base link in notifications</span>
                 <input
                   value={settings.site_base_url}
@@ -621,18 +621,18 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                       site_base_url: event.target.value,
                     })
                   }
-                  className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
+                  className="w-full min-w-0 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
                   placeholder="https://traffic.tokentap.ca"
                 />
               </label>
             </div>
 
-            <div className="mt-5 flex flex-wrap gap-3">
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <button
                 type="button"
                 onClick={() => void saveSettings()}
                 disabled={busy === "save"}
-                className="cursor-pointer rounded-2xl border border-cyan-300/30 bg-cyan-300/10 px-4 py-3 text-sm font-medium text-cyan-100 transition hover:bg-cyan-300/15 disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full cursor-pointer rounded-2xl border border-cyan-300/30 bg-cyan-300/10 px-4 py-3 text-sm font-medium text-cyan-100 transition hover:bg-cyan-300/15 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
               >
                 {busy === "save" ? "Saving..." : "Save delivery settings"}
               </button>
@@ -640,7 +640,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                 type="button"
                 onClick={() => void sendTest()}
                 disabled={busy === "test"}
-                className="cursor-pointer rounded-2xl border border-emerald-300/30 bg-emerald-300/10 px-4 py-3 text-sm font-medium text-emerald-100 transition hover:bg-emerald-300/15 disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full cursor-pointer rounded-2xl border border-emerald-300/30 bg-emerald-300/10 px-4 py-3 text-sm font-medium text-emerald-100 transition hover:bg-emerald-300/15 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
               >
                 {busy === "test" ? "Sending..." : "Send test notification"}
               </button>
@@ -654,7 +654,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
             />
           </div>
 
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+          <div className="min-w-0 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-5">
             <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Policy</p>
             <h2 className="mt-2 text-2xl font-semibold text-white">Tighten the faucet</h2>
 
@@ -673,7 +673,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                 return (
                   <label
                     key={key}
-                    className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3"
+                    className="flex min-w-0 items-start gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3"
                   >
                     <input
                       type="checkbox"
@@ -694,8 +694,8 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
               })}
             </div>
 
-            <div className="mt-5 grid gap-4 md:grid-cols-3">
-              <label className="grid gap-2">
+            <div className="mt-5 grid gap-4 lg:grid-cols-3">
+              <label className="grid min-w-0 gap-2">
                 <span className="text-xs uppercase tracking-[0.18em] text-slate-400">Per visitor / hour</span>
                 <input
                   type="number"
@@ -710,11 +710,11 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                       },
                     })
                   }
-                  className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
+                  className="w-full min-w-0 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
                 />
               </label>
 
-              <label className="grid gap-2">
+              <label className="grid min-w-0 gap-2">
                 <span className="text-xs uppercase tracking-[0.18em] text-slate-400">Per session</span>
                 <input
                   type="number"
@@ -729,11 +729,11 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                       },
                     })
                   }
-                  className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
+                  className="w-full min-w-0 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
                 />
               </label>
 
-              <label className="grid gap-2">
+              <label className="grid min-w-0 gap-2">
                 <span className="text-xs uppercase tracking-[0.18em] text-slate-400">Same path / hour</span>
                 <input
                   type="number"
@@ -750,14 +750,14 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                       },
                     })
                   }
-                  className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
+                  className="w-full min-w-0 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
                 />
               </label>
             </div>
 
-            <div className="mt-5 rounded-3xl border border-white/10 bg-black/20 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
+            <div className="mt-5 overflow-hidden rounded-3xl border border-white/10 bg-black/20 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                <div className="min-w-0">
                   <p className="text-sm font-medium text-white">Project scope</p>
                   <p className="text-sm text-slate-400">
                     Leave everything selected for wide-open mode, or trim it to a few projects.
@@ -789,7 +789,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                 {data.projects.map((project) => (
                   <label
                     key={project.slug}
-                    className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3"
+                    className="flex min-w-0 items-center gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3"
                   >
                     <input
                       type="checkbox"
@@ -810,7 +810,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                         });
                       }}
                     />
-                    <span className="text-sm text-white">{project.name}</span>
+                    <span className="min-w-0 break-words text-sm text-white">{project.name}</span>
                   </label>
                 ))}
               </div>
@@ -819,13 +819,13 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
         </section>
 
         <section className="mt-6 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+          <div className="min-w-0 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-5">
             <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Mutes</p>
             <h2 className="mt-2 text-2xl font-semibold text-white">Kill switches</h2>
 
             <div className="mt-5 grid gap-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="grid gap-2">
+              <div className="grid gap-4 lg:grid-cols-2">
+                <label className="grid min-w-0 gap-2">
                   <span className="text-xs uppercase tracking-[0.18em] text-slate-400">Rule type</span>
                   <select
                     value={muteDraft.rule_type}
@@ -835,7 +835,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                         rule_type: event.target.value as MuteDraft["rule_type"],
                       })
                     }
-                    className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
+                    className="w-full min-w-0 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
                   >
                     <option value="person_key">Visitor fingerprint</option>
                     <option value="visitor_profile_id">Visitor profile</option>
@@ -846,7 +846,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                   </select>
                 </label>
 
-                <label className="grid gap-2">
+                <label className="grid min-w-0 gap-2">
                   <span className="text-xs uppercase tracking-[0.18em] text-slate-400">Match value</span>
                   <input
                     value={muteDraft.match_value}
@@ -856,12 +856,12 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                         match_value: event.target.value,
                       })
                     }
-                    className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
+                    className="w-full min-w-0 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
                     placeholder="Exact value to mute"
                   />
                 </label>
 
-                <label className="grid gap-2">
+                <label className="grid min-w-0 gap-2">
                   <span className="text-xs uppercase tracking-[0.18em] text-slate-400">Label</span>
                   <input
                     value={muteDraft.label}
@@ -871,12 +871,12 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                         label: event.target.value,
                       })
                     }
-                    className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
+                    className="w-full min-w-0 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
                     placeholder="What you want to call this mute"
                   />
                 </label>
 
-                <label className="grid gap-2">
+                <label className="grid min-w-0 gap-2">
                   <span className="text-xs uppercase tracking-[0.18em] text-slate-400">Reason</span>
                   <input
                     value={muteDraft.reason}
@@ -886,7 +886,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                         reason: event.target.value,
                       })
                     }
-                    className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
+                    className="w-full min-w-0 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none transition focus:border-cyan-300/40"
                     placeholder="Why this should stay quiet"
                   />
                 </label>
@@ -913,25 +913,25 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                     key={mute.id}
                     className="rounded-2xl border border-white/10 bg-black/20 p-4"
                   >
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/75">
                             {mute.rule_type}
                           </span>
-                          <span className="text-sm font-medium text-white">{mute.label}</span>
+                          <span className="break-words text-sm font-medium text-white">{mute.label}</span>
                         </div>
                         <p className="mt-2 break-all font-mono text-xs text-slate-400">
                           {mute.match_value}
                         </p>
-                        <p className="mt-2 text-sm text-slate-300">{mute.reason}</p>
+                        <p className="mt-2 break-words text-sm text-slate-300">{mute.reason}</p>
                       </div>
 
                       <button
                         type="button"
                         onClick={() => void deleteMute(mute.id)}
                         disabled={busy === `delete-mute-${mute.id}`}
-                        className="cursor-pointer rounded-full border border-rose-400/30 bg-rose-400/10 px-3 py-1 text-xs font-medium text-rose-100 transition hover:bg-rose-400/15 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="w-full cursor-pointer rounded-full border border-rose-400/30 bg-rose-400/10 px-3 py-1 text-xs font-medium text-rose-100 transition hover:bg-rose-400/15 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                       >
                         Remove
                       </button>
@@ -942,9 +942,9 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
+          <div className="min-w-0 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+              <div className="min-w-0">
                 <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Delivery log</p>
                 <h2 className="mt-2 text-2xl font-semibold text-white">What Traffic just did</h2>
               </div>
@@ -964,7 +964,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                     key={`${event.traffic_event_id}-${event.id}`}
                     className={`rounded-3xl border p-4 ${eventTone(event.status)}`}
                   >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
@@ -978,13 +978,13 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                           </span>
                         </div>
 
-                        <h3 className="mt-3 text-lg font-semibold text-white">
+                        <h3 className="mt-3 break-words text-lg font-semibold text-white">
                           {withFlag(event.country_code, event.visitor_alias)}
                         </h3>
                         <p className="mt-1 break-all font-mono text-sm text-slate-300">
                           {event.path}
                         </p>
-                        <p className="mt-2 text-sm text-slate-400">
+                        <p className="mt-2 break-words text-sm text-slate-400">
                           {event.event_timestamp_alberta} • IP {event.ip} •{" "}
                           {event.returning_visitor ? "Returning" : "New"} • Total Project Visits{" "}
                           {event.total_project_visits}
@@ -992,7 +992,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
 
                         <div className="mt-3 rounded-2xl border border-white/10 bg-black/20 p-3 text-sm text-white/80">
                           <p className="font-medium text-white">{event.notification_title}</p>
-                          <p className="mt-2 whitespace-pre-line text-slate-300">
+                          <p className="mt-2 whitespace-pre-line break-words text-slate-300">
                             {event.notification_body}
                           </p>
                         </div>
@@ -1006,10 +1006,10 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                         ) : null}
                       </div>
 
-                      <div className="flex flex-wrap gap-2">
+                      <div className="grid w-full gap-2 sm:flex sm:flex-wrap lg:w-auto">
                         <Link
                           href={`/visitors/${event.visitor_profile_id}`}
-                          className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1 text-xs font-medium text-cyan-100 transition hover:bg-cyan-300/15"
+                          className="inline-flex justify-center rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1 text-xs font-medium text-cyan-100 transition hover:bg-cyan-300/15"
                         >
                           Open visitor
                         </Link>

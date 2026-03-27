@@ -234,9 +234,9 @@ export default function AdminWebPushCard({ webPush, selected, busy, onRefresh }:
   }
 
   return (
-    <div className="mt-5 rounded-3xl border border-white/10 bg-black/20 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+    <div className="mt-5 overflow-hidden rounded-3xl border border-white/10 bg-black/20 p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <p className="text-sm font-medium text-white">Traffic native web push</p>
           <p className="mt-1 text-sm leading-6 text-slate-400">
             This is the direct-open lane. When the Traffic app is installed and subscribed, taps
@@ -249,7 +249,7 @@ export default function AdminWebPushCard({ webPush, selected, busy, onRefresh }:
         </div>
       </div>
 
-      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
           <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Server keys</p>
           <p className="mt-2 text-sm font-medium text-white">
@@ -279,7 +279,7 @@ export default function AdminWebPushCard({ webPush, selected, busy, onRefresh }:
         </div>
       ) : null}
 
-      <div className="mt-4 flex flex-wrap gap-3">
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <button
           type="button"
           onClick={() => void enableCurrentDevice()}
@@ -290,7 +290,7 @@ export default function AdminWebPushCard({ webPush, selected, busy, onRefresh }:
             !deviceState.supported ||
             (iphoneLike && !deviceState.installed)
           }
-          className="cursor-pointer rounded-2xl border border-cyan-300/30 bg-cyan-300/10 px-4 py-3 text-sm font-medium text-cyan-100 transition hover:bg-cyan-300/15 disabled:cursor-not-allowed disabled:opacity-60"
+          className="w-full cursor-pointer rounded-2xl border border-cyan-300/30 bg-cyan-300/10 px-4 py-3 text-sm font-medium text-cyan-100 transition hover:bg-cyan-300/15 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
           {working === "enable" ? "Enabling native alerts..." : "Enable on this device"}
         </button>
@@ -298,7 +298,7 @@ export default function AdminWebPushCard({ webPush, selected, busy, onRefresh }:
           type="button"
           onClick={() => void disableCurrentDevice()}
           disabled={busy || working === "disable" || !deviceState.currentSubscriptionId}
-          className="cursor-pointer rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white/80 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+          className="w-full cursor-pointer rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white/80 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
           {working === "disable" ? "Removing device..." : "Remove this device"}
         </button>
@@ -323,12 +323,12 @@ export default function AdminWebPushCard({ webPush, selected, busy, onRefresh }:
               key={subscription.id}
               className="rounded-2xl border border-white/10 bg-black/20 p-4"
             >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                <div className="min-w-0">
                   <p className="text-sm font-medium text-white">
                     {subscription.device_label || "Traffic device"}
                   </p>
-                  <p className="mt-1 text-xs text-slate-400">
+                  <p className="mt-1 break-all text-xs text-slate-400">
                     Endpoint tail: {subscription.endpoint_tail || "unknown"}
                   </p>
                 </div>
@@ -342,7 +342,9 @@ export default function AdminWebPushCard({ webPush, selected, busy, onRefresh }:
                 {subscription.last_success_at ? (
                   <p>Last success {new Date(subscription.last_success_at).toLocaleString()}</p>
                 ) : null}
-                {subscription.last_error ? <p>Last error: {subscription.last_error}</p> : null}
+                {subscription.last_error ? (
+                  <p className="break-words">Last error: {subscription.last_error}</p>
+                ) : null}
               </div>
             </div>
           ))
