@@ -213,6 +213,11 @@ export type LiveProjectCount = {
   active_now: number;
 };
 
+export type ProjectFilterOption = {
+  slug: string;
+  name: string;
+};
+
 export type LiveVisitorsResponse = {
   ok: boolean;
   generated_at: string;
@@ -221,6 +226,7 @@ export type LiveVisitorsResponse = {
   history_count: number;
   stream_total: number;
   stream_items: SessionRecord[];
+  available_projects: ProjectFilterOption[];
   project_counts: LiveProjectCount[];
   top_25: SessionRecord[];
   history_preview: SessionRecord[];
@@ -293,6 +299,7 @@ export type VisitsHistoryResponse = {
   offset: number;
   limit: number;
   total: number;
+  available_projects: ProjectFilterOption[];
   items: SessionRecord[];
 };
 

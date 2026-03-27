@@ -55,8 +55,13 @@ export async function fetchOverviewRange(
   return fetchJson<OverviewResponse>(`/api/overview?range_key=${rangeKey}`);
 }
 
-export async function fetchLiveVisitors(limit = 25): Promise<LiveVisitorsResponse> {
-  return fetchJson<LiveVisitorsResponse>(`/api/live-visitors?limit=${limit}`);
+export async function fetchLiveVisitors(
+  limit = 25,
+  historyLimit = 95,
+): Promise<LiveVisitorsResponse> {
+  return fetchJson<LiveVisitorsResponse>(
+    `/api/live-visitors?limit=${limit}&history_limit=${historyLimit}`,
+  );
 }
 
 export async function fetchProjectHumanSeries(
@@ -163,6 +168,7 @@ export async function fetchVisitsHistory(params?: {
   offset?: number;
   classification?: string;
   project?: string;
+  projects?: string[];
   rangeKey?: HistoryRangeKey;
 }): Promise<VisitsHistoryResponse> {
   const search = new URLSearchParams();
@@ -170,7 +176,8 @@ export async function fetchVisitsHistory(params?: {
   if (params?.limit) search.set("limit", String(params.limit));
   if (params?.offset) search.set("offset", String(params.offset));
   if (params?.classification) search.set("classification", params.classification);
-  if (params?.project) search.set("project", params.project);
+  if (params?.projects?.length) search.set("projects", params.projects.join(","));
+  else if (params?.project) search.set("project", params.project);
   if (params?.rangeKey) search.set("range_key", params.rangeKey);
 
   const query = search.toString();

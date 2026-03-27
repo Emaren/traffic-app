@@ -9,6 +9,7 @@ type Props = {
   showProjectBadge?: boolean;
   showProjectLink?: boolean;
   showVisitorLink?: boolean;
+  density?: "full" | "compact";
 };
 
 function formatSeconds(total: number): string {
@@ -40,18 +41,24 @@ export default function LiveVisitorStreamRow({
   showProjectBadge = true,
   showProjectLink = true,
   showVisitorLink = true,
+  density = "full",
 }: Props) {
   const journey =
     session.entry_page === session.current_page
       ? session.current_page
       : `${session.entry_page} -> ${session.current_page}`;
 
+  const visitorLabel = withFlag(session.country_code, session.visitor_alias);
+  const metaLine = `${session.city || "Unknown city"}${session.area ? `, ${session.area}` : ""}${
+    session.country ? `, ${session.country}` : ""
+  }`;
+
   return (
     <details className="group rounded-2xl border border-white/10 bg-black/20 transition open:bg-black/30">
       <summary className="cursor-pointer list-none px-4 py-3 [&::-webkit-details-marker]:hidden">
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2 text-xs">
+        {density === "compact" ? (
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2 text-[11px]">
               <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-white/70">
                 {session.last_seen_alberta}
               </span>
@@ -74,47 +81,94 @@ export default function LiveVisitorStreamRow({
               ) : null}
             </div>
 
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
               {showVisitorLink ? (
                 <Link
                   href={`/visitors/${session.visitor_profile_id}`}
-                  className="text-base font-semibold text-white transition hover:text-sky-200"
+                  className="font-semibold text-white transition hover:text-sky-200"
                 >
-                  {withFlag(session.country_code, session.visitor_alias)}
+                  {visitorLabel}
                 </Link>
               ) : (
-                <span className="text-base font-semibold text-white">
-                  {withFlag(session.country_code, session.visitor_alias)}
-                </span>
+                <span className="font-semibold text-white">{visitorLabel}</span>
               )}
-              <span className="font-mono text-xs text-white/55">IP {session.ip}</span>
-            </div>
-
-            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-white/55">
-              <span>
-                {session.city || "Unknown city"}
-                {session.area ? `, ${session.area}` : ""}
-                {session.country ? `, ${session.country}` : ""}
-              </span>
-              <span>
-                {session.device} • {session.os} • {session.browser}
+              <span className="font-mono text-[11px] text-white/50">{session.ip}</span>
+              <span className="text-white/50">{metaLine}</span>
+              <span className="text-white/50">
+                {session.device} • {session.browser}
               </span>
             </div>
 
-            <div className="mt-2 font-mono text-xs text-sky-100/70 break-all">
-              {journey}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/60">
+              <span className="font-mono text-sky-100/70">{journey}</span>
+              <span>{session.page_count} pages</span>
+              <span>{session.event_count} events</span>
+              <span>Returned {session.times_returned_in_project}</span>
+              <span>Total visits {session.total_project_visits}</span>
             </div>
           </div>
+        ) : (
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-white/70">
+                  {session.last_seen_alberta}
+                </span>
+                {showProjectBadge ? (
+                  <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-white/70">
+                    {session.project_name}
+                  </span>
+                ) : null}
+                <span
+                  className={`rounded-full border px-2.5 py-1 font-medium ${verdictClass(
+                    session.classification_state,
+                  )}`}
+                >
+                  {session.verdict_label}
+                </span>
+                {session.active_now ? (
+                  <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 font-medium text-emerald-200">
+                    Active now
+                  </span>
+                ) : null}
+              </div>
 
-          <div className="flex flex-wrap gap-2 text-xs lg:justify-end">
-            <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 font-medium text-amber-200">
-              Times Returned: {session.times_returned_in_project}
-            </span>
-            <span className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 font-medium text-sky-200">
-              Total Project Visits: {session.total_project_visits}
-            </span>
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                {showVisitorLink ? (
+                  <Link
+                    href={`/visitors/${session.visitor_profile_id}`}
+                    className="text-base font-semibold text-white transition hover:text-sky-200"
+                  >
+                    {visitorLabel}
+                  </Link>
+                ) : (
+                  <span className="text-base font-semibold text-white">{visitorLabel}</span>
+                )}
+                <span className="font-mono text-xs text-white/55">IP {session.ip}</span>
+              </div>
+
+              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-white/55">
+                <span>{metaLine}</span>
+                <span>
+                  {session.device} • {session.os} • {session.browser}
+                </span>
+              </div>
+
+              <div className="mt-2 font-mono text-xs text-sky-100/70 break-all">
+                {journey}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 text-xs lg:justify-end">
+              <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 font-medium text-amber-200">
+                Times Returned: {session.times_returned_in_project}
+              </span>
+              <span className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 font-medium text-sky-200">
+                Total Project Visits: {session.total_project_visits}
+              </span>
+            </div>
           </div>
-        </div>
+        )}
       </summary>
 
       <div className="border-t border-white/10 px-4 py-4">

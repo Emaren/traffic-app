@@ -5,9 +5,19 @@ import { fetchVisitsHistory } from "@/components/traffic/api";
 import { withFlag } from "@/components/traffic/display";
 import type {
   HistoryRangeKey,
+  ProjectFilterOption,
   SessionRecord,
   VisitsHistoryResponse,
 } from "@/components/traffic/types";
+import {
+  loadStoredString,
+  loadStoredStringArray,
+  reconcileSelectedValues,
+  storeString,
+  storeStringArray,
+  TRAFFIC_HISTORY_CLASSIFICATION_KEY,
+  TRAFFIC_SHARED_PROJECT_FILTER_KEY,
+} from "@/components/traffic/view-preferences";
 
 const PAGE_SIZE = 25;
 const POLL_MS = 15000;
@@ -57,6 +67,12 @@ function dataConfidenceClass(label: string): string {
     default:
       return "border-slate-500/30 bg-slate-500/10 text-slate-200";
   }
+}
+
+function pillClass(isActive: boolean): string {
+  return isActive
+    ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+    : "border-white/10 bg-black/20 text-white/65 hover:border-white/20 hover:text-white";
 }
 
 function MobileVisitCard({
@@ -170,11 +186,50 @@ export default function VisitsHistoryTable() {
   const [error, setError] = useState("");
   const [offset, setOffset] = useState(0);
   const [rangeKey, setRangeKey] = useState<HistoryRangeKey>("all");
-  const [classification, setClassification] = useState("");
-  const [project, setProject] = useState("");
+  const [classification, setClassification] = useState(() =>
+    loadStoredString(TRAFFIC_HISTORY_CLASSIFICATION_KEY),
+  );
+  const [selectedProjects, setSelectedProjects] = useState<string[]>(() =>
+    loadStoredStringArray(TRAFFIC_SHARED_PROJECT_FILTER_KEY),
+  );
   const [freshIds, setFreshIds] = useState<string[]>([]);
   const previousIdsRef = useRef<string[]>([]);
   const clearFreshTimerRef = useRef<number | null>(null);
+
+  const availableProjects = useMemo<ProjectFilterOption[]>(
+    () => data?.available_projects ?? [],
+    [data?.available_projects],
+  );
+  const availableProjectSlugs = useMemo(
+    () => availableProjects.map((project) => project.slug),
+    [availableProjects],
+  );
+  const effectiveSelectedProjects = useMemo(
+    () => reconcileSelectedValues(selectedProjects, availableProjectSlugs),
+    [availableProjectSlugs, selectedProjects],
+  );
+  const appliedProjects = useMemo(() => {
+    if (availableProjectSlugs.length === 0) return undefined;
+    if (
+      effectiveSelectedProjects.length === 0 ||
+      effectiveSelectedProjects.length === availableProjectSlugs.length
+    ) {
+      return undefined;
+    }
+    return effectiveSelectedProjects;
+  }, [availableProjectSlugs.length, effectiveSelectedProjects]);
+  const allProjectsSelected =
+    availableProjectSlugs.length > 0 &&
+    effectiveSelectedProjects.length === availableProjectSlugs.length;
+
+  useEffect(() => {
+    storeString(TRAFFIC_HISTORY_CLASSIFICATION_KEY, classification);
+  }, [classification]);
+
+  useEffect(() => {
+    if (availableProjectSlugs.length === 0) return;
+    storeStringArray(TRAFFIC_SHARED_PROJECT_FILTER_KEY, effectiveSelectedProjects);
+  }, [availableProjectSlugs.length, effectiveSelectedProjects]);
 
   useEffect(() => {
     let mounted = true;
@@ -185,7 +240,7 @@ export default function VisitsHistoryTable() {
           limit: PAGE_SIZE,
           offset,
           classification: classification || undefined,
-          project: project || undefined,
+          projects: appliedProjects,
           rangeKey,
         });
 
@@ -225,7 +280,7 @@ export default function VisitsHistoryTable() {
         window.clearTimeout(clearFreshTimerRef.current);
       }
     };
-  }, [offset, classification, project, rangeKey]);
+  }, [appliedProjects, classification, offset, rangeKey]);
 
   const totalPages = useMemo(() => {
     if (!data) return 1;
@@ -234,6 +289,21 @@ export default function VisitsHistoryTable() {
 
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
   const items: SessionRecord[] = data?.items ?? [];
+
+  const toggleProject = (slug: string) => {
+    setOffset(0);
+    previousIdsRef.current = [];
+    setFreshIds([]);
+    setSelectedProjects((current) => {
+      const currentSet = new Set(reconcileSelectedValues(current, availableProjectSlugs));
+      if (currentSet.has(slug)) {
+        currentSet.delete(slug);
+      } else {
+        currentSet.add(slug);
+      }
+      return reconcileSelectedValues([...currentSet], availableProjectSlugs);
+    });
+  };
 
   return (
     <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 shadow-2xl shadow-black/20">
@@ -277,50 +347,74 @@ export default function VisitsHistoryTable() {
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
-          <label className="flex w-full flex-col gap-1 text-xs text-white/55 sm:w-auto">
-            Verdict
-            <select
-              value={classification}
-              onChange={(e) => {
-                setOffset(0);
-                previousIdsRef.current = [];
-                setFreshIds([]);
-                setClassification(e.target.value);
-              }}
-              className="w-full cursor-pointer rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none sm:w-auto"
-            >
-              <option value="">All</option>
-              <option value="human_confirmed">Likely human</option>
-              <option value="likely_human">Probably human</option>
-              <option value="candidate">Unclear</option>
-              <option value="bot">Known bot</option>
-              <option value="suspicious">Suspicious</option>
-            </select>
-          </label>
-
-          <label className="flex w-full flex-col gap-1 text-xs text-white/55 sm:w-auto">
-            Project
-            <select
-              value={project}
-              onChange={(e) => {
-                setOffset(0);
-                previousIdsRef.current = [];
-                setFreshIds([]);
-                setProject(e.target.value);
-              }}
-              className="w-full cursor-pointer rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none sm:w-auto"
-            >
-              <option value="">All</option>
-              <option value="aoe2hdbets">AoE2HDBets</option>
-              <option value="tokentap">TokenTap</option>
-              <option value="wheatandstone">Wheat &amp; Stone</option>
-              <option value="tmail">TMail</option>
-              <option value="pulse">Pulse</option>
-              <option value="vps-sentry">VPSSentry</option>
-              <option value="traffic">Traffic</option>
-            </select>
-          </label>
+            <label className="flex w-full flex-col gap-1 text-xs text-white/55 sm:w-auto">
+              Verdict
+              <select
+                value={classification}
+                onChange={(e) => {
+                  setOffset(0);
+                  previousIdsRef.current = [];
+                  setFreshIds([]);
+                  setClassification(e.target.value);
+                }}
+                className="w-full cursor-pointer rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none sm:w-auto"
+              >
+                <option value="">All</option>
+                <option value="human_confirmed">Likely human</option>
+                <option value="likely_human">Probably human</option>
+                <option value="candidate">Unclear</option>
+                <option value="bot">Known bot</option>
+                <option value="suspicious">Suspicious</option>
+              </select>
+            </label>
           </div>
+        </div>
+      </div>
+
+      <div className="mb-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-xs uppercase tracking-[0.22em] text-white/40">Project Filter</div>
+            <div className="mt-1 text-sm text-white/60">
+              All projects stay selected by default, and these choices are shared with the live feed.
+            </div>
+          </div>
+          <div className="text-xs text-white/50">
+            {effectiveSelectedProjects.length || availableProjectSlugs.length} of {availableProjectSlugs.length || 0} selected
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setOffset(0);
+              previousIdsRef.current = [];
+              setFreshIds([]);
+              setSelectedProjects([...availableProjectSlugs]);
+            }}
+            className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition ${pillClass(
+              allProjectsSelected,
+            )}`}
+          >
+            All projects
+          </button>
+          {availableProjects.map((project) => {
+            const active = effectiveSelectedProjects.includes(project.slug);
+
+            return (
+              <button
+                key={project.slug}
+                type="button"
+                onClick={() => toggleProject(project.slug)}
+                className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition ${pillClass(
+                  active,
+                )}`}
+              >
+                {project.name}
+              </button>
+            );
+          })}
         </div>
       </div>
 

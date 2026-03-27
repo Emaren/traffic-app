@@ -10,9 +10,22 @@ import {
 import LiveVisitorStreamRow from "@/components/traffic/live-visitor-stream-row";
 import type {
   LiveTransportMode,
+  ProjectFilterOption,
   LiveVisitorsResponse,
   SessionRecord,
 } from "@/components/traffic/types";
+import {
+  loadStoredBoolean,
+  loadStoredString,
+  loadStoredStringArray,
+  reconcileSelectedValues,
+  storeBoolean,
+  storeString,
+  storeStringArray,
+  TRAFFIC_LIVE_DENSITY_KEY,
+  TRAFFIC_LIVE_GREEN_ONLY_KEY,
+  TRAFFIC_SHARED_PROJECT_FILTER_KEY,
+} from "@/components/traffic/view-preferences";
 
 type Props = {
   pollMs?: number;
@@ -27,6 +40,8 @@ type StreamSection = {
 };
 
 const RECENT_WINDOW_MINUTES = 60;
+const STREAM_LIMIT = 25;
+const STREAM_HISTORY_LIMIT = 95;
 
 function parseTimestamp(value: string): number {
   const parsed = Date.parse(value);
@@ -52,12 +67,27 @@ function transportBadge(mode: LiveTransportMode, pollMs: number) {
   };
 }
 
+function pillClass(isActive: boolean) {
+  return isActive
+    ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+    : "border-white/10 bg-black/20 text-white/65 hover:border-white/20 hover:text-white";
+}
+
 export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
   const [data, setData] = useState<LiveVisitorsResponse | null>(null);
   const [error, setError] = useState<string>("");
   const [transportMode, setTransportMode] = useState<LiveTransportMode>("connecting");
   const [transportNotice, setTransportNotice] = useState("");
   const [pinnedToTop, setPinnedToTop] = useState(true);
+  const [selectedProjects, setSelectedProjects] = useState<string[]>(() =>
+    loadStoredStringArray(TRAFFIC_SHARED_PROJECT_FILTER_KEY),
+  );
+  const [showOnlyGreenHumans, setShowOnlyGreenHumans] = useState(() =>
+    loadStoredBoolean(TRAFFIC_LIVE_GREEN_ONLY_KEY),
+  );
+  const [density, setDensity] = useState<"full" | "compact">(() =>
+    loadStoredString(TRAFFIC_LIVE_DENSITY_KEY) === "compact" ? "compact" : "full",
+  );
   const containerRef = useRef<HTMLDivElement | null>(null);
   const shouldStickToTopRef = useRef(true);
 
@@ -69,7 +99,7 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
 
     const load = async () => {
       try {
-        const next = await fetchLiveVisitors(25);
+        const next = await fetchLiveVisitors(STREAM_LIMIT, STREAM_HISTORY_LIMIT);
         if (!mounted) return;
 
         startTransition(() => {
@@ -104,7 +134,12 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
     }
 
     try {
-      eventSource = new EventSource(buildLiveVisitorsStreamUrl({ limit: 25 }));
+      eventSource = new EventSource(
+        buildLiveVisitorsStreamUrl({
+          limit: STREAM_LIMIT,
+          historyLimit: STREAM_HISTORY_LIMIT,
+        }),
+      );
 
       eventSource.onopen = () => {
         if (!mounted) return;
@@ -166,7 +201,51 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
     };
   }, [pollMs]);
 
-  const streamItems = useMemo(() => data?.stream_items ?? [], [data?.stream_items]);
+  const availableProjects = useMemo<ProjectFilterOption[]>(
+    () => data?.available_projects ?? [],
+    [data?.available_projects],
+  );
+  const availableProjectSlugs = useMemo(
+    () => availableProjects.map((project) => project.slug),
+    [availableProjects],
+  );
+  const effectiveSelectedProjects = useMemo(
+    () => reconcileSelectedValues(selectedProjects, availableProjectSlugs),
+    [availableProjectSlugs, selectedProjects],
+  );
+
+  useEffect(() => {
+    if (availableProjectSlugs.length === 0) return;
+    storeStringArray(TRAFFIC_SHARED_PROJECT_FILTER_KEY, effectiveSelectedProjects);
+  }, [availableProjectSlugs.length, effectiveSelectedProjects]);
+
+  useEffect(() => {
+    storeBoolean(TRAFFIC_LIVE_GREEN_ONLY_KEY, showOnlyGreenHumans);
+  }, [showOnlyGreenHumans]);
+
+  useEffect(() => {
+    storeString(TRAFFIC_LIVE_DENSITY_KEY, density);
+  }, [density]);
+
+  const allProjectsSelected =
+    availableProjectSlugs.length > 0 &&
+    effectiveSelectedProjects.length === availableProjectSlugs.length;
+
+  const streamItems = useMemo(() => {
+    const sourceItems = data?.stream_items ?? [];
+    const selectedProjectSet = new Set(effectiveSelectedProjects);
+
+    return sourceItems.filter((session) => {
+      if (selectedProjectSet.size > 0 && !selectedProjectSet.has(session.project_slug)) {
+        return false;
+      }
+      if (showOnlyGreenHumans && session.classification_state !== "human_confirmed") {
+        return false;
+      }
+      return true;
+    });
+  }, [data?.stream_items, effectiveSelectedProjects, showOnlyGreenHumans]);
+
   const newestFirstItems = useMemo(() => [...streamItems].reverse(), [streamItems]);
   const generatedAt = useMemo(
     () => parseTimestamp(data?.generated_at ?? new Date().toISOString()),
@@ -255,6 +334,18 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
     setPinnedToTop(true);
   };
 
+  const toggleProject = (slug: string) => {
+    setSelectedProjects((current) => {
+      const currentSet = new Set(reconcileSelectedValues(current, availableProjectSlugs));
+      if (currentSet.has(slug)) {
+        currentSet.delete(slug);
+      } else {
+        currentSet.add(slug);
+      }
+      return reconcileSelectedValues([...currentSet], availableProjectSlugs);
+    });
+  };
+
   return (
     <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 shadow-2xl shadow-black/20">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -299,6 +390,76 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
         </div>
       ) : null}
 
+      <div className="mb-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-xs uppercase tracking-[0.22em] text-white/40">Feed Controls</div>
+            <div className="mt-1 text-sm text-white/65">
+              {effectiveSelectedProjects.length || availableProjectSlugs.length} of {availableProjectSlugs.length || 0} projects visible
+              {showOnlyGreenHumans ? " • green humans only" : " • mixed human-confidence feed"}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setDensity("full")}
+              className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition ${pillClass(
+                density === "full",
+              )}`}
+            >
+              Long form
+            </button>
+            <button
+              type="button"
+              onClick={() => setDensity("compact")}
+              className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition ${pillClass(
+                density === "compact",
+              )}`}
+            >
+              Short form
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowOnlyGreenHumans((current) => !current)}
+              className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition ${pillClass(
+                showOnlyGreenHumans,
+              )}`}
+            >
+              Only green humans
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setSelectedProjects([...availableProjectSlugs])}
+            className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition ${pillClass(
+              allProjectsSelected,
+            )}`}
+          >
+            All projects
+          </button>
+          {availableProjects.map((project) => {
+            const active = effectiveSelectedProjects.includes(project.slug);
+
+            return (
+              <button
+                key={project.slug}
+                type="button"
+                onClick={() => toggleProject(project.slug)}
+                className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition ${pillClass(
+                  active,
+                )}`}
+              >
+                {project.name}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {error ? (
         <div className="rounded-2xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-200">
           {error}
@@ -307,7 +468,7 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
 
       {!error && streamItems.length === 0 ? (
         <div className="rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-white/60">
-          No human-ish sessions are visible in the stream yet.
+          No sessions match the current live feed filters yet.
         </div>
       ) : null}
 
@@ -343,7 +504,7 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
                         exit={{ opacity: 0, y: 12 }}
                         transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
                       >
-                        <LiveVisitorStreamRow session={session} />
+                        <LiveVisitorStreamRow session={session} density={density} />
                       </motion.div>
                     ))}
                   </AnimatePresence>
