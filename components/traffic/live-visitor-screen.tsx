@@ -5,7 +5,10 @@ import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   buildLiveVisitorsStreamUrl,
+  createVisibilityRule,
+  deleteVisibilityRule,
   fetchLiveVisitors,
+  fetchVisibilityRules,
 } from "@/components/traffic/api";
 import LiveVisitorStreamRow from "@/components/traffic/live-visitor-stream-row";
 import type {
@@ -13,6 +16,7 @@ import type {
   ProjectFilterOption,
   LiveVisitorsResponse,
   SessionRecord,
+  VisibilityRule,
 } from "@/components/traffic/types";
 import {
   TRAFFIC_HIDDEN_IPS_KEY,
@@ -86,6 +90,7 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
   const [showOnlyGreenHumans, setShowOnlyGreenHumans] = useState(() =>
     loadStoredBoolean(TRAFFIC_LIVE_GREEN_ONLY_KEY),
   );
+  const [visibilityRules, setVisibilityRules] = useState<VisibilityRule[] | null>(null);
   const [hiddenIps, setHiddenIps] = useState<string[]>(() =>
     loadStoredStringArray(TRAFFIC_HIDDEN_IPS_KEY),
   );
@@ -205,6 +210,24 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
     };
   }, [pollMs]);
 
+  useEffect(() => {
+    let mounted = true;
+
+    void fetchVisibilityRules()
+      .then((response) => {
+        if (!mounted) return;
+        setVisibilityRules(response.rules.filter((rule) => rule.rule_type === "ip" && rule.active));
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setVisibilityRules(null);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const availableProjects = useMemo<ProjectFilterOption[]>(
     () => data?.available_projects ?? [],
     [data?.available_projects],
@@ -231,6 +254,15 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
     storeStringArray(TRAFFIC_HIDDEN_IPS_KEY, hiddenIps);
   }, [hiddenIps]);
 
+  const serverHiddenIps = useMemo(
+    () => (visibilityRules ?? []).map((rule) => rule.match_value),
+    [visibilityRules],
+  );
+  const effectiveHiddenIps = useMemo(
+    () => [...new Set([...serverHiddenIps, ...hiddenIps])],
+    [hiddenIps, serverHiddenIps],
+  );
+
   useEffect(() => {
     storeString(TRAFFIC_LIVE_DENSITY_KEY, density);
   }, [density]);
@@ -242,7 +274,7 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
   const streamItems = useMemo(() => {
     const sourceItems = data?.stream_items ?? [];
     const selectedProjectSet = new Set(effectiveSelectedProjects);
-    const hiddenIpSet = new Set(hiddenIps);
+    const hiddenIpSet = new Set(effectiveHiddenIps);
 
     return sourceItems.filter((session) => {
       if (selectedProjectSet.size > 0 && !selectedProjectSet.has(session.project_slug)) {
@@ -256,7 +288,7 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
       }
       return true;
     });
-  }, [data?.stream_items, effectiveSelectedProjects, hiddenIps, showOnlyGreenHumans]);
+  }, [data?.stream_items, effectiveHiddenIps, effectiveSelectedProjects, showOnlyGreenHumans]);
 
   const newestFirstItems = useMemo(() => [...streamItems].reverse(), [streamItems]);
   const generatedAt = useMemo(
@@ -358,12 +390,36 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
     });
   };
 
-  const hideIp = (ip: string) => {
+  const hideIp = async (ip: string) => {
     setHiddenIps((current) => (current.includes(ip) ? current : [...current, ip]));
+
+    if (visibilityRules === null || visibilityRules.some((rule) => rule.match_value === ip)) {
+      return;
+    }
+
+    try {
+      const response = await createVisibilityRule({
+        rule_type: "ip",
+        match_value: ip,
+        label: ip,
+        reason: "Hidden from Traffic observatory surfaces",
+      });
+      setVisibilityRules((current) => [response.rule, ...(current ?? []).filter((rule) => rule.id !== response.rule.id)]);
+    } catch {}
   };
 
-  const unhideIp = (ip: string) => {
+  const unhideIp = async (ip: string) => {
     setHiddenIps((current) => current.filter((value) => value !== ip));
+
+    const matchingRule = visibilityRules?.find((rule) => rule.match_value === ip);
+    if (!matchingRule) {
+      return;
+    }
+
+    try {
+      await deleteVisibilityRule(matchingRule.id);
+      setVisibilityRules((current) => (current ?? []).filter((rule) => rule.id !== matchingRule.id));
+    } catch {}
   };
 
   return (
@@ -417,7 +473,7 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
             <div className="mt-1 text-sm text-white/65">
               {effectiveSelectedProjects.length || availableProjectSlugs.length} of {availableProjectSlugs.length || 0} projects visible
               {showOnlyGreenHumans ? " • green humans only" : " • mixed human-confidence feed"}
-              {hiddenIps.length > 0 ? ` • ${hiddenIps.length} hidden IPs` : ""}
+              {effectiveHiddenIps.length > 0 ? ` • ${effectiveHiddenIps.length} hidden IPs` : ""}
             </div>
           </div>
 
@@ -480,24 +536,28 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
           })}
         </div>
 
-        {hiddenIps.length > 0 ? (
+        {effectiveHiddenIps.length > 0 ? (
           <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="text-xs uppercase tracking-[0.22em] text-amber-200/80">Hidden IPs</div>
               <button
                 type="button"
-                onClick={() => setHiddenIps([])}
+                onClick={() => {
+                  void Promise.all(effectiveHiddenIps.map((ip) => unhideIp(ip)));
+                }}
                 className="cursor-pointer rounded-full border border-amber-400/30 bg-black/20 px-3 py-1 text-xs font-medium text-amber-100 transition hover:bg-black/30"
               >
                 Clear all
               </button>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
-              {hiddenIps.map((ip) => (
+              {effectiveHiddenIps.map((ip) => (
                 <button
                   key={ip}
                   type="button"
-                  onClick={() => unhideIp(ip)}
+                  onClick={() => {
+                    void unhideIp(ip);
+                  }}
                   className="cursor-pointer rounded-full border border-amber-400/30 bg-black/20 px-3 py-1 text-xs font-medium text-amber-100 transition hover:bg-black/30"
                 >
                   {ip} ×

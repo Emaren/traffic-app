@@ -1,12 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { fetchVisitsHistory } from "@/components/traffic/api";
+import {
+  createVisibilityRule,
+  deleteVisibilityRule,
+  fetchVisibilityRules,
+  fetchVisitsHistory,
+} from "@/components/traffic/api";
 import { withFlag } from "@/components/traffic/display";
 import type {
   HistoryRangeKey,
   ProjectFilterOption,
   SessionRecord,
+  VisibilityRule,
   VisitsHistoryResponse,
 } from "@/components/traffic/types";
 import {
@@ -289,6 +295,7 @@ export default function VisitsHistoryTable() {
   const [density, setDensity] = useState<"full" | "compact">(() =>
     loadStoredString(TRAFFIC_HISTORY_DENSITY_KEY) === "compact" ? "compact" : "full",
   );
+  const [visibilityRules, setVisibilityRules] = useState<VisibilityRule[] | null>(null);
   const [selectedProjects, setSelectedProjects] = useState<string[]>(() =>
     loadStoredStringArray(TRAFFIC_SHARED_PROJECT_FILTER_KEY),
   );
@@ -338,6 +345,24 @@ export default function VisitsHistoryTable() {
   }, [density]);
 
   useEffect(() => {
+    let mounted = true;
+
+    void fetchVisibilityRules()
+      .then((response) => {
+        if (!mounted) return;
+        setVisibilityRules(response.rules.filter((rule) => rule.rule_type === "ip" && rule.active));
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setVisibilityRules(null);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (availableProjectSlugs.length === 0) return;
     storeStringArray(TRAFFIC_SHARED_PROJECT_FILTER_KEY, effectiveSelectedProjects);
   }, [availableProjectSlugs.length, effectiveSelectedProjects]);
@@ -345,6 +370,15 @@ export default function VisitsHistoryTable() {
   useEffect(() => {
     storeStringArray(TRAFFIC_HIDDEN_IPS_KEY, hiddenIps);
   }, [hiddenIps]);
+
+  const serverHiddenIps = useMemo(
+    () => (visibilityRules ?? []).map((rule) => rule.match_value),
+    [visibilityRules],
+  );
+  const effectiveHiddenIps = useMemo(
+    () => [...new Set([...serverHiddenIps, ...hiddenIps])],
+    [hiddenIps, serverHiddenIps],
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -406,7 +440,7 @@ export default function VisitsHistoryTable() {
   const visibleItems = useMemo(
     () =>
       (data?.items ?? []).filter((row) => {
-        if (hiddenIps.includes(row.ip)) {
+        if (effectiveHiddenIps.includes(row.ip)) {
           return false;
         }
         if (showOnlyGreenHumans && row.classification_state !== "human_confirmed") {
@@ -414,7 +448,7 @@ export default function VisitsHistoryTable() {
         }
         return true;
       }),
-    [data?.items, hiddenIps, showOnlyGreenHumans],
+    [data?.items, effectiveHiddenIps, showOnlyGreenHumans],
   );
 
   const toggleProject = (slug: string) => {
@@ -432,12 +466,36 @@ export default function VisitsHistoryTable() {
     });
   };
 
-  const hideIp = (ip: string) => {
+  const hideIp = async (ip: string) => {
     setHiddenIps((current) => (current.includes(ip) ? current : [...current, ip]));
+
+    if (visibilityRules === null || visibilityRules.some((rule) => rule.match_value === ip)) {
+      return;
+    }
+
+    try {
+      const response = await createVisibilityRule({
+        rule_type: "ip",
+        match_value: ip,
+        label: ip,
+        reason: "Hidden from Traffic observatory surfaces",
+      });
+      setVisibilityRules((current) => [response.rule, ...(current ?? []).filter((rule) => rule.id !== response.rule.id)]);
+    } catch {}
   };
 
-  const unhideIp = (ip: string) => {
+  const unhideIp = async (ip: string) => {
     setHiddenIps((current) => current.filter((value) => value !== ip));
+
+    const matchingRule = visibilityRules?.find((rule) => rule.match_value === ip);
+    if (!matchingRule) {
+      return;
+    }
+
+    try {
+      await deleteVisibilityRule(matchingRule.id);
+      setVisibilityRules((current) => (current ?? []).filter((rule) => rule.id !== matchingRule.id));
+    } catch {}
   };
 
   return (
@@ -582,24 +640,28 @@ export default function VisitsHistoryTable() {
           })}
         </div>
 
-        {hiddenIps.length > 0 ? (
+        {effectiveHiddenIps.length > 0 ? (
           <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="text-xs uppercase tracking-[0.22em] text-amber-200/80">Hidden IPs</div>
               <button
                 type="button"
-                onClick={() => setHiddenIps([])}
+                onClick={() => {
+                  void Promise.all(effectiveHiddenIps.map((ip) => unhideIp(ip)));
+                }}
                 className="cursor-pointer rounded-full border border-amber-400/30 bg-black/20 px-3 py-1 text-xs font-medium text-amber-100 transition hover:bg-black/30"
               >
                 Clear all
               </button>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
-              {hiddenIps.map((ip) => (
+              {effectiveHiddenIps.map((ip) => (
                 <button
                   key={ip}
                   type="button"
-                  onClick={() => unhideIp(ip)}
+                  onClick={() => {
+                    void unhideIp(ip);
+                  }}
                   className="cursor-pointer rounded-full border border-amber-400/30 bg-black/20 px-3 py-1 text-xs font-medium text-amber-100 transition hover:bg-black/30"
                 >
                   {ip} ×
@@ -622,9 +684,9 @@ export default function VisitsHistoryTable() {
             Stored since {data.coverage_started_alberta}
           </div>
         ) : null}
-        {hiddenIps.length > 0 ? (
+        {effectiveHiddenIps.length > 0 ? (
           <div className="rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 font-medium text-amber-200">
-            {hiddenIps.length} hidden IPs
+            {effectiveHiddenIps.length} hidden IPs
           </div>
         ) : null}
         {showOnlyGreenHumans ? (

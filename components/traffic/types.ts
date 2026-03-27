@@ -374,6 +374,16 @@ export type NotificationOperatorIdentity = {
   updated_at: string;
 };
 
+export type VisibilityRule = {
+  id: number;
+  rule_type: "ip" | "path" | "project_slug" | "host";
+  match_value: string;
+  label: string;
+  reason: string;
+  active: boolean;
+  created_at: string;
+};
+
 export type NotificationEventRecord = {
   id: number;
   traffic_event_id: string;
@@ -437,6 +447,7 @@ export type NotificationDashboardResponse = {
   };
   operators: NotificationOperatorIdentity[];
   mutes: NotificationMuteRule[];
+  visibility_rules: VisibilityRule[];
   recent_events: NotificationEventRecord[];
   stats: {
     delivered: number;

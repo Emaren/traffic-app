@@ -11,6 +11,7 @@ import type {
   NotificationMuteRule,
   NotificationProviderKey,
   NotificationSettings,
+  VisibilityRule,
 } from "@/components/traffic/types";
 
 type Props = {
@@ -84,6 +85,21 @@ function defaultMuteDraft(): MuteDraft {
     label: "",
     reason: "Muted from the notification cockpit",
   };
+}
+
+function visibilityRuleLabel(rule: VisibilityRule): string {
+  switch (rule.rule_type) {
+    case "ip":
+      return "Shared hidden IP";
+    case "path":
+      return "Shared hidden path";
+    case "project_slug":
+      return "Shared hidden project";
+    case "host":
+      return "Shared hidden host";
+    default:
+      return "Shared hidden rule";
+  }
 }
 
 export default function AdminNotificationDashboard({ initialData }: Props) {
@@ -264,6 +280,29 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
       setMessage({
         tone: "error",
         text: err instanceof Error ? err.message : "Could not delete mute.",
+      });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function deleteVisibilityRule(ruleId: number) {
+    setBusy(`delete-visibility-${ruleId}`);
+    setMessage(null);
+    try {
+      const response = await fetch(`/admin-api/visibility-rules/${ruleId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.detail || "Could not remove visibility rule.");
+      }
+      await refreshDashboard({ quiet: true });
+      setMessage({ tone: "success", text: "Visibility rule removed." });
+    } catch (err) {
+      setMessage({
+        tone: "error",
+        text: err instanceof Error ? err.message : "Could not remove visibility rule.",
       });
     } finally {
       setBusy(null);
@@ -1168,6 +1207,63 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                   </div>
                 ))
               )}
+            </div>
+
+            <div className="mt-6 overflow-hidden rounded-3xl border border-amber-300/15 bg-amber-300/5 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-white">Shared observatory hides</p>
+                  <p className="text-sm text-slate-400">
+                    Server-backed visibility rules that remove noisy IPs, paths, hosts, or projects
+                    from Traffic surfaces across devices.
+                  </p>
+                </div>
+                <div className="rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs text-amber-100">
+                  {data.visibility_rules.length} shared rules
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {data.visibility_rules.length === 0 ? (
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/60">
+                    No shared observatory hides yet. Add one from the live feed or visits history.
+                  </div>
+                ) : (
+                  data.visibility_rules.map((rule) => (
+                    <div
+                      key={rule.id}
+                      className="rounded-2xl border border-white/10 bg-black/20 p-4"
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs text-amber-100">
+                              {visibilityRuleLabel(rule)}
+                            </span>
+                            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/75">
+                              {humanizeRuleType(rule.rule_type)}
+                            </span>
+                            <span className="break-words text-sm font-medium text-white">{rule.label}</span>
+                          </div>
+                          <p className="mt-2 break-all font-mono text-xs text-slate-400">
+                            {rule.match_value}
+                          </p>
+                          <p className="mt-2 break-words text-sm text-slate-300">{rule.reason}</p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => void deleteVisibilityRule(rule.id)}
+                          disabled={busy === `delete-visibility-${rule.id}`}
+                          className="w-full cursor-pointer rounded-full border border-rose-400/30 bg-rose-400/10 px-3 py-1 text-xs font-medium text-rose-100 transition hover:bg-rose-400/15 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
 

@@ -7,6 +7,7 @@ import type {
   ProjectGraphResponse,
   ProjectLiveFeedResponse,
   ProjectHumanSeriesResponse,
+  VisibilityRule,
   VisitorProfileResponse,
   VisitsHistoryResponse,
 } from "@/components/traffic/types";
@@ -40,6 +41,24 @@ async function fetchJson<T>(path: string): Promise<T> {
 
   if (!response.ok) {
     throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+  }
+
+  return (await response.json()) as T;
+}
+
+async function fetchAppJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(path, {
+    ...init,
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json",
+      ...(init?.headers || {}),
+    },
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    throw new Error(payload?.detail || `Request failed: ${response.status} ${response.statusText}`);
   }
 
   return (await response.json()) as T;
@@ -182,4 +201,37 @@ export async function fetchVisitsHistory(params?: {
 
   const query = search.toString();
   return fetchJson<VisitsHistoryResponse>(`/api/visits/history${query ? `?${query}` : ""}`);
+}
+
+export async function fetchVisibilityRules(): Promise<{
+  ok: boolean;
+  generated_at: string;
+  rules: VisibilityRule[];
+}> {
+  return fetchAppJson("/admin-api/visibility-rules");
+}
+
+export async function createVisibilityRule(payload: {
+  rule_type: VisibilityRule["rule_type"];
+  match_value: string;
+  label?: string;
+  reason?: string;
+}): Promise<{
+  ok: boolean;
+  generated_at: string;
+  rule: VisibilityRule;
+}> {
+  return fetchAppJson("/admin-api/visibility-rules", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteVisibilityRule(ruleId: number): Promise<{
+  ok: boolean;
+  generated_at: string;
+}> {
+  return fetchAppJson(`/admin-api/visibility-rules/${ruleId}`, {
+    method: "DELETE",
+  });
 }
