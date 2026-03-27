@@ -15,6 +15,7 @@ import type {
   SessionRecord,
 } from "@/components/traffic/types";
 import {
+  TRAFFIC_HIDDEN_IPS_KEY,
   loadStoredBoolean,
   loadStoredString,
   loadStoredStringArray,
@@ -84,6 +85,9 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
   );
   const [showOnlyGreenHumans, setShowOnlyGreenHumans] = useState(() =>
     loadStoredBoolean(TRAFFIC_LIVE_GREEN_ONLY_KEY),
+  );
+  const [hiddenIps, setHiddenIps] = useState<string[]>(() =>
+    loadStoredStringArray(TRAFFIC_HIDDEN_IPS_KEY),
   );
   const [density, setDensity] = useState<"full" | "compact">(() =>
     loadStoredString(TRAFFIC_LIVE_DENSITY_KEY) === "compact" ? "compact" : "full",
@@ -224,6 +228,10 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
   }, [showOnlyGreenHumans]);
 
   useEffect(() => {
+    storeStringArray(TRAFFIC_HIDDEN_IPS_KEY, hiddenIps);
+  }, [hiddenIps]);
+
+  useEffect(() => {
     storeString(TRAFFIC_LIVE_DENSITY_KEY, density);
   }, [density]);
 
@@ -234,9 +242,13 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
   const streamItems = useMemo(() => {
     const sourceItems = data?.stream_items ?? [];
     const selectedProjectSet = new Set(effectiveSelectedProjects);
+    const hiddenIpSet = new Set(hiddenIps);
 
     return sourceItems.filter((session) => {
       if (selectedProjectSet.size > 0 && !selectedProjectSet.has(session.project_slug)) {
+        return false;
+      }
+      if (hiddenIpSet.has(session.ip)) {
         return false;
       }
       if (showOnlyGreenHumans && session.classification_state !== "human_confirmed") {
@@ -244,7 +256,7 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
       }
       return true;
     });
-  }, [data?.stream_items, effectiveSelectedProjects, showOnlyGreenHumans]);
+  }, [data?.stream_items, effectiveSelectedProjects, hiddenIps, showOnlyGreenHumans]);
 
   const newestFirstItems = useMemo(() => [...streamItems].reverse(), [streamItems]);
   const generatedAt = useMemo(
@@ -346,6 +358,14 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
     });
   };
 
+  const hideIp = (ip: string) => {
+    setHiddenIps((current) => (current.includes(ip) ? current : [...current, ip]));
+  };
+
+  const unhideIp = (ip: string) => {
+    setHiddenIps((current) => current.filter((value) => value !== ip));
+  };
+
   return (
     <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 shadow-2xl shadow-black/20">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -397,6 +417,7 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
             <div className="mt-1 text-sm text-white/65">
               {effectiveSelectedProjects.length || availableProjectSlugs.length} of {availableProjectSlugs.length || 0} projects visible
               {showOnlyGreenHumans ? " • green humans only" : " • mixed human-confidence feed"}
+              {hiddenIps.length > 0 ? ` • ${hiddenIps.length} hidden IPs` : ""}
             </div>
           </div>
 
@@ -458,6 +479,33 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
             );
           })}
         </div>
+
+        {hiddenIps.length > 0 ? (
+          <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="text-xs uppercase tracking-[0.22em] text-amber-200/80">Hidden IPs</div>
+              <button
+                type="button"
+                onClick={() => setHiddenIps([])}
+                className="cursor-pointer rounded-full border border-amber-400/30 bg-black/20 px-3 py-1 text-xs font-medium text-amber-100 transition hover:bg-black/30"
+              >
+                Clear all
+              </button>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {hiddenIps.map((ip) => (
+                <button
+                  key={ip}
+                  type="button"
+                  onClick={() => unhideIp(ip)}
+                  className="cursor-pointer rounded-full border border-amber-400/30 bg-black/20 px-3 py-1 text-xs font-medium text-amber-100 transition hover:bg-black/30"
+                >
+                  {ip} ×
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {error ? (
@@ -504,7 +552,11 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
                         exit={{ opacity: 0, y: 12 }}
                         transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
                       >
-                        <LiveVisitorStreamRow session={session} density={density} />
+                        <LiveVisitorStreamRow
+                          session={session}
+                          density={density}
+                          onHideIp={hideIp}
+                        />
                       </motion.div>
                     ))}
                   </AnimatePresence>

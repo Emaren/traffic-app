@@ -10,6 +10,7 @@ type Props = {
   showProjectLink?: boolean;
   showVisitorLink?: boolean;
   density?: "full" | "compact";
+  onHideIp?: (ip: string) => void;
 };
 
 function formatSeconds(total: number): string {
@@ -42,6 +43,7 @@ export default function LiveVisitorStreamRow({
   showProjectLink = true,
   showVisitorLink = true,
   density = "full",
+  onHideIp,
 }: Props) {
   const journey =
     session.entry_page === session.current_page
@@ -216,6 +218,15 @@ export default function LiveVisitorStreamRow({
                 >
                   Open visitor profile
                 </Link>
+              ) : null}
+              {onHideIp ? (
+                <button
+                  type="button"
+                  onClick={() => onHideIp(session.ip)}
+                  className="cursor-pointer rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-medium text-amber-200 transition hover:bg-amber-400/15"
+                >
+                  Hide IP
+                </button>
               ) : null}
             </div>
             {!showProjectLink ? <div className="mt-2 text-sm text-white/80">{session.project_name}</div> : null}

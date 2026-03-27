@@ -10,6 +10,7 @@ import type {
   VisitsHistoryResponse,
 } from "@/components/traffic/types";
 import {
+  TRAFFIC_HIDDEN_IPS_KEY,
   loadStoredString,
   loadStoredStringArray,
   reconcileSelectedValues,
@@ -78,9 +79,11 @@ function pillClass(isActive: boolean): string {
 function MobileVisitCard({
   row,
   isFresh,
+  onHideIp,
 }: {
   row: SessionRecord;
   isFresh: boolean;
+  onHideIp: (ip: string) => void;
 }) {
   return (
     <div
@@ -117,7 +120,16 @@ function MobileVisitCard({
 
       <div className="mt-3">
         <div className="font-medium text-white">{withFlag(row.country_code, row.visitor_alias)}</div>
-        <div className="mt-1 font-mono text-xs text-sky-200/80 break-all">IP {row.ip}</div>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <div className="font-mono text-xs text-sky-200/80 break-all">IP {row.ip}</div>
+          <button
+            type="button"
+            onClick={() => onHideIp(row.ip)}
+            className="cursor-pointer rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-[11px] font-medium text-amber-200 transition hover:bg-amber-400/15"
+          >
+            Hide IP
+          </button>
+        </div>
         <div className="mt-1 text-xs text-white/45">
           {row.city || "Unknown city"}
           {row.area ? `, ${row.area}` : ""}
@@ -192,6 +204,9 @@ export default function VisitsHistoryTable() {
   const [selectedProjects, setSelectedProjects] = useState<string[]>(() =>
     loadStoredStringArray(TRAFFIC_SHARED_PROJECT_FILTER_KEY),
   );
+  const [hiddenIps, setHiddenIps] = useState<string[]>(() =>
+    loadStoredStringArray(TRAFFIC_HIDDEN_IPS_KEY),
+  );
   const [freshIds, setFreshIds] = useState<string[]>([]);
   const previousIdsRef = useRef<string[]>([]);
   const clearFreshTimerRef = useRef<number | null>(null);
@@ -230,6 +245,10 @@ export default function VisitsHistoryTable() {
     if (availableProjectSlugs.length === 0) return;
     storeStringArray(TRAFFIC_SHARED_PROJECT_FILTER_KEY, effectiveSelectedProjects);
   }, [availableProjectSlugs.length, effectiveSelectedProjects]);
+
+  useEffect(() => {
+    storeStringArray(TRAFFIC_HIDDEN_IPS_KEY, hiddenIps);
+  }, [hiddenIps]);
 
   useEffect(() => {
     let mounted = true;
@@ -288,7 +307,10 @@ export default function VisitsHistoryTable() {
   }, [data]);
 
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
-  const items: SessionRecord[] = data?.items ?? [];
+  const visibleItems = useMemo(
+    () => (data?.items ?? []).filter((row) => !hiddenIps.includes(row.ip)),
+    [data?.items, hiddenIps],
+  );
 
   const toggleProject = (slug: string) => {
     setOffset(0);
@@ -303,6 +325,14 @@ export default function VisitsHistoryTable() {
       }
       return reconcileSelectedValues([...currentSet], availableProjectSlugs);
     });
+  };
+
+  const hideIp = (ip: string) => {
+    setHiddenIps((current) => (current.includes(ip) ? current : [...current, ip]));
+  };
+
+  const unhideIp = (ip: string) => {
+    setHiddenIps((current) => current.filter((value) => value !== ip));
   };
 
   return (
@@ -416,6 +446,33 @@ export default function VisitsHistoryTable() {
             );
           })}
         </div>
+
+        {hiddenIps.length > 0 ? (
+          <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="text-xs uppercase tracking-[0.22em] text-amber-200/80">Hidden IPs</div>
+              <button
+                type="button"
+                onClick={() => setHiddenIps([])}
+                className="cursor-pointer rounded-full border border-amber-400/30 bg-black/20 px-3 py-1 text-xs font-medium text-amber-100 transition hover:bg-black/30"
+              >
+                Clear all
+              </button>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {hiddenIps.map((ip) => (
+                <button
+                  key={ip}
+                  type="button"
+                  onClick={() => unhideIp(ip)}
+                  className="cursor-pointer rounded-full border border-amber-400/30 bg-black/20 px-3 py-1 text-xs font-medium text-amber-100 transition hover:bg-black/30"
+                >
+                  {ip} ×
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="mb-4 flex flex-wrap gap-2 text-xs">
@@ -428,6 +485,11 @@ export default function VisitsHistoryTable() {
         {data?.coverage_started_alberta ? (
           <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
             Stored since {data.coverage_started_alberta}
+          </div>
+        ) : null}
+        {hiddenIps.length > 0 ? (
+          <div className="rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 font-medium text-amber-200">
+            {hiddenIps.length} hidden IPs
           </div>
         ) : null}
       </div>
@@ -445,10 +507,10 @@ export default function VisitsHistoryTable() {
       ) : null}
 
       <div className="space-y-3 md:hidden">
-        {items.map((row) => {
+        {visibleItems.map((row) => {
           const isFresh = freshIds.includes(row.session_id);
 
-          return <MobileVisitCard key={row.session_id} row={row} isFresh={isFresh} />;
+          return <MobileVisitCard key={row.session_id} row={row} isFresh={isFresh} onHideIp={hideIp} />;
         })}
       </div>
 
@@ -467,7 +529,7 @@ export default function VisitsHistoryTable() {
             </tr>
           </thead>
           <tbody>
-            {items.map((row) => {
+            {visibleItems.map((row) => {
               const isFresh = freshIds.includes(row.session_id);
 
               return (
@@ -493,7 +555,16 @@ export default function VisitsHistoryTable() {
                     <div className="font-medium text-white">
                       {withFlag(row.country_code, row.visitor_alias)}
                     </div>
-                    <div className="mt-1 font-mono text-xs text-sky-200/80">IP {row.ip}</div>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <div className="font-mono text-xs text-sky-200/80">IP {row.ip}</div>
+                      <button
+                        type="button"
+                        onClick={() => hideIp(row.ip)}
+                        className="cursor-pointer rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-[11px] font-medium text-amber-200 transition hover:bg-amber-400/15"
+                      >
+                        Hide IP
+                      </button>
+                    </div>
                     <div className="mt-1 text-xs text-white/45">
                       {row.city || "Unknown city"}
                       {row.area ? `, ${row.area}` : ""}
@@ -580,7 +651,7 @@ export default function VisitsHistoryTable() {
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm text-white/55">
           Page {currentPage} of {totalPages}
-          {data ? ` • ${data.total} total sessions in this ${data.range_label.toLowerCase()}` : ""}
+          {data ? ` • ${visibleItems.length} visible on this page • ${data.total} total sessions in this ${data.range_label.toLowerCase()}` : ""}
         </div>
 
         <div className="flex gap-2">
