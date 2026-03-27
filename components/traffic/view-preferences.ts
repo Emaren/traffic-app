@@ -4,7 +4,9 @@ export const TRAFFIC_SHARED_PROJECT_FILTER_KEY = "traffic.filters.projects";
 export const TRAFFIC_HIDDEN_IPS_KEY = "traffic.filters.hidden-ips";
 export const TRAFFIC_LIVE_DENSITY_KEY = "traffic.live.density";
 export const TRAFFIC_LIVE_GREEN_ONLY_KEY = "traffic.live.green-only";
+export const TRAFFIC_HISTORY_DENSITY_KEY = "traffic.history.density";
 export const TRAFFIC_HISTORY_CLASSIFICATION_KEY = "traffic.history.classification";
+export const TRAFFIC_HISTORY_GREEN_ONLY_KEY = "traffic.history.green-only";
 
 export function loadStoredString(key: string): string {
   if (typeof window === "undefined") return "";

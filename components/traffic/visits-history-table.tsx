@@ -11,12 +11,16 @@ import type {
 } from "@/components/traffic/types";
 import {
   TRAFFIC_HIDDEN_IPS_KEY,
+  TRAFFIC_HISTORY_DENSITY_KEY,
   loadStoredString,
+  loadStoredBoolean,
   loadStoredStringArray,
   reconcileSelectedValues,
+  storeBoolean,
   storeString,
   storeStringArray,
   TRAFFIC_HISTORY_CLASSIFICATION_KEY,
+  TRAFFIC_HISTORY_GREEN_ONLY_KEY,
   TRAFFIC_SHARED_PROJECT_FILTER_KEY,
 } from "@/components/traffic/view-preferences";
 
@@ -193,6 +197,84 @@ function MobileVisitCard({
   );
 }
 
+function CompactVisitRow({
+  row,
+  isFresh,
+  onHideIp,
+}: {
+  row: SessionRecord;
+  isFresh: boolean;
+  onHideIp: (ip: string) => void;
+}) {
+  return (
+    <div
+      className={`rounded-2xl border px-4 py-3 transition ${
+        isFresh
+          ? "border-amber-400/35 bg-amber-400/10 shadow-[0_0_0_1px_rgba(251,191,36,0.3)]"
+          : "border-white/10 bg-black/20"
+      }`}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2 text-[11px]">
+            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-white/70">
+              {row.first_seen_alberta}
+            </span>
+            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-white/70">
+              {row.project_name}
+            </span>
+            <span
+              className={`rounded-full border px-2.5 py-1 font-medium ${verdictClass(
+                row.classification_state,
+              )}`}
+            >
+              {row.verdict_label}
+            </span>
+            {isFresh ? (
+              <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 font-semibold text-amber-200">
+                New
+              </span>
+            ) : null}
+          </div>
+
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+            <span className="font-semibold text-white">
+              {withFlag(row.country_code, row.visitor_alias)}
+            </span>
+            <span className="font-mono text-[11px] text-white/55">{row.ip}</span>
+            <span className="text-white/50">
+              {row.city || "Unknown city"}
+              {row.area ? `, ${row.area}` : ""}
+              {row.country ? `, ${row.country}` : ""}
+            </span>
+            <span className="text-white/50">
+              {row.device} • {row.browser}
+            </span>
+          </div>
+
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/60">
+            <span className="font-mono text-sky-100/70">
+              {row.entry_page} → {row.exit_page}
+            </span>
+            <span>{row.page_count} pages</span>
+            <span>{row.event_count} events</span>
+            <span>Returned {row.times_returned_in_project}</span>
+            <span>Total visits {row.total_project_visits}</span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => onHideIp(row.ip)}
+          className="cursor-pointer rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-medium text-amber-200 transition hover:bg-amber-400/15"
+        >
+          Hide IP
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function VisitsHistoryTable() {
   const [data, setData] = useState<VisitsHistoryResponse | null>(null);
   const [error, setError] = useState("");
@@ -200,6 +282,12 @@ export default function VisitsHistoryTable() {
   const [rangeKey, setRangeKey] = useState<HistoryRangeKey>("all");
   const [classification, setClassification] = useState(() =>
     loadStoredString(TRAFFIC_HISTORY_CLASSIFICATION_KEY),
+  );
+  const [showOnlyGreenHumans, setShowOnlyGreenHumans] = useState(() =>
+    loadStoredBoolean(TRAFFIC_HISTORY_GREEN_ONLY_KEY),
+  );
+  const [density, setDensity] = useState<"full" | "compact">(() =>
+    loadStoredString(TRAFFIC_HISTORY_DENSITY_KEY) === "compact" ? "compact" : "full",
   );
   const [selectedProjects, setSelectedProjects] = useState<string[]>(() =>
     loadStoredStringArray(TRAFFIC_SHARED_PROJECT_FILTER_KEY),
@@ -240,6 +328,14 @@ export default function VisitsHistoryTable() {
   useEffect(() => {
     storeString(TRAFFIC_HISTORY_CLASSIFICATION_KEY, classification);
   }, [classification]);
+
+  useEffect(() => {
+    storeBoolean(TRAFFIC_HISTORY_GREEN_ONLY_KEY, showOnlyGreenHumans);
+  }, [showOnlyGreenHumans]);
+
+  useEffect(() => {
+    storeString(TRAFFIC_HISTORY_DENSITY_KEY, density);
+  }, [density]);
 
   useEffect(() => {
     if (availableProjectSlugs.length === 0) return;
@@ -308,8 +404,17 @@ export default function VisitsHistoryTable() {
 
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
   const visibleItems = useMemo(
-    () => (data?.items ?? []).filter((row) => !hiddenIps.includes(row.ip)),
-    [data?.items, hiddenIps],
+    () =>
+      (data?.items ?? []).filter((row) => {
+        if (hiddenIps.includes(row.ip)) {
+          return false;
+        }
+        if (showOnlyGreenHumans && row.classification_state !== "human_confirmed") {
+          return false;
+        }
+        return true;
+      }),
+    [data?.items, hiddenIps, showOnlyGreenHumans],
   );
 
   const toggleProject = (slug: string) => {
@@ -397,6 +502,36 @@ export default function VisitsHistoryTable() {
                 <option value="suspicious">Suspicious</option>
               </select>
             </label>
+
+            <div className="flex flex-wrap items-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDensity("full")}
+                className={`cursor-pointer rounded-full border px-3 py-2 text-xs font-medium transition ${pillClass(
+                  density === "full",
+                )}`}
+              >
+                Long form
+              </button>
+              <button
+                type="button"
+                onClick={() => setDensity("compact")}
+                className={`cursor-pointer rounded-full border px-3 py-2 text-xs font-medium transition ${pillClass(
+                  density === "compact",
+                )}`}
+              >
+                Short form
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowOnlyGreenHumans((current) => !current)}
+                className={`cursor-pointer rounded-full border px-3 py-2 text-xs font-medium transition ${pillClass(
+                  showOnlyGreenHumans,
+                )}`}
+              >
+                Only green humans
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -492,6 +627,11 @@ export default function VisitsHistoryTable() {
             {hiddenIps.length} hidden IPs
           </div>
         ) : null}
+        {showOnlyGreenHumans ? (
+          <div className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 font-medium text-emerald-200">
+            Green humans only
+          </div>
+        ) : null}
       </div>
 
       {error ? (
@@ -506,15 +646,30 @@ export default function VisitsHistoryTable() {
         </div>
       ) : null}
 
-      <div className="space-y-3 md:hidden">
-        {visibleItems.map((row) => {
-          const isFresh = freshIds.includes(row.session_id);
+      {!error && visibleItems.length === 0 ? (
+        <div className="rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-white/60">
+          No visits match the current history filters.
+        </div>
+      ) : null}
 
-          return <MobileVisitCard key={row.session_id} row={row} isFresh={isFresh} onHideIp={hideIp} />;
-        })}
-      </div>
+      {density === "compact" ? (
+        <div className="space-y-2">
+          {visibleItems.map((row) => {
+            const isFresh = freshIds.includes(row.session_id);
+            return <CompactVisitRow key={row.session_id} row={row} isFresh={isFresh} onHideIp={hideIp} />;
+          })}
+        </div>
+      ) : (
+        <>
+          <div className="space-y-3 md:hidden">
+            {visibleItems.map((row) => {
+              const isFresh = freshIds.includes(row.session_id);
 
-      <div className="hidden overflow-x-auto md:block">
+              return <MobileVisitCard key={row.session_id} row={row} isFresh={isFresh} onHideIp={hideIp} />;
+            })}
+          </div>
+
+          <div className="hidden overflow-x-auto md:block">
         <table className="min-w-full border-separate border-spacing-y-2 text-left text-sm">
           <thead>
             <tr className="text-xs uppercase tracking-wide text-white/45">
@@ -646,7 +801,9 @@ export default function VisitsHistoryTable() {
             })}
           </tbody>
         </table>
-      </div>
+          </div>
+        </>
+      )}
 
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm text-white/55">
