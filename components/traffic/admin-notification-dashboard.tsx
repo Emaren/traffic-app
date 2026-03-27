@@ -661,6 +661,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
             <div className="mt-5 grid gap-3">
               {[
                 ["page_hits_only", "Only notify for real page hits, not API/background noise"],
+                ["filter_exploit_probes", "Filter obvious exploit or scanner-style page probes"],
                 ["include_human_confirmed", "Include confirmed humans"],
                 ["include_likely_human", "Include likely humans"],
                 ["include_unclear", "Include unclear sessions while you are learning the flow"],

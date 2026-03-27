@@ -324,6 +324,7 @@ export type NotificationSettings = {
   };
   policy: {
     page_hits_only: boolean;
+    filter_exploit_probes: boolean;
     include_human_confirmed: boolean;
     include_likely_human: boolean;
     include_unclear: boolean;
