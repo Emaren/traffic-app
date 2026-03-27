@@ -65,6 +65,14 @@ function eventTone(status: NotificationEventRecord["status"]): string {
   }
 }
 
+function isGreenHumanEvent(event: NotificationEventRecord): boolean {
+  return (
+    event.status === "delivered" &&
+    (event.classification_state === "human_confirmed" ||
+      event.classification_state === "likely_human")
+  );
+}
+
 function cloneSettings(settings: NotificationSettings): NotificationSettings {
   return JSON.parse(JSON.stringify(settings)) as NotificationSettings;
 }
@@ -86,6 +94,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
   const [hasLocalEdits, setHasLocalEdits] = useState(false);
   const [muteDraft, setMuteDraft] = useState<MuteDraft>(defaultMuteDraft());
   const [busy, setBusy] = useState<string | null>(null);
+  const [showOnlyHumanEvents, setShowOnlyHumanEvents] = useState(false);
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(
     null,
   );
@@ -316,6 +325,10 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
       : settings.policy.selected_projects.filter((slug) => allProjectSlugs.includes(slug)),
   );
   const allProjectsSelected = selectedProjects.size === allProjectSlugs.length;
+  const visibleRecentEvents = data.recent_events.filter((event) =>
+    showOnlyHumanEvents ? isGreenHumanEvent(event) : true,
+  );
+  const hiddenRecentEventCount = data.recent_events.length - visibleRecentEvents.length;
 
   function updateSelectedProjects(next: Set<string>) {
     const ordered = allProjectSlugs.filter((slug) => next.has(slug));
@@ -329,6 +342,89 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
             },
           }
         : current,
+    );
+  }
+
+  function renderDeliveryActions(event: NotificationEventRecord) {
+    return (
+      <>
+        <Link
+          href={`/visitors/${event.visitor_profile_id}`}
+          className="inline-flex justify-center rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1 text-xs font-medium text-cyan-100 transition hover:bg-cyan-300/15"
+        >
+          Open visitor
+        </Link>
+        {event.operator_identity ? (
+          <button
+            type="button"
+            onClick={() => void deleteOperatorIdentity(event.operator_identity!.id)}
+            disabled={busy === `delete-operator-${event.operator_identity.id}`}
+            className="cursor-pointer rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs font-medium text-cyan-100 transition hover:bg-cyan-300/15 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Remove self tag
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={() =>
+            void quickMute(
+              "person_key",
+              event.person_key,
+              `${event.visitor_alias} fingerprint`,
+              "Muted from a delivery-log quick action",
+            )
+          }
+          disabled={busy === "mute"}
+          className="cursor-pointer rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-medium text-white/75 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Mute visitor
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            void quickMute(
+              "ip",
+              event.ip,
+              `${event.ip}`,
+              "Muted IP from a delivery-log quick action",
+            )
+          }
+          disabled={busy === "mute"}
+          className="cursor-pointer rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-medium text-white/75 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Mute IP
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            void quickMute(
+              "path",
+              event.path,
+              `${event.path}`,
+              "Muted path from a delivery-log quick action",
+            )
+          }
+          disabled={busy === "mute"}
+          className="cursor-pointer rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-medium text-white/75 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Mute path
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            void quickMute(
+              "project_slug",
+              event.project_slug,
+              `${event.project_name}`,
+              "Muted project from a delivery-log quick action",
+            )
+          }
+          disabled={busy === "mute"}
+          className="cursor-pointer rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-medium text-white/75 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Mute project
+        </button>
+      </>
     );
   }
 
@@ -883,7 +979,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
           </div>
         </section>
 
-        <section className="mt-6 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+        <section className="mt-6 grid gap-6 xl:grid-cols-[0.82fr_1.18fr]">
           <div className="min-w-0 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-5">
             <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Mutes</p>
             <h2 className="mt-2 text-2xl font-semibold text-white">Kill switches</h2>
@@ -1081,24 +1177,92 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                 <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Delivery log</p>
                 <h2 className="mt-2 text-2xl font-semibold text-white">What Traffic just did</h2>
               </div>
-              <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
-                {data.recent_events.length} recent decisions
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowOnlyHumanEvents((current) => !current)}
+                  className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition ${
+                    showOnlyHumanEvents
+                      ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-100"
+                      : "border-white/10 bg-black/20 text-white/70 hover:border-white/20 hover:text-white"
+                  }`}
+                >
+                  {showOnlyHumanEvents ? "Showing only green humans" : "Only show green humans"}
+                </button>
+                <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
+                  {visibleRecentEvents.length} shown
+                  {hiddenRecentEventCount > 0 ? ` • ${hiddenRecentEventCount} hidden` : ""}
+                </div>
               </div>
             </div>
 
             <div className="mt-5 space-y-4">
-              {data.recent_events.length === 0 ? (
+              {visibleRecentEvents.length === 0 ? (
                 <div className="rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-white/60">
-                  No notifications have been processed yet.
+                  {showOnlyHumanEvents
+                    ? "Traffic has not delivered any green human events in this recent window yet."
+                    : "No notifications have been processed yet."}
                 </div>
               ) : (
-                data.recent_events.map((event) => (
-                  <article
-                    key={`${event.traffic_event_id}-${event.id}`}
-                    className={`rounded-3xl border p-4 ${eventTone(event.status)}`}
-                  >
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                      <div className="min-w-0 flex-1">
+                visibleRecentEvents.map((event) =>
+                  event.status === "suppressed" ? (
+                    <details
+                      key={`${event.traffic_event_id}-${event.id}`}
+                      className={`group rounded-2xl border p-3 ${eventTone(event.status)}`}
+                    >
+                      <summary className="flex cursor-pointer list-none flex-col gap-3 [&::-webkit-details-marker]:hidden xl:flex-row xl:items-center xl:justify-between">
+                        <div className="min-w-0 flex flex-1 flex-wrap items-center gap-2">
+                          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
+                            {event.status}
+                          </span>
+                          {event.operator_identity ? (
+                            <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-100">
+                              Operator
+                            </span>
+                          ) : null}
+                          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
+                            {event.project_name}
+                          </span>
+                          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
+                            {event.verdict_label}
+                          </span>
+                          <span className="min-w-0 max-w-full truncate text-sm font-medium text-white">
+                            {withFlag(event.country_code, event.visitor_alias)}
+                          </span>
+                          <span className="hidden text-white/30 xl:inline">/</span>
+                          <span className="min-w-0 flex-1 truncate font-mono text-xs text-amber-100/80">
+                            {event.path}
+                          </span>
+                        </div>
+
+                        <div className="min-w-0 flex flex-wrap items-center gap-2 text-xs text-amber-100/80">
+                          <span className="truncate">
+                            Suppressed: {humanizeReason(event.suppression_reason)}
+                          </span>
+                          <span>{event.event_timestamp_alberta}</span>
+                          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 font-medium uppercase tracking-[0.16em] text-white/65">
+                            More
+                          </span>
+                        </div>
+                      </summary>
+
+                      <div className="mt-3 border-t border-white/10 pt-3">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-white/70">
+                          <span>IP {event.ip}</span>
+                          <span>{event.returning_visitor ? "Returning" : "New"}</span>
+                          <span>Total Project Visits {event.total_project_visits}</span>
+                          <span>Host {event.host}</span>
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap gap-2">{renderDeliveryActions(event)}</div>
+                      </div>
+                    </details>
+                  ) : (
+                    <article
+                      key={`${event.traffic_event_id}-${event.id}`}
+                      className={`rounded-3xl border p-4 ${eventTone(event.status)}`}
+                    >
+                      <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
                             {event.status}
@@ -1128,7 +1292,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                           {event.total_project_visits}
                         </p>
 
-                        <div className="mt-3 rounded-2xl border border-white/10 bg-black/20 p-3 text-sm text-white/80">
+                        <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-3 text-sm text-white/80">
                           <p className="font-medium text-white">{event.notification_title}</p>
                           <p className="mt-2 whitespace-pre-line break-words text-slate-300">
                             {event.notification_body}
@@ -1137,94 +1301,15 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
 
                         {event.status !== "delivered" ? (
                           <p className="mt-3 text-sm text-white/80">
-                            {event.status === "suppressed"
-                              ? `Suppressed: ${humanizeReason(event.suppression_reason)}`
-                              : `Error: ${event.delivery_error || "Unknown delivery failure"}`}
+                            Error: {event.delivery_error || "Unknown delivery failure"}
                           </p>
                         ) : null}
-                      </div>
 
-                      <div className="grid w-full gap-2 sm:flex sm:flex-wrap lg:w-auto">
-                        <Link
-                          href={`/visitors/${event.visitor_profile_id}`}
-                          className="inline-flex justify-center rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1 text-xs font-medium text-cyan-100 transition hover:bg-cyan-300/15"
-                        >
-                          Open visitor
-                        </Link>
-                        {event.operator_identity ? (
-                          <button
-                            type="button"
-                            onClick={() => void deleteOperatorIdentity(event.operator_identity!.id)}
-                            disabled={busy === `delete-operator-${event.operator_identity.id}`}
-                            className="cursor-pointer rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs font-medium text-cyan-100 transition hover:bg-cyan-300/15 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            Remove self tag
-                          </button>
-                        ) : null}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void quickMute(
-                              "person_key",
-                              event.person_key,
-                              `${event.visitor_alias} fingerprint`,
-                              "Muted from a delivery-log quick action",
-                            )
-                          }
-                          disabled={busy === "mute"}
-                          className="cursor-pointer rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-medium text-white/75 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          Mute visitor
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void quickMute(
-                              "ip",
-                              event.ip,
-                              `${event.ip}`,
-                              "Muted IP from a delivery-log quick action",
-                            )
-                          }
-                          disabled={busy === "mute"}
-                          className="cursor-pointer rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-medium text-white/75 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          Mute IP
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void quickMute(
-                              "path",
-                              event.path,
-                              `${event.path}`,
-                              "Muted path from a delivery-log quick action",
-                            )
-                          }
-                          disabled={busy === "mute"}
-                          className="cursor-pointer rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-medium text-white/75 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          Mute path
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void quickMute(
-                              "project_slug",
-                              event.project_slug,
-                              `${event.project_name}`,
-                              "Muted project from a delivery-log quick action",
-                            )
-                          }
-                          disabled={busy === "mute"}
-                          className="cursor-pointer rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-medium text-white/75 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          Mute project
-                        </button>
+                        <div className="mt-4 flex flex-wrap gap-2">{renderDeliveryActions(event)}</div>
                       </div>
-                    </div>
-                  </article>
-                ))
+                    </article>
+                  ),
+                )
               )}
             </div>
           </div>
