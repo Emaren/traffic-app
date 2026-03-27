@@ -750,6 +750,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
             <div className="mt-5 grid gap-3">
               {[
                 ["page_hits_only", "Only notify for real page hits, not API/background noise"],
+                ["suppress_operator_traffic", "Suppress operator/self traffic"],
                 ["filter_exploit_probes", "Filter obvious exploit or scanner-style page probes"],
                 ["include_human_confirmed", "Include confirmed humans"],
                 ["include_likely_human", "Include likely humans"],
@@ -987,6 +988,12 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                     </div>
                   ))
                 )}
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm leading-6 text-slate-300">
+                {settings.policy.suppress_operator_traffic
+                  ? "Operator suppression is on. Tagged self traffic will stay quiet until you turn it off."
+                  : "Operator suppression is off. Tagged self traffic keeps its Operator badge, but real page hits can still notify while you test."}
               </div>
             </div>
 
