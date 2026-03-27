@@ -13,6 +13,21 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#06070a",
     theme_color: "#06070a",
     categories: ["business", "productivity", "utilities"],
+    shortcuts: [
+      {
+        name: "Admin cockpit",
+        short_name: "Admin",
+        description: "Open the Traffic notification cockpit.",
+        url: "/admin",
+        icons: [
+          {
+            src: "/icons/traffic-192.png",
+            sizes: "192x192",
+            type: "image/png",
+          },
+        ],
+      },
+    ],
     icons: [
       {
         src: "/icons/traffic-192.png",

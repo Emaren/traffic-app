@@ -360,8 +360,16 @@ export default function HomeOverviewScreen({
               The shell is up. Traffic is loading the observatory data in the browser so the page
               can appear fast even when analytics queries are heavy.
             </p>
-            <div className="mt-4 inline-flex rounded-full border border-sky-400/30 bg-sky-400/10 px-4 py-2 text-sm font-medium text-sky-200">
-              Loading live overview…
+            <div className="mt-4 flex flex-wrap gap-2">
+              <div className="inline-flex rounded-full border border-sky-400/30 bg-sky-400/10 px-4 py-2 text-sm font-medium text-sky-200">
+                Loading live overview…
+              </div>
+              <Link
+                href="/admin"
+                className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-300/15"
+              >
+                Open admin cockpit
+              </Link>
             </div>
             {error ? (
               <div className="mt-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-100">
@@ -419,6 +427,12 @@ export default function HomeOverviewScreen({
                     </button>
                   );
                 })}
+                <Link
+                  href="/admin"
+                  className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1 font-medium text-cyan-100 transition hover:bg-cyan-300/15"
+                >
+                  Admin cockpit
+                </Link>
               </div>
             </div>
 
