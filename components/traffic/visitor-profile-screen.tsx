@@ -309,27 +309,29 @@ export default function VisitorProfileScreen({
   );
   const visibleSessions = useMemo(
     () =>
-      profile.sessions.filter((session) => {
-        if (
-          effectiveSelectedProjects.length > 0 &&
-          !effectiveSelectedProjects.includes(session.project_slug)
-        ) {
-          return false;
-        }
-        if (showOnlyGreenHumans && session.classification_state !== "human_confirmed") {
-          return false;
-        }
-        if (
-          sessionHiddenByVisibilityRules(
-            session,
-            activeVisibilityRules,
-            effectiveHiddenIps,
-          )
-        ) {
-          return false;
-        }
-        return true;
-      }),
+      profile.sessions
+        .filter((session) => {
+          if (
+            effectiveSelectedProjects.length > 0 &&
+            !effectiveSelectedProjects.includes(session.project_slug)
+          ) {
+            return false;
+          }
+          if (showOnlyGreenHumans && session.classification_state !== "human_confirmed") {
+            return false;
+          }
+          if (
+            sessionHiddenByVisibilityRules(
+              session,
+              activeVisibilityRules,
+              effectiveHiddenIps,
+            )
+          ) {
+            return false;
+          }
+          return true;
+        })
+        .sort((left, right) => right.first_seen_at.localeCompare(left.first_seen_at)),
     [
       activeVisibilityRules,
       effectiveHiddenIps,
@@ -387,7 +389,7 @@ export default function VisitorProfileScreen({
   const sessionSummary =
     profile.visitor.total_sessions > visibleSessions.length
       ? `Showing ${visibleSessions.length} visible sessions out of ${profile.visitor.total_sessions} stored in this range.`
-      : "Newest session first. Expand a row to see the full stored path and why Traffic ties it to this visitor.";
+      : "Newest visit start first. Expand a row to see the full stored path and why Traffic ties it to this visitor.";
 
   return (
     <main className="min-h-screen bg-[#06070a] text-slate-100">
@@ -721,6 +723,7 @@ export default function VisitorProfileScreen({
                     session={session}
                     showVisitorLink={false}
                     density={density}
+                    primaryTime="first_seen"
                     onHideIp={hideIp}
                     onHidePath={supportsSharedRules ? hidePath : undefined}
                     onHideProject={supportsSharedRules ? hideProject : undefined}

@@ -10,6 +10,7 @@ type Props = {
   showProjectLink?: boolean;
   showVisitorLink?: boolean;
   density?: "full" | "compact";
+  primaryTime?: "last_seen" | "first_seen";
   onHideIp?: (ip: string) => void;
   onHidePath?: (path: string) => void;
   onHideProject?: (slug: string, name: string) => void;
@@ -71,6 +72,7 @@ export default function LiveVisitorStreamRow({
   showProjectLink = true,
   showVisitorLink = true,
   density = "full",
+  primaryTime = "last_seen",
   onHideIp,
   onHidePath,
   onHideProject,
@@ -86,6 +88,14 @@ export default function LiveVisitorStreamRow({
     session.country ? `, ${session.country}` : ""
   }`;
   const automationPill = automationLabel(session);
+  const primaryTimestamp =
+    primaryTime === "first_seen"
+      ? `Started ${session.first_seen_alberta}`
+      : session.last_seen_alberta;
+  const secondaryTimestamp =
+    primaryTime === "first_seen" && session.last_seen_alberta !== session.first_seen_alberta
+      ? `Last move ${session.last_seen_alberta}`
+      : null;
 
   return (
     <details className="group rounded-2xl border border-white/10 bg-black/20 transition open:bg-black/30">
@@ -94,8 +104,13 @@ export default function LiveVisitorStreamRow({
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2 text-[11px]">
               <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-white/70">
-                {session.last_seen_alberta}
+                {primaryTimestamp}
               </span>
+              {secondaryTimestamp ? (
+                <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 font-mono text-white/55">
+                  {secondaryTimestamp}
+                </span>
+              ) : null}
               {showProjectBadge ? (
                 <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-white/70">
                   {session.project_name}
@@ -153,8 +168,13 @@ export default function LiveVisitorStreamRow({
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2 text-xs">
                 <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-white/70">
-                  {session.last_seen_alberta}
+                  {primaryTimestamp}
                 </span>
+                {secondaryTimestamp ? (
+                  <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 font-mono text-white/55">
+                    {secondaryTimestamp}
+                  </span>
+                ) : null}
                 {showProjectBadge ? (
                   <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-white/70">
                     {session.project_name}
