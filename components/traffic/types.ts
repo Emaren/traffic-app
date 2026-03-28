@@ -333,6 +333,7 @@ export type NotificationSettings = {
     page_hits_only: boolean;
     suppress_operator_traffic: boolean;
     filter_exploit_probes: boolean;
+    filter_known_automation: boolean;
     include_human_confirmed: boolean;
     include_likely_human: boolean;
     include_unclear: boolean;

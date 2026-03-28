@@ -1200,6 +1200,10 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                 ["page_hits_only", "Only notify for real page hits, not API/background noise"],
                 ["suppress_operator_traffic", "Suppress operator/self traffic"],
                 ["filter_exploit_probes", "Filter obvious exploit or scanner-style page probes"],
+                [
+                  "filter_known_automation",
+                  "Filter known crawler, preview, and proxy automation like GoogleOther",
+                ],
                 ["include_human_confirmed", "Include confirmed humans"],
                 ["include_likely_human", "Include likely humans"],
                 ["include_unclear", "Include unclear sessions while you are learning the flow"],
