@@ -7,6 +7,10 @@ export const TRAFFIC_LIVE_GREEN_ONLY_KEY = "traffic.live.green-only";
 export const TRAFFIC_HISTORY_DENSITY_KEY = "traffic.history.density";
 export const TRAFFIC_HISTORY_CLASSIFICATION_KEY = "traffic.history.classification";
 export const TRAFFIC_HISTORY_GREEN_ONLY_KEY = "traffic.history.green-only";
+export const TRAFFIC_PROJECT_LIVE_DENSITY_KEY = "traffic.project-live.density";
+export const TRAFFIC_PROJECT_LIVE_GREEN_ONLY_KEY = "traffic.project-live.green-only";
+export const TRAFFIC_VISITOR_PROFILE_DENSITY_KEY = "traffic.visitor-profile.density";
+export const TRAFFIC_VISITOR_PROFILE_GREEN_ONLY_KEY = "traffic.visitor-profile.green-only";
 
 export function loadStoredString(key: string): string {
   if (typeof window === "undefined") return "";

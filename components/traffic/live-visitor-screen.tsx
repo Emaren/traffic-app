@@ -5,21 +5,21 @@ import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   buildLiveVisitorsStreamUrl,
-  createVisibilityRule,
-  deleteVisibilityRule,
   fetchLiveVisitors,
-  fetchVisibilityRules,
 } from "@/components/traffic/api";
 import LiveVisitorStreamRow from "@/components/traffic/live-visitor-stream-row";
+import VisibilityRulePanel from "@/components/traffic/visibility-rule-panel";
+import {
+  sessionHiddenByVisibilityRules,
+  useTrafficVisibilityRules,
+} from "@/components/traffic/visibility-client";
 import type {
   LiveTransportMode,
   ProjectFilterOption,
   LiveVisitorsResponse,
   SessionRecord,
-  VisibilityRule,
 } from "@/components/traffic/types";
 import {
-  TRAFFIC_HIDDEN_IPS_KEY,
   loadStoredBoolean,
   loadStoredString,
   loadStoredStringArray,
@@ -90,13 +90,18 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
   const [showOnlyGreenHumans, setShowOnlyGreenHumans] = useState(() =>
     loadStoredBoolean(TRAFFIC_LIVE_GREEN_ONLY_KEY),
   );
-  const [visibilityRules, setVisibilityRules] = useState<VisibilityRule[] | null>(null);
-  const [hiddenIps, setHiddenIps] = useState<string[]>(() =>
-    loadStoredStringArray(TRAFFIC_HIDDEN_IPS_KEY),
-  );
   const [density, setDensity] = useState<"full" | "compact">(() =>
     loadStoredString(TRAFFIC_LIVE_DENSITY_KEY) === "compact" ? "compact" : "full",
   );
+  const {
+    supportsSharedRules,
+    activeVisibilityRules,
+    effectiveHiddenIps,
+    localOnlyHiddenIps,
+    upsertVisibilityRule,
+    removeVisibilityRule,
+    unhideIp,
+  } = useTrafficVisibilityRules();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const shouldStickToTopRef = useRef(true);
 
@@ -210,24 +215,6 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
     };
   }, [pollMs]);
 
-  useEffect(() => {
-    let mounted = true;
-
-    void fetchVisibilityRules()
-      .then((response) => {
-        if (!mounted) return;
-        setVisibilityRules(response.rules.filter((rule) => rule.rule_type === "ip" && rule.active));
-      })
-      .catch(() => {
-        if (!mounted) return;
-        setVisibilityRules(null);
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
   const availableProjects = useMemo<ProjectFilterOption[]>(
     () => data?.available_projects ?? [],
     [data?.available_projects],
@@ -251,19 +238,6 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
   }, [showOnlyGreenHumans]);
 
   useEffect(() => {
-    storeStringArray(TRAFFIC_HIDDEN_IPS_KEY, hiddenIps);
-  }, [hiddenIps]);
-
-  const serverHiddenIps = useMemo(
-    () => (visibilityRules ?? []).map((rule) => rule.match_value),
-    [visibilityRules],
-  );
-  const effectiveHiddenIps = useMemo(
-    () => [...new Set([...serverHiddenIps, ...hiddenIps])],
-    [hiddenIps, serverHiddenIps],
-  );
-
-  useEffect(() => {
     storeString(TRAFFIC_LIVE_DENSITY_KEY, density);
   }, [density]);
 
@@ -274,13 +248,18 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
   const streamItems = useMemo(() => {
     const sourceItems = data?.stream_items ?? [];
     const selectedProjectSet = new Set(effectiveSelectedProjects);
-    const hiddenIpSet = new Set(effectiveHiddenIps);
 
     return sourceItems.filter((session) => {
       if (selectedProjectSet.size > 0 && !selectedProjectSet.has(session.project_slug)) {
         return false;
       }
-      if (hiddenIpSet.has(session.ip)) {
+      if (
+        sessionHiddenByVisibilityRules(
+          session,
+          activeVisibilityRules,
+          effectiveHiddenIps,
+        )
+      ) {
         return false;
       }
       if (showOnlyGreenHumans && session.classification_state !== "human_confirmed") {
@@ -288,7 +267,13 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
       }
       return true;
     });
-  }, [data?.stream_items, effectiveHiddenIps, effectiveSelectedProjects, showOnlyGreenHumans]);
+  }, [
+    activeVisibilityRules,
+    data?.stream_items,
+    effectiveHiddenIps,
+    effectiveSelectedProjects,
+    showOnlyGreenHumans,
+  ]);
 
   const newestFirstItems = useMemo(() => [...streamItems].reverse(), [streamItems]);
   const generatedAt = useMemo(
@@ -391,35 +376,27 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
   };
 
   const hideIp = async (ip: string) => {
-    setHiddenIps((current) => (current.includes(ip) ? current : [...current, ip]));
-
-    if (visibilityRules === null || visibilityRules.some((rule) => rule.match_value === ip)) {
-      return;
-    }
-
-    try {
-      const response = await createVisibilityRule({
-        rule_type: "ip",
-        match_value: ip,
-        label: ip,
-        reason: "Hidden from Traffic observatory surfaces",
-      });
-      setVisibilityRules((current) => [response.rule, ...(current ?? []).filter((rule) => rule.id !== response.rule.id)]);
-    } catch {}
+    await upsertVisibilityRule({
+      rule_type: "ip",
+      match_value: ip,
+      label: ip,
+    });
   };
 
-  const unhideIp = async (ip: string) => {
-    setHiddenIps((current) => current.filter((value) => value !== ip));
+  const hidePath = async (path: string) => {
+    await upsertVisibilityRule({
+      rule_type: "path",
+      match_value: path,
+      label: path,
+    });
+  };
 
-    const matchingRule = visibilityRules?.find((rule) => rule.match_value === ip);
-    if (!matchingRule) {
-      return;
-    }
-
-    try {
-      await deleteVisibilityRule(matchingRule.id);
-      setVisibilityRules((current) => (current ?? []).filter((rule) => rule.id !== matchingRule.id));
-    } catch {}
+  const hideProject = async (slug: string, name: string) => {
+    await upsertVisibilityRule({
+      rule_type: "project_slug",
+      match_value: slug,
+      label: name,
+    });
   };
 
   return (
@@ -474,6 +451,7 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
               {effectiveSelectedProjects.length || availableProjectSlugs.length} of {availableProjectSlugs.length || 0} projects visible
               {showOnlyGreenHumans ? " • green humans only" : " • mixed human-confidence feed"}
               {effectiveHiddenIps.length > 0 ? ` • ${effectiveHiddenIps.length} hidden IPs` : ""}
+              {activeVisibilityRules.length > 0 ? ` • ${activeVisibilityRules.length} shared hides` : ""}
             </div>
           </div>
 
@@ -536,36 +514,16 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
           })}
         </div>
 
-        {effectiveHiddenIps.length > 0 ? (
-          <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="text-xs uppercase tracking-[0.22em] text-amber-200/80">Hidden IPs</div>
-              <button
-                type="button"
-                onClick={() => {
-                  void Promise.all(effectiveHiddenIps.map((ip) => unhideIp(ip)));
-                }}
-                className="cursor-pointer rounded-full border border-amber-400/30 bg-black/20 px-3 py-1 text-xs font-medium text-amber-100 transition hover:bg-black/30"
-              >
-                Clear all
-              </button>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {effectiveHiddenIps.map((ip) => (
-                <button
-                  key={ip}
-                  type="button"
-                  onClick={() => {
-                    void unhideIp(ip);
-                  }}
-                  className="cursor-pointer rounded-full border border-amber-400/30 bg-black/20 px-3 py-1 text-xs font-medium text-amber-100 transition hover:bg-black/30"
-                >
-                  {ip} ×
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
+        <VisibilityRulePanel
+          rules={activeVisibilityRules}
+          localOnlyHiddenIps={localOnlyHiddenIps}
+          onRemoveRule={(rule) => {
+            void removeVisibilityRule(rule);
+          }}
+          onRemoveLocalIp={(ip) => {
+            void unhideIp(ip);
+          }}
+        />
       </div>
 
       {error ? (
@@ -616,6 +574,8 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
                           session={session}
                           density={density}
                           onHideIp={hideIp}
+                          onHidePath={supportsSharedRules ? hidePath : undefined}
+                          onHideProject={supportsSharedRules ? hideProject : undefined}
                         />
                       </motion.div>
                     ))}

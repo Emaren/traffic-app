@@ -11,6 +11,8 @@ type Props = {
   showVisitorLink?: boolean;
   density?: "full" | "compact";
   onHideIp?: (ip: string) => void;
+  onHidePath?: (path: string) => void;
+  onHideProject?: (slug: string, name: string) => void;
 };
 
 function formatSeconds(total: number): string {
@@ -44,11 +46,14 @@ export default function LiveVisitorStreamRow({
   showVisitorLink = true,
   density = "full",
   onHideIp,
+  onHidePath,
+  onHideProject,
 }: Props) {
   const journey =
     session.entry_page === session.current_page
       ? session.current_page
       : `${session.entry_page} -> ${session.current_page}`;
+  const actionPath = session.current_page || session.exit_page || session.entry_page;
 
   const visitorLabel = withFlag(session.country_code, session.visitor_alias);
   const metaLine = `${session.city || "Unknown city"}${session.area ? `, ${session.area}` : ""}${
@@ -226,6 +231,24 @@ export default function LiveVisitorStreamRow({
                   className="cursor-pointer rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-medium text-amber-200 transition hover:bg-amber-400/15"
                 >
                   Hide IP
+                </button>
+              ) : null}
+              {onHidePath ? (
+                <button
+                  type="button"
+                  onClick={() => onHidePath(actionPath)}
+                  className="cursor-pointer rounded-full border border-rose-400/30 bg-rose-400/10 px-3 py-1 text-xs font-medium text-rose-200 transition hover:bg-rose-400/15"
+                >
+                  Hide path
+                </button>
+              ) : null}
+              {onHideProject ? (
+                <button
+                  type="button"
+                  onClick={() => onHideProject(session.project_slug, session.project_name)}
+                  className="cursor-pointer rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-200 transition hover:bg-sky-400/15"
+                >
+                  Hide project
                 </button>
               ) : null}
             </div>

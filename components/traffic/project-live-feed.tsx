@@ -7,11 +7,24 @@ import {
   fetchProjectLiveFeed,
 } from "@/components/traffic/api";
 import LiveVisitorStreamRow from "@/components/traffic/live-visitor-stream-row";
+import VisibilityRulePanel from "@/components/traffic/visibility-rule-panel";
+import {
+  sessionHiddenByVisibilityRules,
+  useTrafficVisibilityRules,
+} from "@/components/traffic/visibility-client";
 import type {
   LiveTransportMode,
   ProjectLiveFeedResponse,
   SessionRecord,
 } from "@/components/traffic/types";
+import {
+  TRAFFIC_PROJECT_LIVE_DENSITY_KEY,
+  TRAFFIC_PROJECT_LIVE_GREEN_ONLY_KEY,
+  loadStoredBoolean,
+  loadStoredString,
+  storeBoolean,
+  storeString,
+} from "@/components/traffic/view-preferences";
 
 type Props = {
   projectName: string;
@@ -39,6 +52,12 @@ function transportBadge(mode: LiveTransportMode, pollMs: number) {
   };
 }
 
+function pillClass(isActive: boolean) {
+  return isActive
+    ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+    : "border-white/10 bg-black/20 text-white/65 hover:border-white/20 hover:text-white";
+}
+
 export default function ProjectLiveFeed({
   projectName,
   projectSlug,
@@ -49,6 +68,21 @@ export default function ProjectLiveFeed({
   const [error, setError] = useState("");
   const [transportMode, setTransportMode] = useState<LiveTransportMode>("connecting");
   const [transportNotice, setTransportNotice] = useState("");
+  const [showOnlyGreenHumans, setShowOnlyGreenHumans] = useState(() =>
+    loadStoredBoolean(TRAFFIC_PROJECT_LIVE_GREEN_ONLY_KEY),
+  );
+  const [density, setDensity] = useState<"full" | "compact">(() =>
+    loadStoredString(TRAFFIC_PROJECT_LIVE_DENSITY_KEY) === "compact" ? "compact" : "full",
+  );
+  const {
+    supportsSharedRules,
+    activeVisibilityRules,
+    effectiveHiddenIps,
+    localOnlyHiddenIps,
+    upsertVisibilityRule,
+    removeVisibilityRule,
+    unhideIp,
+  } = useTrafficVisibilityRules();
 
   useEffect(() => {
     let mounted = true;
@@ -155,7 +189,50 @@ export default function ProjectLiveFeed({
     };
   }, [pollMs, projectSlug]);
 
+  useEffect(() => {
+    storeBoolean(TRAFFIC_PROJECT_LIVE_GREEN_ONLY_KEY, showOnlyGreenHumans);
+  }, [showOnlyGreenHumans]);
+
+  useEffect(() => {
+    storeString(TRAFFIC_PROJECT_LIVE_DENSITY_KEY, density);
+  }, [density]);
+
   const transport = useMemo(() => transportBadge(transportMode, pollMs), [pollMs, transportMode]);
+  const visibleItems = useMemo(
+    () =>
+      items.filter((session) => {
+        if (showOnlyGreenHumans && session.classification_state !== "human_confirmed") {
+          return false;
+        }
+        if (
+          sessionHiddenByVisibilityRules(
+            session,
+            activeVisibilityRules,
+            effectiveHiddenIps,
+          )
+        ) {
+          return false;
+        }
+        return true;
+      }),
+    [activeVisibilityRules, effectiveHiddenIps, items, showOnlyGreenHumans],
+  );
+
+  const hideIp = async (ip: string) => {
+    await upsertVisibilityRule({
+      rule_type: "ip",
+      match_value: ip,
+      label: ip,
+    });
+  };
+
+  const hidePath = async (path: string) => {
+    await upsertVisibilityRule({
+      rule_type: "path",
+      match_value: path,
+      label: path,
+    });
+  };
 
   return (
     <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
@@ -176,7 +253,7 @@ export default function ProjectLiveFeed({
             {transport.label}
           </div>
           <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
-            {items.length} visible
+            {visibleItems.length} visible
           </div>
         </div>
       </div>
@@ -193,10 +270,64 @@ export default function ProjectLiveFeed({
         </div>
       ) : null}
 
+      <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-xs uppercase tracking-[0.22em] text-white/40">Project Feed Controls</div>
+            <div className="mt-1 text-sm text-white/65">
+              {showOnlyGreenHumans ? "Green humans only" : "Mixed human-confidence feed"}
+              {effectiveHiddenIps.length > 0 ? ` • ${effectiveHiddenIps.length} hidden IPs` : ""}
+              {activeVisibilityRules.length > 0 ? ` • ${activeVisibilityRules.length} shared hides` : ""}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setDensity("full")}
+              className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition ${pillClass(
+                density === "full",
+              )}`}
+            >
+              Long form
+            </button>
+            <button
+              type="button"
+              onClick={() => setDensity("compact")}
+              className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition ${pillClass(
+                density === "compact",
+              )}`}
+            >
+              Short form
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowOnlyGreenHumans((current) => !current)}
+              className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition ${pillClass(
+                showOnlyGreenHumans,
+              )}`}
+            >
+              Only green humans
+            </button>
+          </div>
+        </div>
+
+        <VisibilityRulePanel
+          rules={activeVisibilityRules}
+          localOnlyHiddenIps={localOnlyHiddenIps}
+          onRemoveRule={(rule) => {
+            void removeVisibilityRule(rule);
+          }}
+          onRemoveLocalIp={(ip) => {
+            void unhideIp(ip);
+          }}
+        />
+      </div>
+
       <div className="mt-5 max-h-[980px] space-y-3 overflow-y-auto pr-2">
-        {items.length > 0 ? (
+        {visibleItems.length > 0 ? (
           <AnimatePresence initial={false}>
-            {items.map((session) => (
+            {visibleItems.map((session) => (
               <motion.div
                 key={session.session_id}
                 layout="position"
@@ -209,6 +340,9 @@ export default function ProjectLiveFeed({
                   session={session}
                   showProjectBadge={false}
                   showProjectLink={false}
+                  density={density}
+                  onHideIp={hideIp}
+                  onHidePath={supportsSharedRules ? hidePath : undefined}
                 />
               </motion.div>
             ))}

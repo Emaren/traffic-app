@@ -9,12 +9,29 @@ import {
 import { withFlag } from "@/components/traffic/display";
 import LiveVisitorStreamRow from "@/components/traffic/live-visitor-stream-row";
 import VisitorActivityReel from "@/components/traffic/visitor-activity-reel";
+import VisibilityRulePanel from "@/components/traffic/visibility-rule-panel";
+import {
+  sessionHiddenByVisibilityRules,
+  useTrafficVisibilityRules,
+} from "@/components/traffic/visibility-client";
 import type {
   HistoryRangeKey,
   LiveTransportMode,
   SessionRecord,
   VisitorProfileResponse,
 } from "@/components/traffic/types";
+import {
+  TRAFFIC_SHARED_PROJECT_FILTER_KEY,
+  TRAFFIC_VISITOR_PROFILE_DENSITY_KEY,
+  TRAFFIC_VISITOR_PROFILE_GREEN_ONLY_KEY,
+  loadStoredBoolean,
+  loadStoredString,
+  loadStoredStringArray,
+  reconcileSelectedValues,
+  storeBoolean,
+  storeString,
+  storeStringArray,
+} from "@/components/traffic/view-preferences";
 
 const RANGE_OPTIONS: Array<{ key: HistoryRangeKey; label: string }> = [
   { key: "24h", label: "24 Hours" },
@@ -74,6 +91,12 @@ function rangeMissNotice(label: string) {
   return `Traffic has no ${label.toLowerCase()} history for this visitor yet, so the current snapshot stayed in place.`;
 }
 
+function pillClass(isActive: boolean) {
+  return isActive
+    ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+    : "border-white/10 bg-black/20 text-white/65 hover:border-white/20 hover:text-white";
+}
+
 export default function VisitorProfileScreen({
   initialProfile,
   pollMs = 5000,
@@ -84,6 +107,24 @@ export default function VisitorProfileScreen({
   const [transportMode, setTransportMode] = useState<LiveTransportMode>("connecting");
   const [transportNotice, setTransportNotice] = useState("");
   const [pendingRange, setPendingRange] = useState<HistoryRangeKey | null>(null);
+  const [showOnlyGreenHumans, setShowOnlyGreenHumans] = useState(() =>
+    loadStoredBoolean(TRAFFIC_VISITOR_PROFILE_GREEN_ONLY_KEY),
+  );
+  const [density, setDensity] = useState<"full" | "compact">(() =>
+    loadStoredString(TRAFFIC_VISITOR_PROFILE_DENSITY_KEY) === "compact" ? "compact" : "full",
+  );
+  const [selectedProjects, setSelectedProjects] = useState<string[]>(() =>
+    loadStoredStringArray(TRAFFIC_SHARED_PROJECT_FILTER_KEY),
+  );
+  const {
+    supportsSharedRules,
+    activeVisibilityRules,
+    effectiveHiddenIps,
+    localOnlyHiddenIps,
+    upsertVisibilityRule,
+    removeVisibilityRule,
+    unhideIp,
+  } = useTrafficVisibilityRules();
 
   useEffect(() => {
     setProfile(initialProfile);
@@ -206,6 +247,14 @@ export default function VisitorProfileScreen({
     };
   }, [pollMs, profile.range_key, profile.range_label, visitorId]);
 
+  useEffect(() => {
+    storeBoolean(TRAFFIC_VISITOR_PROFILE_GREEN_ONLY_KEY, showOnlyGreenHumans);
+  }, [showOnlyGreenHumans]);
+
+  useEffect(() => {
+    storeString(TRAFFIC_VISITOR_PROFILE_DENSITY_KEY, density);
+  }, [density]);
+
   const loadRange = async (rangeKey: HistoryRangeKey) => {
     if (rangeKey === profile.range_key || pendingRange) return;
 
@@ -231,16 +280,111 @@ export default function VisitorProfileScreen({
     }
   };
 
+  const availableProjectSlugs = useMemo(
+    () => profile.projects.map((project) => project.slug),
+    [profile.projects],
+  );
+  const effectiveSelectedProjects = useMemo(
+    () => reconcileSelectedValues(selectedProjects, availableProjectSlugs),
+    [availableProjectSlugs, selectedProjects],
+  );
+  const allProjectsSelected =
+    availableProjectSlugs.length > 0 &&
+    effectiveSelectedProjects.length === availableProjectSlugs.length;
+
+  useEffect(() => {
+    if (availableProjectSlugs.length === 0) return;
+    storeStringArray(TRAFFIC_SHARED_PROJECT_FILTER_KEY, effectiveSelectedProjects);
+  }, [availableProjectSlugs.length, effectiveSelectedProjects]);
+
+  const visibleProjects = useMemo(
+    () =>
+      profile.projects.filter((project) => {
+        if (effectiveSelectedProjects.length === 0) {
+          return true;
+        }
+        return effectiveSelectedProjects.includes(project.slug);
+      }),
+    [effectiveSelectedProjects, profile.projects],
+  );
+  const visibleSessions = useMemo(
+    () =>
+      profile.sessions.filter((session) => {
+        if (
+          effectiveSelectedProjects.length > 0 &&
+          !effectiveSelectedProjects.includes(session.project_slug)
+        ) {
+          return false;
+        }
+        if (showOnlyGreenHumans && session.classification_state !== "human_confirmed") {
+          return false;
+        }
+        if (
+          sessionHiddenByVisibilityRules(
+            session,
+            activeVisibilityRules,
+            effectiveHiddenIps,
+          )
+        ) {
+          return false;
+        }
+        return true;
+      }),
+    [
+      activeVisibilityRules,
+      effectiveHiddenIps,
+      effectiveSelectedProjects,
+      profile.sessions,
+      showOnlyGreenHumans,
+    ],
+  );
+
+  const toggleProject = (slug: string) => {
+    setSelectedProjects((current) => {
+      const currentSet = new Set(reconcileSelectedValues(current, availableProjectSlugs));
+      if (currentSet.has(slug)) {
+        currentSet.delete(slug);
+      } else {
+        currentSet.add(slug);
+      }
+      return reconcileSelectedValues([...currentSet], availableProjectSlugs);
+    });
+  };
+
+  const hideIp = async (ip: string) => {
+    await upsertVisibilityRule({
+      rule_type: "ip",
+      match_value: ip,
+      label: ip,
+    });
+  };
+
+  const hidePath = async (path: string) => {
+    await upsertVisibilityRule({
+      rule_type: "path",
+      match_value: path,
+      label: path,
+    });
+  };
+
+  const hideProject = async (slug: string, name: string) => {
+    await upsertVisibilityRule({
+      rule_type: "project_slug",
+      match_value: slug,
+      label: name,
+    });
+  };
+
   const watchedSession = useMemo(
-    () => pickWatchedSession(profile.sessions),
-    [profile.sessions],
+    () => pickWatchedSession(visibleSessions),
+    [visibleSessions],
   );
   const transport = useMemo(() => transportBadge(transportMode, pollMs), [pollMs, transportMode]);
   const sessionCoverageLabel =
     profile.range_key === "all" ? "stored history" : `${profile.range_label.toLowerCase()} view`;
   const sessionSummary =
-    profile.visitor.total_sessions > profile.sessions.length
-      ? `Showing newest ${profile.sessions.length} of ${profile.visitor.total_sessions} sessions in this range.`
+    profile.visitor.total_sessions > visibleSessions.length
+      ? `Showing ${visibleSessions.length} visible sessions out of ${profile.visitor.total_sessions} stored in this range.`
       : "Newest session first. Expand a row to see the full stored path and why Traffic ties it to this visitor.";
 
   return (
@@ -383,8 +527,42 @@ export default function VisitorProfileScreen({
               Project touches inside the selected {profile.range_label.toLowerCase()} range.
             </p>
 
+            <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.22em] text-white/40">Project Filter</div>
+                  <div className="mt-1 text-sm text-white/65">
+                    {effectiveSelectedProjects.length || availableProjectSlugs.length} of {availableProjectSlugs.length} projects visible
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedProjects([...availableProjectSlugs])}
+                    className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition ${pillClass(
+                      allProjectsSelected,
+                    )}`}
+                  >
+                    All projects
+                  </button>
+                  {profile.projects.map((project) => (
+                    <button
+                      key={project.slug}
+                      type="button"
+                      onClick={() => toggleProject(project.slug)}
+                      className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition ${pillClass(
+                        effectiveSelectedProjects.includes(project.slug),
+                      )}`}
+                    >
+                      {project.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
             <div className="mt-5 space-y-3">
-              {profile.projects.map((project) => (
+              {visibleProjects.map((project) => (
                 <div
                   key={project.slug}
                   className="rounded-2xl border border-white/10 bg-black/20 p-4"
@@ -414,14 +592,78 @@ export default function VisitorProfileScreen({
             <h2 className="mt-2 text-2xl font-semibold text-white">Full session paths</h2>
             <p className="mt-2 text-sm text-slate-300">{sessionSummary}</p>
 
+            <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.22em] text-white/40">Session Controls</div>
+                  <div className="mt-1 text-sm text-white/65">
+                    {showOnlyGreenHumans ? "Green humans only" : "Mixed human-confidence feed"}
+                    {effectiveHiddenIps.length > 0 ? ` • ${effectiveHiddenIps.length} hidden IPs` : ""}
+                    {activeVisibilityRules.length > 0 ? ` • ${activeVisibilityRules.length} shared hides` : ""}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDensity("full")}
+                    className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition ${pillClass(
+                      density === "full",
+                    )}`}
+                  >
+                    Long form
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDensity("compact")}
+                    className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition ${pillClass(
+                      density === "compact",
+                    )}`}
+                  >
+                    Short form
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowOnlyGreenHumans((current) => !current)}
+                    className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition ${pillClass(
+                      showOnlyGreenHumans,
+                    )}`}
+                  >
+                    Only green humans
+                  </button>
+                </div>
+              </div>
+
+              <VisibilityRulePanel
+                rules={activeVisibilityRules}
+                localOnlyHiddenIps={localOnlyHiddenIps}
+                onRemoveRule={(rule) => {
+                  void removeVisibilityRule(rule);
+                }}
+                onRemoveLocalIp={(ip) => {
+                  void unhideIp(ip);
+                }}
+              />
+            </div>
+
             <div className="mt-5 space-y-3">
-              {profile.sessions.map((session) => (
-                <LiveVisitorStreamRow
-                  key={session.session_id}
-                  session={session}
-                  showVisitorLink={false}
-                />
-              ))}
+              {visibleSessions.length > 0 ? (
+                visibleSessions.map((session) => (
+                  <LiveVisitorStreamRow
+                    key={session.session_id}
+                    session={session}
+                    showVisitorLink={false}
+                    density={density}
+                    onHideIp={hideIp}
+                    onHidePath={supportsSharedRules ? hidePath : undefined}
+                    onHideProject={supportsSharedRules ? hideProject : undefined}
+                  />
+                ))
+              ) : (
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-white/60">
+                  No visitor sessions match the current project, verdict, and hide filters.
+                </div>
+              )}
             </div>
           </div>
         </section>
