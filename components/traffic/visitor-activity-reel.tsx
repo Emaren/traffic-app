@@ -60,6 +60,23 @@ function transportBadge(mode: LiveTransportMode, pollMs: number) {
   };
 }
 
+function automationBadge(session: SessionRecord | null): { label: string; className: string } | null {
+  if (!session) return null;
+  if (session.known_automation) {
+    return {
+      label: session.automation_family || "Known automation",
+      className: "border-fuchsia-400/30 bg-fuchsia-400/10 text-fuchsia-200",
+    };
+  }
+  if (session.classification_state === "suspicious") {
+    return {
+      label: "Security watch",
+      className: "border-rose-400/30 bg-rose-400/10 text-rose-200",
+    };
+  }
+  return null;
+}
+
 export default function VisitorActivityReel({
   session,
   pollMs = 5000,
@@ -76,6 +93,7 @@ export default function VisitorActivityReel({
 
   const stepSignature = useMemo(() => steps.map((step) => step.id).join("|"), [steps]);
   const transport = transportBadge(transportMode, pollMs);
+  const sessionBadge = useMemo(() => automationBadge(session), [session]);
 
   useEffect(() => {
     const previousIds = new Set(previousStepIdsRef.current);
@@ -175,6 +193,13 @@ export default function VisitorActivityReel({
               <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-white/70">
                 {session.last_seen_alberta}
               </span>
+              {sessionBadge ? (
+                <span
+                  className={`rounded-full border px-2.5 py-1 font-medium ${sessionBadge.className}`}
+                >
+                  {sessionBadge.label}
+                </span>
+              ) : null}
               {session.active_now ? (
                 <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 font-medium text-emerald-200">
                   Active now

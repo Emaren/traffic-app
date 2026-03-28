@@ -44,6 +44,14 @@ type StreamSection = {
   items: SessionRecord[];
 };
 
+type AuxiliarySection = {
+  key: "automation" | "security";
+  title: string;
+  description: string;
+  badgeClass: string;
+  items: SessionRecord[];
+};
+
 const RECENT_WINDOW_MINUTES = 60;
 const STREAM_LIMIT = 25;
 const STREAM_HISTORY_LIMIT = 95;
@@ -274,6 +282,44 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
     effectiveSelectedProjects,
     showOnlyGreenHumans,
   ]);
+  const automationItems = useMemo(() => {
+    if (showOnlyGreenHumans) {
+      return [];
+    }
+
+    const selectedProjectSet = new Set(effectiveSelectedProjects);
+    return (data?.automation_preview ?? []).filter((session) => {
+      if (selectedProjectSet.size > 0 && !selectedProjectSet.has(session.project_slug)) {
+        return false;
+      }
+      return !sessionHiddenByVisibilityRules(session, activeVisibilityRules, effectiveHiddenIps);
+    });
+  }, [
+    activeVisibilityRules,
+    data?.automation_preview,
+    effectiveHiddenIps,
+    effectiveSelectedProjects,
+    showOnlyGreenHumans,
+  ]);
+  const securityItems = useMemo(() => {
+    if (showOnlyGreenHumans) {
+      return [];
+    }
+
+    const selectedProjectSet = new Set(effectiveSelectedProjects);
+    return (data?.security_preview ?? []).filter((session) => {
+      if (selectedProjectSet.size > 0 && !selectedProjectSet.has(session.project_slug)) {
+        return false;
+      }
+      return !sessionHiddenByVisibilityRules(session, activeVisibilityRules, effectiveHiddenIps);
+    });
+  }, [
+    activeVisibilityRules,
+    data?.security_preview,
+    effectiveHiddenIps,
+    effectiveSelectedProjects,
+    showOnlyGreenHumans,
+  ]);
 
   const newestFirstItems = useMemo(() => [...streamItems].reverse(), [streamItems]);
   const generatedAt = useMemo(
@@ -325,6 +371,29 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
 
     return sectionRows.filter((section) => section.items.length > 0);
   }, [generatedAt, newestFirstItems]);
+  const auxiliarySections = useMemo<AuxiliarySection[]>(() => {
+    const sectionRows: AuxiliarySection[] = [
+      {
+        key: "automation",
+        title: "Background Automation",
+        description:
+          "Recognized crawlers, previews, and proxy fetches kept visible without polluting the human stream.",
+        badgeClass: "border-fuchsia-400/30 bg-fuchsia-400/10 text-fuchsia-200",
+        items: automationItems,
+      },
+      {
+        key: "security",
+        title: "Security Watch",
+        description:
+          "Suspicious traffic worth inspection, clearly separated from known automation.",
+        badgeClass: "border-rose-400/30 bg-rose-400/10 text-rose-200",
+        items: securityItems,
+      },
+    ];
+
+    return sectionRows.filter((section) => section.items.length > 0);
+  }, [automationItems, securityItems]);
+  const hasVisibleContent = streamItems.length > 0 || auxiliarySections.length > 0;
 
   const streamHeadSignature = useMemo(
     () =>
@@ -415,7 +484,7 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
             {transport.label}
           </div>
           <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
-            Visible in stream: {streamItems.length}
+            Human stream: {streamItems.length}
           </div>
           <button
             type="button"
@@ -450,6 +519,12 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
             <div className="mt-1 text-sm text-white/65">
               {effectiveSelectedProjects.length || availableProjectSlugs.length} of {availableProjectSlugs.length || 0} projects visible
               {showOnlyGreenHumans ? " • green humans only" : " • mixed human-confidence feed"}
+              {!showOnlyGreenHumans && automationItems.length > 0
+                ? ` • ${automationItems.length} automation in background`
+                : ""}
+              {!showOnlyGreenHumans && securityItems.length > 0
+                ? ` • ${securityItems.length} security watch`
+                : ""}
               {effectiveHiddenIps.length > 0 ? ` • ${effectiveHiddenIps.length} hidden IPs` : ""}
               {activeVisibilityRules.length > 0 ? ` • ${activeVisibilityRules.length} shared hides` : ""}
             </div>
@@ -532,13 +607,13 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
         </div>
       ) : null}
 
-      {!error && streamItems.length === 0 ? (
+      {!error && !hasVisibleContent ? (
         <div className="rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-white/60">
           No sessions match the current live feed filters yet.
         </div>
       ) : null}
 
-      {!error && streamItems.length > 0 ? (
+      {!error && hasVisibleContent ? (
         <div
           ref={containerRef}
           onScroll={handleScroll}
@@ -546,6 +621,45 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
         >
           <div className="space-y-6 pb-3">
             {sections.map((section) => (
+              <div key={section.key}>
+                <div className="sticky top-0 z-10 mb-3 rounded-2xl border border-white/10 bg-[#090b11]/90 px-4 py-3 backdrop-blur">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-base font-semibold text-white">{section.title}</h3>
+                      <p className="text-xs text-white/50">{section.description}</p>
+                    </div>
+                    <div className={`rounded-full border px-3 py-1 text-xs ${section.badgeClass}`}>
+                      {section.items.length} visible
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <AnimatePresence initial={false}>
+                    {section.items.map((session) => (
+                      <motion.div
+                        key={`${section.key}-${session.session_id}`}
+                        layout="position"
+                        initial={{ opacity: 0, y: -18 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 12 }}
+                        transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+                      >
+                        <LiveVisitorStreamRow
+                          session={session}
+                          density={density}
+                          onHideIp={hideIp}
+                          onHidePath={supportsSharedRules ? hidePath : undefined}
+                          onHideProject={supportsSharedRules ? hideProject : undefined}
+                        />
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              </div>
+            ))}
+
+            {auxiliarySections.map((section) => (
               <div key={section.key}>
                 <div className="sticky top-0 z-10 mb-3 rounded-2xl border border-white/10 bg-[#090b11]/90 px-4 py-3 backdrop-blur">
                   <div className="flex flex-wrap items-start justify-between gap-3">

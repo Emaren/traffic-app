@@ -67,6 +67,32 @@ function verdictClass(state: string): string {
   }
 }
 
+function automationClass(row: SessionRecord): string {
+  if (row.classification_state === "suspicious") {
+    return "border-rose-400/30 bg-rose-400/10 text-rose-200";
+  }
+  if (row.known_automation) {
+    return "border-fuchsia-400/30 bg-fuchsia-400/10 text-fuchsia-200";
+  }
+  if (row.classification_state === "bot") {
+    return "border-violet-400/30 bg-violet-400/10 text-violet-200";
+  }
+  return "border-white/10 bg-white/5 text-white/70";
+}
+
+function automationLabel(row: SessionRecord): string | null {
+  if (row.known_automation) {
+    return row.automation_family || "Known automation";
+  }
+  if (row.classification_state === "suspicious") {
+    return "Security watch";
+  }
+  if (row.classification_state === "bot") {
+    return "Other bot";
+  }
+  return null;
+}
+
 function dataConfidenceClass(label: string): string {
   switch (label) {
     case "High":
@@ -95,6 +121,8 @@ function MobileVisitCard({
   isFresh: boolean;
   onHideIp: (ip: string) => void;
 }) {
+  const automationPill = automationLabel(row);
+
   return (
     <div
       className={`rounded-2xl border p-4 transition ${
@@ -114,6 +142,13 @@ function MobileVisitCard({
         >
           {row.verdict_label}
         </span>
+        {automationPill ? (
+          <span
+            className={`rounded-full border px-2.5 py-1 font-medium ${automationClass(row)}`}
+          >
+            {automationPill}
+          </span>
+        ) : null}
         <span
           className={`rounded-full border px-2.5 py-1 ${dataConfidenceClass(
             row.data_confidence_label,
@@ -159,6 +194,15 @@ function MobileVisitCard({
       <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
         <div className="text-xs uppercase tracking-wide text-white/45">Why</div>
         <div className="mt-2 text-sm text-white/80">{row.classification_summary}</div>
+        {automationPill ? (
+          <div
+            className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${automationClass(
+              row,
+            )}`}
+          >
+            {automationPill}
+          </div>
+        ) : null}
         <div className="mt-2 flex flex-wrap gap-1.5">
           {row.classification_reason_labels.slice(0, 3).map((reason) => (
             <span
@@ -212,6 +256,8 @@ function CompactVisitRow({
   isFresh: boolean;
   onHideIp: (ip: string) => void;
 }) {
+  const automationPill = automationLabel(row);
+
   return (
     <div
       className={`rounded-2xl border px-4 py-3 transition ${
@@ -236,6 +282,13 @@ function CompactVisitRow({
             >
               {row.verdict_label}
             </span>
+            {automationPill ? (
+              <span
+                className={`rounded-full border px-2.5 py-1 font-medium ${automationClass(row)}`}
+              >
+                {automationPill}
+              </span>
+            ) : null}
             {isFresh ? (
               <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 font-semibold text-amber-200">
                 New
@@ -556,7 +609,9 @@ export default function VisitsHistoryTable() {
                 <option value="human_confirmed">Likely human</option>
                 <option value="likely_human">Probably human</option>
                 <option value="candidate">Unclear</option>
-                <option value="bot">Known bot</option>
+                <option value="known_automation">Known automation</option>
+                <option value="other_bot">Other bot</option>
+                <option value="bot">All bots</option>
                 <option value="suspicious">Suspicious</option>
               </select>
             </label>
@@ -694,6 +749,11 @@ export default function VisitsHistoryTable() {
             Green humans only
           </div>
         ) : null}
+        {!showOnlyGreenHumans && classification === "known_automation" ? (
+          <div className="rounded-full border border-fuchsia-400/30 bg-fuchsia-400/10 px-3 py-1 font-medium text-fuchsia-200">
+            Known automation only
+          </div>
+        ) : null}
       </div>
 
       {error ? (
@@ -748,6 +808,7 @@ export default function VisitsHistoryTable() {
           <tbody>
             {visibleItems.map((row) => {
               const isFresh = freshIds.includes(row.session_id);
+              const automationPill = automationLabel(row);
 
               return (
                 <tr
@@ -805,6 +866,15 @@ export default function VisitsHistoryTable() {
                     >
                       {row.verdict_label}
                     </div>
+                    {automationPill ? (
+                      <div
+                        className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${automationClass(
+                          row,
+                        )}`}
+                      >
+                        {automationPill}
+                      </div>
+                    ) : null}
                     <div className="mt-2 text-xs text-white/60">
                       Human likelihood {row.human_confidence}%
                     </div>
@@ -819,6 +889,15 @@ export default function VisitsHistoryTable() {
 
                   <td className="px-3 py-3 align-top">
                     <div className="max-w-[320px] text-sm text-white/80">{row.classification_summary}</div>
+                    {automationPill ? (
+                      <div
+                        className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${automationClass(
+                          row,
+                        )}`}
+                      >
+                        {automationPill}
+                      </div>
+                    ) : null}
                     <div className="mt-2 flex max-w-[340px] flex-wrap gap-1.5">
                       {row.classification_reason_labels.slice(0, 3).map((reason) => (
                         <span

@@ -128,6 +128,8 @@ export type SessionRecord = {
   device: string;
   os: string;
   browser: string;
+  known_automation: boolean;
+  automation_family: string;
   referrer: string;
   source: string;
   medium: string;
@@ -226,6 +228,10 @@ export type LiveVisitorsResponse = {
   history_count: number;
   stream_total: number;
   stream_items: SessionRecord[];
+  automation_count: number;
+  automation_preview: SessionRecord[];
+  security_count: number;
+  security_preview: SessionRecord[];
   available_projects: ProjectFilterOption[];
   project_counts: LiveProjectCount[];
   top_25: SessionRecord[];

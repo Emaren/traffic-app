@@ -39,6 +39,32 @@ function verdictClass(state: SessionRecord["classification_state"]) {
   }
 }
 
+function automationClass(session: SessionRecord): string {
+  if (session.classification_state === "suspicious") {
+    return "border-rose-400/30 bg-rose-400/10 text-rose-200";
+  }
+  if (session.known_automation) {
+    return "border-fuchsia-400/30 bg-fuchsia-400/10 text-fuchsia-200";
+  }
+  if (session.classification_state === "bot") {
+    return "border-violet-400/30 bg-violet-400/10 text-violet-200";
+  }
+  return "border-white/10 bg-white/5 text-white/70";
+}
+
+function automationLabel(session: SessionRecord): string | null {
+  if (session.known_automation) {
+    return session.automation_family || "Known automation";
+  }
+  if (session.classification_state === "suspicious") {
+    return "Security watch";
+  }
+  if (session.classification_state === "bot") {
+    return "Other bot";
+  }
+  return null;
+}
+
 export default function LiveVisitorStreamRow({
   session,
   showProjectBadge = true,
@@ -59,6 +85,7 @@ export default function LiveVisitorStreamRow({
   const metaLine = `${session.city || "Unknown city"}${session.area ? `, ${session.area}` : ""}${
     session.country ? `, ${session.country}` : ""
   }`;
+  const automationPill = automationLabel(session);
 
   return (
     <details className="group rounded-2xl border border-white/10 bg-black/20 transition open:bg-black/30">
@@ -81,6 +108,13 @@ export default function LiveVisitorStreamRow({
               >
                 {session.verdict_label}
               </span>
+              {automationPill ? (
+                <span
+                  className={`rounded-full border px-2.5 py-1 font-medium ${automationClass(session)}`}
+                >
+                  {automationPill}
+                </span>
+              ) : null}
               {session.active_now ? (
                 <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 font-medium text-emerald-200">
                   Active now
@@ -133,6 +167,13 @@ export default function LiveVisitorStreamRow({
                 >
                   {session.verdict_label}
                 </span>
+                {automationPill ? (
+                  <span
+                    className={`rounded-full border px-2.5 py-1 font-medium ${automationClass(session)}`}
+                  >
+                    {automationPill}
+                  </span>
+                ) : null}
                 {session.active_now ? (
                   <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 font-medium text-emerald-200">
                     Active now
@@ -183,6 +224,15 @@ export default function LiveVisitorStreamRow({
           <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
             <div className="text-[11px] uppercase tracking-wide text-white/45">Why</div>
             <div className="mt-2 text-sm text-white/80">{session.classification_summary}</div>
+            {automationPill ? (
+              <div
+                className={`mt-3 inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${automationClass(
+                  session,
+                )}`}
+              >
+                {automationPill}
+              </div>
+            ) : null}
           </div>
 
           <div className="rounded-2xl border border-white/10 bg-white/5 p-3">

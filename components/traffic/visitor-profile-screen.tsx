@@ -91,6 +91,23 @@ function pillClass(isActive: boolean) {
     : "border-white/10 bg-black/20 text-white/65 hover:border-white/20 hover:text-white";
 }
 
+function automationBadge(session: SessionRecord | null): { label: string; className: string } | null {
+  if (!session) return null;
+  if (session.known_automation) {
+    return {
+      label: session.automation_family || "Known automation",
+      className: "border-fuchsia-400/30 bg-fuchsia-400/10 text-fuchsia-200",
+    };
+  }
+  if (session.classification_state === "suspicious") {
+    return {
+      label: "Security watch",
+      className: "border-rose-400/30 bg-rose-400/10 text-rose-200",
+    };
+  }
+  return null;
+}
+
 export default function VisitorProfileScreen({
   initialProfile,
   pollMs = 5000,
@@ -362,6 +379,8 @@ export default function VisitorProfileScreen({
     () => pickWatchedSession(visibleSessions),
     [visibleSessions],
   );
+  const leadSession = useMemo(() => profile.sessions[0] ?? null, [profile.sessions]);
+  const leadBadge = useMemo(() => automationBadge(leadSession), [leadSession]);
   const transport = useMemo(() => transportBadge(transportMode, pollMs), [pollMs, transportMode]);
   const sessionCoverageLabel =
     profile.range_key === "all" ? "stored history" : `${profile.range_label.toLowerCase()} view`;
@@ -385,6 +404,13 @@ export default function VisitorProfileScreen({
                 current movement when the visitor is active, but it now reaches back through the
                 durable store instead of disappearing outside the day window.
               </p>
+              {leadBadge ? (
+                <div
+                  className={`mt-3 inline-flex rounded-full border px-3 py-1 text-xs font-medium ${leadBadge.className}`}
+                >
+                  {leadBadge.label}
+                </div>
+              ) : null}
               <div className="mt-3 flex flex-wrap gap-2">
                 <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 font-mono text-xs text-white/75">
                   IP {profile.visitor.ip}
