@@ -21,16 +21,10 @@ import type {
   VisitorProfileResponse,
 } from "@/components/traffic/types";
 import {
-  TRAFFIC_SHARED_PROJECT_FILTER_KEY,
   TRAFFIC_VISITOR_PROFILE_DENSITY_KEY,
-  TRAFFIC_VISITOR_PROFILE_GREEN_ONLY_KEY,
-  loadStoredBoolean,
   loadStoredString,
-  loadStoredStringArray,
   reconcileSelectedValues,
-  storeBoolean,
   storeString,
-  storeStringArray,
 } from "@/components/traffic/view-preferences";
 
 const RANGE_OPTIONS: Array<{ key: HistoryRangeKey; label: string }> = [
@@ -107,15 +101,11 @@ export default function VisitorProfileScreen({
   const [transportMode, setTransportMode] = useState<LiveTransportMode>("connecting");
   const [transportNotice, setTransportNotice] = useState("");
   const [pendingRange, setPendingRange] = useState<HistoryRangeKey | null>(null);
-  const [showOnlyGreenHumans, setShowOnlyGreenHumans] = useState(() =>
-    loadStoredBoolean(TRAFFIC_VISITOR_PROFILE_GREEN_ONLY_KEY),
-  );
+  const [showOnlyGreenHumans, setShowOnlyGreenHumans] = useState(false);
   const [density, setDensity] = useState<"full" | "compact">(() =>
     loadStoredString(TRAFFIC_VISITOR_PROFILE_DENSITY_KEY) === "compact" ? "compact" : "full",
   );
-  const [selectedProjects, setSelectedProjects] = useState<string[]>(() =>
-    loadStoredStringArray(TRAFFIC_SHARED_PROJECT_FILTER_KEY),
-  );
+  const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const {
     supportsSharedRules,
     activeVisibilityRules,
@@ -132,6 +122,8 @@ export default function VisitorProfileScreen({
     setError("");
     setTransportNotice("");
     setTransportMode("connecting");
+    setShowOnlyGreenHumans(false);
+    setSelectedProjects([]);
   }, [initialProfile, visitorId]);
 
   useEffect(() => {
@@ -248,10 +240,6 @@ export default function VisitorProfileScreen({
   }, [pollMs, profile.range_key, profile.range_label, visitorId]);
 
   useEffect(() => {
-    storeBoolean(TRAFFIC_VISITOR_PROFILE_GREEN_ONLY_KEY, showOnlyGreenHumans);
-  }, [showOnlyGreenHumans]);
-
-  useEffect(() => {
     storeString(TRAFFIC_VISITOR_PROFILE_DENSITY_KEY, density);
   }, [density]);
 
@@ -291,11 +279,6 @@ export default function VisitorProfileScreen({
   const allProjectsSelected =
     availableProjectSlugs.length > 0 &&
     effectiveSelectedProjects.length === availableProjectSlugs.length;
-
-  useEffect(() => {
-    if (availableProjectSlugs.length === 0) return;
-    storeStringArray(TRAFFIC_SHARED_PROJECT_FILTER_KEY, effectiveSelectedProjects);
-  }, [availableProjectSlugs.length, effectiveSelectedProjects]);
 
   const visibleProjects = useMemo(
     () =>

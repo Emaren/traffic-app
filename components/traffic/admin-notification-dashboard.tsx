@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { startTransition, useEffect, useEffectEvent, useState } from "react";
+import { startTransition, useEffect, useEffectEvent, useMemo, useState } from "react";
 import AdminWebPushCard from "@/components/traffic/admin-web-push-card";
 import { withFlag } from "@/components/traffic/display";
 import PwaInstallCard from "@/components/traffic/pwa-install-card";
@@ -25,6 +25,22 @@ type MuteDraft = {
   reason: string;
 };
 
+type NotificationEventBurstGroup = {
+  key: string;
+  latestEvent: NotificationEventRecord;
+  primaryEvent: NotificationEventRecord;
+  dominantStatus: NotificationEventRecord["status"];
+  events: NotificationEventRecord[];
+  stackCount: number;
+  deliveredCount: number;
+  suppressedCount: number;
+  errorCount: number;
+  uniquePaths: string[];
+  suppressionReasons: string[];
+};
+
+const NOTIFICATION_BURST_WINDOW_MS = 75_000;
+
 function formatTimestamp(value: string | null | undefined): string {
   if (!value) return "Never";
   const date = new Date(value);
@@ -39,6 +55,11 @@ function humanizeReason(value: string): string {
 
 function humanizeRuleType(value: string): string {
   return value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function parseEventTimestamp(value: string): number {
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? 0 : parsed;
 }
 
 function loopTone(mode?: string): string {
@@ -102,6 +123,90 @@ function visibilityRuleLabel(rule: VisibilityRule): string {
   }
 }
 
+function burstGroupKey(event: NotificationEventRecord): string {
+  return `${event.visitor_profile_id}:${event.session_id}:${event.project_slug}`;
+}
+
+function buildNotificationEventBurstGroups(
+  events: NotificationEventRecord[],
+): NotificationEventBurstGroup[] {
+  const groups: Array<{
+    key: string;
+    newestTimestamp: number;
+    events: NotificationEventRecord[];
+  }> = [];
+
+  for (const event of events) {
+    const key = burstGroupKey(event);
+    const eventTimestamp = parseEventTimestamp(event.event_timestamp);
+    const matchingGroup = groups.find(
+      (group) =>
+        group.key === key &&
+        group.newestTimestamp >= eventTimestamp &&
+        group.newestTimestamp - eventTimestamp <= NOTIFICATION_BURST_WINDOW_MS,
+    );
+
+    if (matchingGroup) {
+      matchingGroup.events.push(event);
+      continue;
+    }
+
+    groups.push({
+      key,
+      newestTimestamp: eventTimestamp,
+      events: [event],
+    });
+  }
+
+  return groups
+    .map((group) => {
+      const orderedEvents = [...group.events].sort((left, right) => {
+        const timeDelta =
+          parseEventTimestamp(right.event_timestamp) - parseEventTimestamp(left.event_timestamp);
+        if (timeDelta !== 0) return timeDelta;
+        return right.id - left.id;
+      });
+      const latestEvent = orderedEvents[0];
+      const primaryEvent =
+        orderedEvents.find((event) => event.status === "delivered") ??
+        orderedEvents.find((event) => event.status === "error") ??
+        latestEvent;
+      const deliveredCount = orderedEvents.filter((event) => event.status === "delivered").length;
+      const suppressedCount = orderedEvents.filter((event) => event.status === "suppressed").length;
+      const errorCount = orderedEvents.filter((event) => event.status === "error").length;
+      const dominantStatus: NotificationEventBurstGroup["dominantStatus"] =
+        deliveredCount > 0 ? "delivered" : errorCount > 0 ? "error" : "suppressed";
+      const uniquePaths = [...new Set(orderedEvents.map((event) => event.path).filter(Boolean))];
+      const suppressionReasons = [
+        ...new Set(
+          orderedEvents
+            .map((event) => event.suppression_reason)
+            .filter(Boolean)
+            .map((value) => humanizeReason(value)),
+        ),
+      ];
+
+      return {
+        key: `${group.key}:${latestEvent.id}`,
+        latestEvent,
+        primaryEvent,
+        dominantStatus,
+        events: orderedEvents,
+        stackCount: orderedEvents.length,
+        deliveredCount,
+        suppressedCount,
+        errorCount,
+        uniquePaths,
+        suppressionReasons,
+      };
+    })
+    .sort(
+      (left, right) =>
+        parseEventTimestamp(right.latestEvent.event_timestamp) -
+        parseEventTimestamp(left.latestEvent.event_timestamp),
+    );
+}
+
 export default function AdminNotificationDashboard({ initialData }: Props) {
   const [data, setData] = useState(initialData);
   const [settings, setSettings] = useState<NotificationSettings | null>(
@@ -113,6 +218,17 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
   const [showOnlyHumanEvents, setShowOnlyHumanEvents] = useState(false);
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(
     null,
+  );
+  const visibleRecentEvents = useMemo(
+    () =>
+      (data?.recent_events ?? []).filter((event) =>
+        showOnlyHumanEvents ? isGreenHumanEvent(event) : true,
+      ),
+    [data?.recent_events, showOnlyHumanEvents],
+  );
+  const visibleRecentEventGroups = useMemo(
+    () => buildNotificationEventBurstGroups(visibleRecentEvents),
+    [visibleRecentEvents],
   );
 
   useEffect(() => {
@@ -364,9 +480,6 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
       : settings.policy.selected_projects.filter((slug) => allProjectSlugs.includes(slug)),
   );
   const allProjectsSelected = selectedProjects.size === allProjectSlugs.length;
-  const visibleRecentEvents = data.recent_events.filter((event) =>
-    showOnlyHumanEvents ? isGreenHumanEvent(event) : true,
-  );
   const hiddenRecentEventCount = data.recent_events.length - visibleRecentEvents.length;
 
   function updateSelectedProjects(next: Set<string>) {
@@ -464,6 +577,246 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
           Mute project
         </button>
       </>
+    );
+  }
+
+  function renderBurstBadge(group: NotificationEventBurstGroup) {
+    if (group.stackCount <= 1) {
+      return null;
+    }
+
+    return (
+      <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-medium text-white/75">
+        Stack x{group.stackCount}
+      </span>
+    );
+  }
+
+  function renderStackedDeliveryGroup(group: NotificationEventBurstGroup) {
+    const event = group.latestEvent;
+    const actionEvent = group.primaryEvent;
+    const toneClass = eventTone(group.dominantStatus);
+    const pathSummary =
+      group.uniquePaths.length > 1
+        ? `${event.path} • +${group.uniquePaths.length - 1} more paths`
+        : event.path;
+    const suppressionSummary =
+      group.suppressionReasons.length === 0
+        ? ""
+        : group.suppressionReasons.length === 1
+          ? group.suppressionReasons[0]
+          : `${group.suppressionReasons[0]} +${group.suppressionReasons.length - 1} more`;
+
+    return (
+      <details
+        key={group.key}
+        className={`group relative rounded-3xl border p-4 ${toneClass}`}
+      >
+        {group.stackCount > 1 ? (
+          <>
+            <div className="pointer-events-none absolute inset-x-3 top-2 h-full rounded-3xl border border-white/8 bg-black/10 opacity-60" />
+            <div className="pointer-events-none absolute inset-x-5 top-4 h-full rounded-3xl border border-white/6 bg-black/10 opacity-40" />
+          </>
+        ) : null}
+
+        <summary className="relative z-10 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
+                {group.dominantStatus}
+              </span>
+              {event.operator_identity ? (
+                <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-100">
+                  Operator
+                </span>
+              ) : null}
+              <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
+                {event.project_name}
+              </span>
+              <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
+                {event.verdict_label}
+              </span>
+              {renderBurstBadge(group)}
+              {group.deliveredCount > 0 && group.stackCount > 1 ? (
+                <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-100">
+                  {group.deliveredCount} delivered
+                </span>
+              ) : null}
+              {group.suppressedCount > 0 && group.stackCount > 1 ? (
+                <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-medium text-amber-100">
+                  {group.suppressedCount} suppressed
+                </span>
+              ) : null}
+              {group.errorCount > 0 && group.stackCount > 1 ? (
+                <span className="rounded-full border border-rose-400/30 bg-rose-400/10 px-3 py-1 text-xs font-medium text-rose-100">
+                  {group.errorCount} errors
+                </span>
+              ) : null}
+            </div>
+
+            <h3 className="mt-3 break-words text-lg font-semibold text-white">
+              {withFlag(event.country_code, event.visitor_alias)}
+            </h3>
+            <p className="mt-1 break-all font-mono text-sm text-slate-300">{pathSummary}</p>
+            <p className="mt-2 break-words text-sm text-slate-400">
+              {event.event_timestamp_alberta} • IP {event.ip} •{" "}
+              {event.returning_visitor ? "Returning" : "New"} • Total Project Visits{" "}
+              {event.total_project_visits}
+            </p>
+            {suppressionSummary ? (
+              <p className="mt-2 text-sm text-white/80">Burst reasons: {suppressionSummary}</p>
+            ) : null}
+          </div>
+        </summary>
+
+        <div className="relative z-10 mt-4 border-t border-white/10 pt-4">
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-3 text-sm text-white/80">
+            <p className="font-medium text-white">{actionEvent.notification_title}</p>
+            <p className="mt-2 whitespace-pre-line break-words text-slate-300">
+              {actionEvent.notification_body}
+            </p>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            {group.events.map((burstEvent) => (
+              <div
+                key={`${group.key}-${burstEvent.id}`}
+                className="rounded-2xl border border-white/10 bg-black/20 px-3 py-3"
+              >
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-white/70">
+                    {burstEvent.status}
+                  </span>
+                  <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-white/70">
+                    {burstEvent.event_timestamp_alberta}
+                  </span>
+                  {burstEvent.suppression_reason ? (
+                    <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-amber-100">
+                      {humanizeReason(burstEvent.suppression_reason)}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="mt-2 break-all font-mono text-xs text-slate-300">{burstEvent.path}</div>
+              </div>
+            ))}
+          </div>
+
+          {group.errorCount > 0 && actionEvent.delivery_error ? (
+            <p className="mt-3 text-sm text-white/80">
+              Error: {actionEvent.delivery_error || "Unknown delivery failure"}
+            </p>
+          ) : null}
+
+          <div className="mt-4 flex flex-wrap gap-2">{renderDeliveryActions(actionEvent)}</div>
+        </div>
+      </details>
+    );
+  }
+
+  function renderSingleEvent(event: NotificationEventRecord) {
+    return event.status === "suppressed" ? (
+      <details
+        key={`${event.traffic_event_id}-${event.id}`}
+        className={`group rounded-2xl border p-3 ${eventTone(event.status)}`}
+      >
+        <summary className="flex cursor-pointer list-none flex-col gap-3 [&::-webkit-details-marker]:hidden xl:flex-row xl:items-center xl:justify-between">
+          <div className="min-w-0 flex flex-1 flex-wrap items-center gap-2">
+            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
+              {event.status}
+            </span>
+            {event.operator_identity ? (
+              <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-100">
+                Operator
+              </span>
+            ) : null}
+            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
+              {event.project_name}
+            </span>
+            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
+              {event.verdict_label}
+            </span>
+            <span className="min-w-0 max-w-full truncate text-sm font-medium text-white">
+              {withFlag(event.country_code, event.visitor_alias)}
+            </span>
+            <span className="hidden text-white/30 xl:inline">/</span>
+            <span className="min-w-0 flex-1 truncate font-mono text-xs text-amber-100/80">
+              {event.path}
+            </span>
+          </div>
+
+          <div className="min-w-0 flex flex-wrap items-center gap-2 text-xs text-amber-100/80">
+            <span className="truncate">
+              Suppressed: {humanizeReason(event.suppression_reason)}
+            </span>
+            <span>{event.event_timestamp_alberta}</span>
+            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 font-medium uppercase tracking-[0.16em] text-white/65">
+              More
+            </span>
+          </div>
+        </summary>
+
+        <div className="mt-3 border-t border-white/10 pt-3">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-white/70">
+            <span>IP {event.ip}</span>
+            <span>{event.returning_visitor ? "Returning" : "New"}</span>
+            <span>Total Project Visits {event.total_project_visits}</span>
+            <span>Host {event.host}</span>
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">{renderDeliveryActions(event)}</div>
+        </div>
+      </details>
+    ) : (
+      <article
+        key={`${event.traffic_event_id}-${event.id}`}
+        className={`rounded-3xl border p-4 ${eventTone(event.status)}`}
+      >
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
+              {event.status}
+            </span>
+            {event.operator_identity ? (
+              <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-100">
+                Operator
+              </span>
+            ) : null}
+            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
+              {event.project_name}
+            </span>
+            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
+              {event.verdict_label}
+            </span>
+          </div>
+
+          <h3 className="mt-3 break-words text-lg font-semibold text-white">
+            {withFlag(event.country_code, event.visitor_alias)}
+          </h3>
+          <p className="mt-1 break-all font-mono text-sm text-slate-300">
+            {event.path}
+          </p>
+          <p className="mt-2 break-words text-sm text-slate-400">
+            {event.event_timestamp_alberta} • IP {event.ip} •{" "}
+            {event.returning_visitor ? "Returning" : "New"} • Total Project Visits{" "}
+            {event.total_project_visits}
+          </p>
+
+          <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-3 text-sm text-white/80">
+            <p className="font-medium text-white">{event.notification_title}</p>
+            <p className="mt-2 whitespace-pre-line break-words text-slate-300">
+              {event.notification_body}
+            </p>
+          </div>
+
+          {event.status !== "delivered" ? (
+            <p className="mt-3 text-sm text-white/80">
+              Error: {event.delivery_error || "Unknown delivery failure"}
+            </p>
+          ) : null}
+
+          <div className="mt-4 flex flex-wrap gap-2">{renderDeliveryActions(event)}</div>
+        </div>
+      </article>
     );
   }
 
@@ -1286,125 +1639,24 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                   {showOnlyHumanEvents ? "Showing only green humans" : "Only show green humans"}
                 </button>
                 <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
-                  {visibleRecentEvents.length} shown
+                  {visibleRecentEventGroups.length} tiles • {visibleRecentEvents.length} events
                   {hiddenRecentEventCount > 0 ? ` • ${hiddenRecentEventCount} hidden` : ""}
                 </div>
               </div>
             </div>
 
             <div className="mt-5 space-y-4">
-              {visibleRecentEvents.length === 0 ? (
+              {visibleRecentEventGroups.length === 0 ? (
                 <div className="rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-white/60">
                   {showOnlyHumanEvents
                     ? "Traffic has not delivered any green human events in this recent window yet."
                     : "No notifications have been processed yet."}
                 </div>
               ) : (
-                visibleRecentEvents.map((event) =>
-                  event.status === "suppressed" ? (
-                    <details
-                      key={`${event.traffic_event_id}-${event.id}`}
-                      className={`group rounded-2xl border p-3 ${eventTone(event.status)}`}
-                    >
-                      <summary className="flex cursor-pointer list-none flex-col gap-3 [&::-webkit-details-marker]:hidden xl:flex-row xl:items-center xl:justify-between">
-                        <div className="min-w-0 flex flex-1 flex-wrap items-center gap-2">
-                          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
-                            {event.status}
-                          </span>
-                          {event.operator_identity ? (
-                            <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-100">
-                              Operator
-                            </span>
-                          ) : null}
-                          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
-                            {event.project_name}
-                          </span>
-                          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
-                            {event.verdict_label}
-                          </span>
-                          <span className="min-w-0 max-w-full truncate text-sm font-medium text-white">
-                            {withFlag(event.country_code, event.visitor_alias)}
-                          </span>
-                          <span className="hidden text-white/30 xl:inline">/</span>
-                          <span className="min-w-0 flex-1 truncate font-mono text-xs text-amber-100/80">
-                            {event.path}
-                          </span>
-                        </div>
-
-                        <div className="min-w-0 flex flex-wrap items-center gap-2 text-xs text-amber-100/80">
-                          <span className="truncate">
-                            Suppressed: {humanizeReason(event.suppression_reason)}
-                          </span>
-                          <span>{event.event_timestamp_alberta}</span>
-                          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 font-medium uppercase tracking-[0.16em] text-white/65">
-                            More
-                          </span>
-                        </div>
-                      </summary>
-
-                      <div className="mt-3 border-t border-white/10 pt-3">
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-white/70">
-                          <span>IP {event.ip}</span>
-                          <span>{event.returning_visitor ? "Returning" : "New"}</span>
-                          <span>Total Project Visits {event.total_project_visits}</span>
-                          <span>Host {event.host}</span>
-                        </div>
-
-                        <div className="mt-3 flex flex-wrap gap-2">{renderDeliveryActions(event)}</div>
-                      </div>
-                    </details>
-                  ) : (
-                    <article
-                      key={`${event.traffic_event_id}-${event.id}`}
-                      className={`rounded-3xl border p-4 ${eventTone(event.status)}`}
-                    >
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
-                            {event.status}
-                          </span>
-                          {event.operator_identity ? (
-                            <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-100">
-                              Operator
-                            </span>
-                          ) : null}
-                          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
-                            {event.project_name}
-                          </span>
-                          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
-                            {event.verdict_label}
-                          </span>
-                        </div>
-
-                        <h3 className="mt-3 break-words text-lg font-semibold text-white">
-                          {withFlag(event.country_code, event.visitor_alias)}
-                        </h3>
-                        <p className="mt-1 break-all font-mono text-sm text-slate-300">
-                          {event.path}
-                        </p>
-                        <p className="mt-2 break-words text-sm text-slate-400">
-                          {event.event_timestamp_alberta} • IP {event.ip} •{" "}
-                          {event.returning_visitor ? "Returning" : "New"} • Total Project Visits{" "}
-                          {event.total_project_visits}
-                        </p>
-
-                        <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-3 text-sm text-white/80">
-                          <p className="font-medium text-white">{event.notification_title}</p>
-                          <p className="mt-2 whitespace-pre-line break-words text-slate-300">
-                            {event.notification_body}
-                          </p>
-                        </div>
-
-                        {event.status !== "delivered" ? (
-                          <p className="mt-3 text-sm text-white/80">
-                            Error: {event.delivery_error || "Unknown delivery failure"}
-                          </p>
-                        ) : null}
-
-                        <div className="mt-4 flex flex-wrap gap-2">{renderDeliveryActions(event)}</div>
-                      </div>
-                    </article>
-                  ),
+                visibleRecentEventGroups.map((group) =>
+                  group.stackCount > 1
+                    ? renderStackedDeliveryGroup(group)
+                    : renderSingleEvent(group.latestEvent),
                 )
               )}
             </div>
