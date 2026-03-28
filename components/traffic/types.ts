@@ -560,12 +560,36 @@ export type VisitorProfileResponse = {
     projects_visited: number;
     total_sessions: number;
     active_now: boolean;
+    linked_profiles_count: number;
   };
   projects: Array<{
     slug: string;
     name: string;
     visits: number;
+    first_seen_at: string;
+    first_seen_alberta: string;
     last_seen_at: string;
+    last_seen_alberta: string;
+  }>;
+  linked_profiles: Array<{
+    id: string;
+    alias: string;
+    ip: string;
+    browser: string;
+    device: string;
+    os: string;
+    country: string;
+    country_code: string;
+    area: string;
+    city: string;
+    first_seen_at: string;
+    last_seen_at: string;
+    first_seen_alberta: string;
+    last_seen_alberta: string;
+    total_sessions: number;
+    projects_visited: number;
+    project_names: string[];
+    reason: string;
   }>;
   sessions: SessionRecord[];
 };
