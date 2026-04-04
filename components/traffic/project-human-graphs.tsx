@@ -46,8 +46,12 @@ function rangeLabelFor(rangeKey: ProjectGraphRangeKey) {
   return RANGE_OPTIONS.find((option) => option.key === rangeKey)?.label ?? "24 Hours";
 }
 
+function pageIsHidden() {
+  return typeof document !== "undefined" && document.hidden;
+}
+
 export default function ProjectHumanGraphs({
-  pollMs = 15000,
+  pollMs = 30000,
   uniqueLivePeople,
   initialRangeKey = DEFAULT_RANGE_KEY,
 }: Props) {
@@ -67,9 +71,12 @@ export default function ProjectHumanGraphs({
     let mounted = true;
 
     const load = async () => {
+      if (pageIsHidden()) return;
+
       try {
         const next = await fetchProjectHumanSeries(activeRangeKey);
         if (!mounted) return;
+
         startTransition(() => {
           setData(next);
         });
@@ -83,11 +90,24 @@ export default function ProjectHumanGraphs({
     };
 
     void load();
-    const timer = window.setInterval(() => void load(), pollMs);
+
+    const handleVisibilityChange = () => {
+      if (!mounted || pageIsHidden()) return;
+      void load();
+    };
+
+    const timer = window.setInterval(() => {
+      if (!pageIsHidden()) {
+        void load();
+      }
+    }, pollMs);
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       mounted = false;
       window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [activeRangeKey, pollMs]);
 
@@ -106,21 +126,6 @@ export default function ProjectHumanGraphs({
     setPendingRange(rangeKey);
     setActiveRangeKey(rangeKey);
     setError("");
-
-    void (async () => {
-      try {
-        const next = await fetchProjectHumanSeries(rangeKey);
-        startTransition(() => {
-          setData(next);
-        });
-        setError("");
-      } catch (err) {
-        setActiveRangeKey(data?.range_key ?? initialRangeKey);
-        setError(err instanceof Error ? err.message : "Failed to load project graphs");
-      } finally {
-        setPendingRange(null);
-      }
-    })();
   };
 
   return (

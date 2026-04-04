@@ -39,9 +39,13 @@ function severityClass(severity: string) {
   }
 }
 
+function pageIsHidden() {
+  return typeof document !== "undefined" && document.hidden;
+}
+
 export default function HomeOverviewScreen({
   initialOverview,
-  pollMs = 15000,
+  pollMs = 30000,
 }: {
   initialOverview: OverviewResponse | null;
   pollMs?: number;
@@ -90,6 +94,8 @@ export default function HomeOverviewScreen({
     let mounted = true;
 
     const load = async () => {
+      if (pageIsHidden()) return;
+
       try {
         const next = await fetchOverviewRange(activeRangeKey);
         if (!mounted || !next.ok) return;
@@ -104,12 +110,25 @@ export default function HomeOverviewScreen({
       }
     };
 
-    const timer = window.setInterval(() => void load(), pollMs);
+    const handleVisibilityChange = () => {
+      if (!mounted || pageIsHidden()) return;
+      void load();
+    };
+
+    const timer = window.setInterval(() => {
+      if (!pageIsHidden()) {
+        void load();
+      }
+    }, pollMs);
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     return () => {
       mounted = false;
       window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [activeRangeKey, overview, pollMs]);
+  }, [activeRangeKey, pollMs]);
 
   const loadRange = async (rangeKey: HistoryRangeKey) => {
     if (!overview) return;
@@ -160,7 +179,7 @@ export default function HomeOverviewScreen({
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <div className="inline-flex rounded-full border border-sky-400/30 bg-sky-400/10 px-4 py-2 text-sm font-medium text-sky-200">
-                Loading live overview…
+                Loading live overview...
               </div>
               <Link
                 href="/admin"
@@ -195,7 +214,9 @@ export default function HomeOverviewScreen({
         <header className="rounded-[32px] border border-amber-500/20 bg-[linear-gradient(180deg,rgba(245,158,11,0.08),rgba(255,255,255,0.03))] p-6 shadow-[0_25px_80px_rgba(0,0,0,0.45)]">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.28em] text-amber-200/80">traffic.tokentap.ca</p>
+              <p className="text-xs uppercase tracking-[0.28em] text-amber-200/80">
+                traffic.tokentap.ca
+              </p>
               <h1 className="mt-3 text-4xl font-semibold tracking-tight text-white">
                 Traffic observatory
               </h1>
@@ -443,7 +464,9 @@ export default function HomeOverviewScreen({
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Archive Direction</p>
-                <h2 className="mt-2 text-2xl font-semibold text-white">Visitor history replaces the old explorer slab</h2>
+                <h2 className="mt-2 text-2xl font-semibold text-white">
+                  Visitor history replaces the old explorer slab
+                </h2>
               </div>
 
               <Link

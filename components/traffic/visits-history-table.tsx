@@ -31,7 +31,7 @@ import {
 } from "@/components/traffic/view-preferences";
 
 const PAGE_SIZE = 25;
-const POLL_MS = 15000;
+const POLL_MS = 30000;
 const RANGE_OPTIONS: Array<{ key: HistoryRangeKey; label: string }> = [
   { key: "24h", label: "24 Hours" },
   { key: "7d", label: "1 Week" },
@@ -110,6 +110,10 @@ function pillClass(isActive: boolean): string {
   return isActive
     ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
     : "border-white/10 bg-black/20 text-white/65 hover:border-white/20 hover:text-white";
+}
+
+function pageIsHidden() {
+  return typeof document !== "undefined" && document.hidden;
 }
 
 function MobileVisitCard({
@@ -435,8 +439,11 @@ export default function VisitsHistoryTable() {
 
   useEffect(() => {
     let mounted = true;
+    const shouldPoll = offset === 0;
 
     const load = async () => {
+      if (shouldPoll && pageIsHidden()) return;
+
       try {
         const next = await fetchVisitsHistory({
           limit: PAGE_SIZE,
@@ -455,12 +462,15 @@ export default function VisitsHistoryTable() {
             .filter((id) => previousIds.size > 0 && !previousIds.has(id));
 
           setFreshIds(nextFreshIds);
+
           if (clearFreshTimerRef.current) {
             window.clearTimeout(clearFreshTimerRef.current);
           }
+
           if (nextFreshIds.length > 0) {
             clearFreshTimerRef.current = window.setTimeout(() => setFreshIds([]), 5000);
           }
+
           previousIdsRef.current = next.items.map((item) => item.session_id);
         }
 
@@ -473,11 +483,30 @@ export default function VisitsHistoryTable() {
     };
 
     void load();
-    const timer = window.setInterval(() => void load(), POLL_MS);
+
+    let timer: number | null = null;
+
+    const handleVisibilityChange = () => {
+      if (!mounted || !shouldPoll || pageIsHidden()) return;
+      void load();
+    };
+
+    if (shouldPoll) {
+      timer = window.setInterval(() => {
+        if (!pageIsHidden()) {
+          void load();
+        }
+      }, POLL_MS);
+
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+    }
 
     return () => {
       mounted = false;
-      window.clearInterval(timer);
+      if (timer !== null) {
+        window.clearInterval(timer);
+      }
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       if (clearFreshTimerRef.current) {
         window.clearTimeout(clearFreshTimerRef.current);
       }
@@ -533,7 +562,10 @@ export default function VisitsHistoryTable() {
         label: ip,
         reason: "Hidden from Traffic observatory surfaces",
       });
-      setVisibilityRules((current) => [response.rule, ...(current ?? []).filter((rule) => rule.id !== response.rule.id)]);
+      setVisibilityRules((current) => [
+        response.rule,
+        ...(current ?? []).filter((rule) => rule.id !== response.rule.id),
+      ]);
     } catch {}
   };
 
@@ -556,7 +588,7 @@ export default function VisitsHistoryTable() {
       <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="mb-2 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-200">
-            Live refresh every 15s
+            Page one refreshes every 30s
           </div>
           <h2 className="text-2xl font-semibold text-white">Visits History</h2>
           <p className="text-sm text-white/60">
@@ -792,156 +824,156 @@ export default function VisitsHistoryTable() {
           </div>
 
           <div className="hidden overflow-x-auto md:block">
-        <table className="min-w-full border-separate border-spacing-y-2 text-left text-sm">
-          <thead>
-            <tr className="text-xs uppercase tracking-wide text-white/45">
-              <th className="px-3 py-2">When</th>
-              <th className="px-3 py-2">Visitor</th>
-              <th className="px-3 py-2">Project</th>
-              <th className="px-3 py-2">Verdict</th>
-              <th className="px-3 py-2">Why</th>
-              <th className="px-3 py-2">Journey</th>
-              <th className="px-3 py-2">Visits</th>
-              <th className="px-3 py-2">Time</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibleItems.map((row) => {
-              const isFresh = freshIds.includes(row.session_id);
-              const automationPill = automationLabel(row);
-
-              return (
-                <tr
-                  key={row.session_id}
-                  className={`rounded-2xl text-white/85 transition ${
-                    isFresh
-                      ? "bg-amber-400/10 shadow-[0_0_0_1px_rgba(251,191,36,0.35)]"
-                      : "bg-black/20"
-                  }`}
-                >
-                  <td className="rounded-l-2xl px-3 py-3 align-top text-white/70">
-                    <div>{row.first_seen_alberta}</div>
-                    <div className="mt-1 text-xs text-white/45">last: {row.last_seen_alberta}</div>
-                    {isFresh ? (
-                      <div className="mt-2 inline-flex rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold text-amber-200">
-                        New
-                      </div>
-                    ) : null}
-                  </td>
-
-                  <td className="px-3 py-3 align-top">
-                    <div className="font-medium text-white">
-                      {withFlag(row.country_code, row.visitor_alias)}
-                    </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-2">
-                      <div className="font-mono text-xs text-sky-200/80">IP {row.ip}</div>
-                      <button
-                        type="button"
-                        onClick={() => hideIp(row.ip)}
-                        className="cursor-pointer rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-[11px] font-medium text-amber-200 transition hover:bg-amber-400/15"
-                      >
-                        Hide IP
-                      </button>
-                    </div>
-                    <div className="mt-1 text-xs text-white/45">
-                      {row.city || "Unknown city"}
-                      {row.area ? `, ${row.area}` : ""}
-                      {row.country ? `, ${row.country}` : ""}
-                    </div>
-                    <div className="mt-1 text-xs text-white/45">
-                      {row.device} • {row.os} • {row.browser}
-                    </div>
-                  </td>
-
-                  <td className="px-3 py-3 align-top">
-                    <div className="font-medium">{row.project_name}</div>
-                    <div className="mt-1 text-xs text-white/45">{row.host}</div>
-                  </td>
-
-                  <td className="px-3 py-3 align-top">
-                    <div
-                      className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${verdictClass(
-                        row.classification_state,
-                      )}`}
-                    >
-                      {row.verdict_label}
-                    </div>
-                    {automationPill ? (
-                      <div
-                        className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${automationClass(
-                          row,
-                        )}`}
-                      >
-                        {automationPill}
-                      </div>
-                    ) : null}
-                    <div className="mt-2 text-xs text-white/60">
-                      Human likelihood {row.human_confidence}%
-                    </div>
-                    <div
-                      className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-[11px] ${dataConfidenceClass(
-                        row.data_confidence_label,
-                      )}`}
-                    >
-                      Data confidence: {row.data_confidence_label}
-                    </div>
-                  </td>
-
-                  <td className="px-3 py-3 align-top">
-                    <div className="max-w-[320px] text-sm text-white/80">{row.classification_summary}</div>
-                    {automationPill ? (
-                      <div
-                        className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${automationClass(
-                          row,
-                        )}`}
-                      >
-                        {automationPill}
-                      </div>
-                    ) : null}
-                    <div className="mt-2 flex max-w-[340px] flex-wrap gap-1.5">
-                      {row.classification_reason_labels.slice(0, 3).map((reason) => (
-                        <span
-                          key={`${row.session_id}-${reason}`}
-                          className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/60"
-                        >
-                          {reason}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-
-                  <td className="px-3 py-3 align-top">
-                    <div className="font-medium">
-                      {row.entry_page} → {row.exit_page}
-                    </div>
-                    <div className="mt-1 text-xs text-white/45">
-                      {row.page_count} pages • {row.event_count} events
-                    </div>
-                    <div className="mt-1 text-xs text-white/45">source: {row.source || "direct"}</div>
-                  </td>
-
-                  <td className="px-3 py-3 align-top text-white/70">
-                    <div>Times Returned: {row.times_returned_in_project}</div>
-                    <div className="mt-1 text-xs text-white/45">
-                      Total Project Visits: {row.total_project_visits}
-                    </div>
-                    <div className="mt-1 text-xs text-white/45">
-                      Traffic Visits: {row.visits_in_window}
-                    </div>
-                  </td>
-
-                  <td className="rounded-r-2xl px-3 py-3 align-top text-white/70">
-                    <div>{formatSeconds(row.total_seconds)}</div>
-                    <div className="mt-1 text-xs text-white/45">
-                      engaged {formatSeconds(row.engaged_seconds)}
-                    </div>
-                    <div className="mt-1 text-xs text-white/45">{row.attention_label} attention</div>
-                  </td>
+            <table className="min-w-full border-separate border-spacing-y-2 text-left text-sm">
+              <thead>
+                <tr className="text-xs uppercase tracking-wide text-white/45">
+                  <th className="px-3 py-2">When</th>
+                  <th className="px-3 py-2">Visitor</th>
+                  <th className="px-3 py-2">Project</th>
+                  <th className="px-3 py-2">Verdict</th>
+                  <th className="px-3 py-2">Why</th>
+                  <th className="px-3 py-2">Journey</th>
+                  <th className="px-3 py-2">Visits</th>
+                  <th className="px-3 py-2">Time</th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {visibleItems.map((row) => {
+                  const isFresh = freshIds.includes(row.session_id);
+                  const automationPill = automationLabel(row);
+
+                  return (
+                    <tr
+                      key={row.session_id}
+                      className={`rounded-2xl text-white/85 transition ${
+                        isFresh
+                          ? "bg-amber-400/10 shadow-[0_0_0_1px_rgba(251,191,36,0.35)]"
+                          : "bg-black/20"
+                      }`}
+                    >
+                      <td className="rounded-l-2xl px-3 py-3 align-top text-white/70">
+                        <div>{row.first_seen_alberta}</div>
+                        <div className="mt-1 text-xs text-white/45">last: {row.last_seen_alberta}</div>
+                        {isFresh ? (
+                          <div className="mt-2 inline-flex rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold text-amber-200">
+                            New
+                          </div>
+                        ) : null}
+                      </td>
+
+                      <td className="px-3 py-3 align-top">
+                        <div className="font-medium text-white">
+                          {withFlag(row.country_code, row.visitor_alias)}
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                          <div className="font-mono text-xs text-sky-200/80">IP {row.ip}</div>
+                          <button
+                            type="button"
+                            onClick={() => hideIp(row.ip)}
+                            className="cursor-pointer rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-[11px] font-medium text-amber-200 transition hover:bg-amber-400/15"
+                          >
+                            Hide IP
+                          </button>
+                        </div>
+                        <div className="mt-1 text-xs text-white/45">
+                          {row.city || "Unknown city"}
+                          {row.area ? `, ${row.area}` : ""}
+                          {row.country ? `, ${row.country}` : ""}
+                        </div>
+                        <div className="mt-1 text-xs text-white/45">
+                          {row.device} • {row.os} • {row.browser}
+                        </div>
+                      </td>
+
+                      <td className="px-3 py-3 align-top">
+                        <div className="font-medium">{row.project_name}</div>
+                        <div className="mt-1 text-xs text-white/45">{row.host}</div>
+                      </td>
+
+                      <td className="px-3 py-3 align-top">
+                        <div
+                          className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${verdictClass(
+                            row.classification_state,
+                          )}`}
+                        >
+                          {row.verdict_label}
+                        </div>
+                        {automationPill ? (
+                          <div
+                            className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${automationClass(
+                              row,
+                            )}`}
+                          >
+                            {automationPill}
+                          </div>
+                        ) : null}
+                        <div className="mt-2 text-xs text-white/60">
+                          Human likelihood {row.human_confidence}%
+                        </div>
+                        <div
+                          className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-[11px] ${dataConfidenceClass(
+                            row.data_confidence_label,
+                          )}`}
+                        >
+                          Data confidence: {row.data_confidence_label}
+                        </div>
+                      </td>
+
+                      <td className="px-3 py-3 align-top">
+                        <div className="max-w-[320px] text-sm text-white/80">{row.classification_summary}</div>
+                        {automationPill ? (
+                          <div
+                            className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${automationClass(
+                              row,
+                            )}`}
+                          >
+                            {automationPill}
+                          </div>
+                        ) : null}
+                        <div className="mt-2 flex max-w-[340px] flex-wrap gap-1.5">
+                          {row.classification_reason_labels.slice(0, 3).map((reason) => (
+                            <span
+                              key={`${row.session_id}-${reason}`}
+                              className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/60"
+                            >
+                              {reason}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+
+                      <td className="px-3 py-3 align-top">
+                        <div className="font-medium">
+                          {row.entry_page} → {row.exit_page}
+                        </div>
+                        <div className="mt-1 text-xs text-white/45">
+                          {row.page_count} pages • {row.event_count} events
+                        </div>
+                        <div className="mt-1 text-xs text-white/45">source: {row.source || "direct"}</div>
+                      </td>
+
+                      <td className="px-3 py-3 align-top text-white/70">
+                        <div>Times Returned: {row.times_returned_in_project}</div>
+                        <div className="mt-1 text-xs text-white/45">
+                          Total Project Visits: {row.total_project_visits}
+                        </div>
+                        <div className="mt-1 text-xs text-white/45">
+                          Traffic Visits: {row.visits_in_window}
+                        </div>
+                      </td>
+
+                      <td className="rounded-r-2xl px-3 py-3 align-top text-white/70">
+                        <div>{formatSeconds(row.total_seconds)}</div>
+                        <div className="mt-1 text-xs text-white/45">
+                          engaged {formatSeconds(row.engaged_seconds)}
+                        </div>
+                        <div className="mt-1 text-xs text-white/45">{row.attention_label} attention</div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </>
       )}

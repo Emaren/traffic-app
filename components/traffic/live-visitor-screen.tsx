@@ -55,6 +55,7 @@ type AuxiliarySection = {
 const RECENT_WINDOW_MINUTES = 60;
 const STREAM_LIMIT = 25;
 const STREAM_HISTORY_LIMIT = 95;
+const STREAM_RETRY_MIN_MS = 30000;
 
 function parseTimestamp(value: string): number {
   const parsed = Date.parse(value);
@@ -86,7 +87,11 @@ function pillClass(isActive: boolean) {
     : "border-white/10 bg-black/20 text-white/65 hover:border-white/20 hover:text-white";
 }
 
-export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
+function pageIsHidden() {
+  return typeof document !== "undefined" && document.hidden;
+}
+
+export default function LiveVisitorScreen({ pollMs = 15000 }: Props) {
   const [data, setData] = useState<LiveVisitorsResponse | null>(null);
   const [error, setError] = useState<string>("");
   const [transportMode, setTransportMode] = useState<LiveTransportMode>("connecting");
@@ -117,9 +122,32 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
     let mounted = true;
     let eventSource: EventSource | null = null;
     let pollingTimer: number | null = null;
-    let pollingStarted = false;
+    let reconnectTimer: number | null = null;
+
+    const clearPolling = () => {
+      if (pollingTimer !== null) {
+        window.clearInterval(pollingTimer);
+        pollingTimer = null;
+      }
+    };
+
+    const clearReconnect = () => {
+      if (reconnectTimer !== null) {
+        window.clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+    };
+
+    const closeStream = () => {
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+    };
 
     const load = async () => {
+      if (pageIsHidden()) return;
+
       try {
         const next = await fetchLiveVisitors(STREAM_LIMIT, STREAM_HISTORY_LIMIT);
         if (!mounted) return;
@@ -134,92 +162,121 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
       }
     };
 
-    const startPollingFallback = (notice: string) => {
-      if (!mounted || pollingStarted) return;
-      pollingStarted = true;
-      setTransportMode("polling");
+    const connectStream = (notice = "") => {
+      if (!mounted) return;
+
+      if (typeof window === "undefined" || typeof window.EventSource === "undefined") {
+        startPollingFallback(
+          "Live stream is unavailable here, so Traffic is using refresh fallback.",
+        );
+        return;
+      }
+
+      closeStream();
+      clearPolling();
+      clearReconnect();
+
+      setTransportMode("connecting");
       setTransportNotice(notice);
-      void load();
-      pollingTimer = window.setInterval(() => void load(), pollMs);
+
+      try {
+        const source = new EventSource(
+          buildLiveVisitorsStreamUrl({
+            limit: STREAM_LIMIT,
+            historyLimit: STREAM_HISTORY_LIMIT,
+          }),
+        );
+
+        eventSource = source;
+
+        source.onopen = () => {
+          if (!mounted) return;
+          setTransportMode("streaming");
+          setTransportNotice("");
+          setError("");
+          clearPolling();
+          clearReconnect();
+        };
+
+        source.onmessage = (event) => {
+          if (!mounted) return;
+
+          try {
+            const next = JSON.parse(event.data) as LiveVisitorsResponse;
+            if (!next.ok) {
+              setTransportNotice(
+                "The live stream is connected, but Traffic has no visible stream data right now.",
+              );
+              return;
+            }
+
+            startTransition(() => {
+              setData(next);
+              setTransportMode("streaming");
+              setTransportNotice("");
+              setError("");
+            });
+          } catch {
+            closeStream();
+            startPollingFallback(
+              "The live stream got out of shape, so Traffic fell back to refresh.",
+            );
+          }
+        };
+
+        source.onerror = () => {
+          closeStream();
+          startPollingFallback("The live stream dropped, so Traffic fell back to refresh.");
+        };
+      } catch {
+        startPollingFallback("Traffic could not open the live stream, so refresh fallback is active.");
+      }
     };
 
-    if (typeof window === "undefined" || typeof window.EventSource === "undefined") {
-      window.setTimeout(() => {
-        startPollingFallback("Live stream is unavailable here, so Traffic is using refresh fallback.");
-      }, 0);
-      return () => {
-        mounted = false;
-        if (pollingTimer !== null) {
-          window.clearInterval(pollingTimer);
-        }
-      };
-    }
-
-    try {
-      eventSource = new EventSource(
-        buildLiveVisitorsStreamUrl({
-          limit: STREAM_LIMIT,
-          historyLimit: STREAM_HISTORY_LIMIT,
-        }),
-      );
-
-      eventSource.onopen = () => {
+    const scheduleReconnect = (notice: string) => {
+      clearReconnect();
+      reconnectTimer = window.setTimeout(() => {
         if (!mounted) return;
-        setTransportMode("streaming");
-        setTransportNotice("");
-        setError("");
-        if (pollingTimer !== null) {
-          window.clearInterval(pollingTimer);
-          pollingTimer = null;
+        connectStream(notice);
+      }, Math.max(pollMs * 2, STREAM_RETRY_MIN_MS));
+    };
+
+    const startPollingFallback = (notice: string) => {
+      if (!mounted) return;
+
+      closeStream();
+      clearPolling();
+
+      setTransportMode("polling");
+      setTransportNotice(notice);
+
+      void load();
+
+      pollingTimer = window.setInterval(() => {
+        if (!pageIsHidden()) {
+          void load();
         }
-      };
+      }, pollMs);
 
-      eventSource.onmessage = (event) => {
-        if (!mounted) return;
+      scheduleReconnect("Retrying live stream...");
+    };
 
-        try {
-          const next = JSON.parse(event.data) as LiveVisitorsResponse;
-          if (!next.ok) {
-            setTransportNotice("The live stream is connected, but Traffic has no visible stream data right now.");
-            return;
-          }
+    connectStream();
 
-          startTransition(() => {
-            setData(next);
-            setTransportMode("streaming");
-            setTransportNotice("");
-            setError("");
-          });
-        } catch {
-          if (eventSource) {
-            eventSource.close();
-            eventSource = null;
-          }
-          startPollingFallback("The live stream got out of shape, so Traffic fell back to refresh.");
-        }
-      };
+    const handleVisibilityChange = () => {
+      if (!mounted || pageIsHidden()) return;
+      if (eventSource) return;
+      connectStream("Reconnecting live stream...");
+    };
 
-      eventSource.onerror = () => {
-        if (eventSource) {
-          eventSource.close();
-          eventSource = null;
-        }
-        startPollingFallback("The live stream dropped, so Traffic fell back to refresh.");
-      };
-    } catch {
-      window.setTimeout(() => {
-        startPollingFallback("Traffic could not open the live stream, so refresh fallback is active.");
-      }, 0);
-    }
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       mounted = false;
-      if (eventSource) {
-        eventSource.close();
-      }
-      if (pollingTimer !== null) {
-        window.clearInterval(pollingTimer);
-      }
+      closeStream();
+      clearPolling();
+      clearReconnect();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [pollMs]);
 
@@ -282,6 +339,7 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
     effectiveSelectedProjects,
     showOnlyGreenHumans,
   ]);
+
   const automationItems = useMemo(() => {
     if (showOnlyGreenHumans) {
       return [];
@@ -301,6 +359,7 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
     effectiveSelectedProjects,
     showOnlyGreenHumans,
   ]);
+
   const securityItems = useMemo(() => {
     if (showOnlyGreenHumans) {
       return [];
@@ -371,6 +430,7 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
 
     return sectionRows.filter((section) => section.items.length > 0);
   }, [generatedAt, newestFirstItems]);
+
   const auxiliarySections = useMemo<AuxiliarySection[]>(() => {
     const sectionRows: AuxiliarySection[] = [
       {
@@ -393,6 +453,7 @@ export default function LiveVisitorScreen({ pollMs = 10000 }: Props) {
 
     return sectionRows.filter((section) => section.items.length > 0);
   }, [automationItems, securityItems]);
+
   const hasVisibleContent = streamItems.length > 0 || auxiliarySections.length > 0;
 
   const streamHeadSignature = useMemo(
