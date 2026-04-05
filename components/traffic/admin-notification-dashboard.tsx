@@ -280,12 +280,27 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
 
   useEffect(() => {
     let mounted = true;
-    const timer = window.setInterval(() => {
+
+    const tick = () => {
+      if (!mounted) return;
+      if (typeof document !== "undefined" && document.hidden) return;
       void refreshDashboardInEffect({ quiet: true, mounted });
-    }, 15000);
+    };
+
+    const timer = window.setInterval(tick, 60000);
+
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        tick();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     return () => {
       mounted = false;
       window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
 
