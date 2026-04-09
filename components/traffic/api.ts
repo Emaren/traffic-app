@@ -93,12 +93,15 @@ export async function fetchProjectHumanSeries(
 
 export async function fetchProjectDetail(
   slug: string,
-  params?: { windowHours?: number; bucketMinutes?: number },
+  params?: { windowHours?: number; bucketMinutes?: number; includeDeep?: boolean },
 ): Promise<ProjectDetailResponse> {
   const search = new URLSearchParams();
 
   if (params?.windowHours) search.set("window_hours", String(params.windowHours));
   if (params?.bucketMinutes) search.set("bucket_minutes", String(params.bucketMinutes));
+  if (typeof params?.includeDeep === "boolean") {
+    search.set("include_deep", params.includeDeep ? "true" : "false");
+  }
 
   const query = search.toString();
   return fetchJson<ProjectDetailResponse>(
@@ -144,11 +147,13 @@ export async function fetchVisitorProfile(
 
 export function buildVisitorProfileStreamUrl(
   visitorId: string,
-  params?: { rangeKey?: HistoryRangeKey },
+  params?: { rangeKey?: HistoryRangeKey; pollSeconds?: number; heartbeatSeconds?: number },
 ): string {
   const search = new URLSearchParams();
 
   if (params?.rangeKey) search.set("range_key", params.rangeKey);
+  if (params?.pollSeconds) search.set("poll_seconds", String(params.pollSeconds));
+  if (params?.heartbeatSeconds) search.set("heartbeat_seconds", String(params.heartbeatSeconds));
 
   const query = search.toString();
   return buildApiUrl(`/api/visitors/${visitorId}/stream${query ? `?${query}` : ""}`);
@@ -171,12 +176,19 @@ export function buildLiveVisitorsStreamUrl(params?: {
 
 export function buildProjectLiveFeedStreamUrl(
   slug: string,
-  params?: { windowHours?: number; limit?: number },
+  params?: {
+    windowHours?: number;
+    limit?: number;
+    pollSeconds?: number;
+    heartbeatSeconds?: number;
+  },
 ): string {
   const search = new URLSearchParams();
 
   if (params?.windowHours) search.set("window_hours", String(params.windowHours));
   if (params?.limit) search.set("limit", String(params.limit));
+  if (params?.pollSeconds) search.set("poll_seconds", String(params.pollSeconds));
+  if (params?.heartbeatSeconds) search.set("heartbeat_seconds", String(params.heartbeatSeconds));
 
   const query = search.toString();
   return buildApiUrl(`/api/projects/${slug}/live-feed/stream${query ? `?${query}` : ""}`);

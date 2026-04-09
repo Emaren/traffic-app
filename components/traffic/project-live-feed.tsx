@@ -58,11 +58,15 @@ function pillClass(isActive: boolean) {
     : "border-white/10 bg-black/20 text-white/65 hover:border-white/20 hover:text-white";
 }
 
+function pageIsHidden() {
+  return typeof document !== "undefined" && document.hidden;
+}
+
 export default function ProjectLiveFeed({
   projectName,
   projectSlug,
   initialItems,
-  pollMs = 15000,
+  pollMs = 20000,
 }: Props) {
   const [items, setItems] = useState<SessionRecord[]>(initialItems);
   const [error, setError] = useState("");
@@ -88,9 +92,32 @@ export default function ProjectLiveFeed({
     let mounted = true;
     let eventSource: EventSource | null = null;
     let pollingTimer: number | null = null;
-    let pollingStarted = false;
+    let reconnectTimer: number | null = null;
+
+    const clearPolling = () => {
+      if (pollingTimer !== null) {
+        window.clearInterval(pollingTimer);
+        pollingTimer = null;
+      }
+    };
+
+    const clearReconnect = () => {
+      if (reconnectTimer !== null) {
+        window.clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+    };
+
+    const closeStream = () => {
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+    };
 
     const load = async () => {
+      if (pageIsHidden()) return;
+
       try {
         const next = await fetchProjectLiveFeed(projectSlug, { limit: 10 });
         if (!mounted) return;
@@ -105,87 +132,120 @@ export default function ProjectLiveFeed({
       }
     };
 
+    const scheduleReconnect = (notice: string) => {
+      clearReconnect();
+      reconnectTimer = window.setTimeout(() => {
+        if (!mounted || pageIsHidden()) return;
+        connectStream(notice);
+      }, Math.max(pollMs * 2, 30000));
+    };
+
     const startPollingFallback = (notice: string) => {
-      if (!mounted || pollingStarted) return;
-      pollingStarted = true;
+      if (!mounted) return;
+      closeStream();
+      clearPolling();
       setTransportMode("polling");
       setTransportNotice(notice);
       void load();
-      pollingTimer = window.setInterval(() => void load(), pollMs);
+      pollingTimer = window.setInterval(() => {
+        if (!pageIsHidden()) {
+          void load();
+        }
+      }, pollMs);
+      scheduleReconnect("Retrying live stream...");
     };
 
-    if (typeof window === "undefined" || typeof window.EventSource === "undefined") {
-      window.setTimeout(() => {
+    const connectStream = (notice = "") => {
+      if (!mounted || pageIsHidden()) return;
+
+      if (typeof window === "undefined" || typeof window.EventSource === "undefined") {
         startPollingFallback("Live stream is unavailable here, so Traffic is using refresh fallback.");
-      }, 0);
-      return () => {
-        mounted = false;
-        if (pollingTimer !== null) {
-          window.clearInterval(pollingTimer);
-        }
-      };
-    }
+        return;
+      }
 
-    try {
-      eventSource = new EventSource(buildProjectLiveFeedStreamUrl(projectSlug, { limit: 10 }));
+      closeStream();
+      clearPolling();
+      clearReconnect();
 
-      eventSource.onopen = () => {
-        if (!mounted) return;
-        setTransportMode("streaming");
-        setTransportNotice("");
-        setError("");
-        if (pollingTimer !== null) {
-          window.clearInterval(pollingTimer);
-          pollingTimer = null;
-        }
-      };
+      setTransportMode("connecting");
+      setTransportNotice(notice);
 
-      eventSource.onmessage = (event) => {
-        if (!mounted) return;
+      try {
+        const source = new EventSource(
+          buildProjectLiveFeedStreamUrl(projectSlug, {
+            limit: 10,
+            pollSeconds: 5,
+            heartbeatSeconds: 25,
+          }),
+        );
 
-        try {
-          const next = JSON.parse(event.data) as ProjectLiveFeedResponse;
-          if (!next.ok) {
-            setTransportNotice("This project has no live stream payload right now.");
-            return;
+        eventSource = source;
+
+        source.onopen = () => {
+          if (!mounted) return;
+          setTransportMode("streaming");
+          setTransportNotice("");
+          setError("");
+          clearPolling();
+          clearReconnect();
+        };
+
+        source.onmessage = (event) => {
+          if (!mounted) return;
+
+          try {
+            const next = JSON.parse(event.data) as ProjectLiveFeedResponse;
+            if (!next.ok) {
+              setTransportNotice("This project has no live stream payload right now.");
+              return;
+            }
+
+            startTransition(() => {
+              setItems(next.live_feed);
+              setTransportMode("streaming");
+              setTransportNotice("");
+              setError("");
+            });
+          } catch {
+            closeStream();
+            startPollingFallback("The live stream got out of shape, so Traffic fell back to refresh.");
           }
+        };
 
-          startTransition(() => {
-            setItems(next.live_feed);
-            setTransportMode("streaming");
-            setTransportNotice("");
-            setError("");
-          });
-        } catch {
-          if (eventSource) {
-            eventSource.close();
-            eventSource = null;
-          }
-          startPollingFallback("The live stream got out of shape, so Traffic fell back to refresh.");
-        }
-      };
-
-      eventSource.onerror = () => {
-        if (eventSource) {
-          eventSource.close();
-          eventSource = null;
-        }
-        startPollingFallback("The live stream dropped, so Traffic fell back to refresh.");
-      };
-    } catch {
-      window.setTimeout(() => {
+        source.onerror = () => {
+          closeStream();
+          startPollingFallback("The live stream dropped, so Traffic fell back to refresh.");
+        };
+      } catch {
         startPollingFallback("Traffic could not open the live stream, so refresh fallback is active.");
-      }, 0);
+      }
+    };
+
+    if (!pageIsHidden()) {
+      connectStream();
     }
+
+    const handleVisibilityChange = () => {
+      if (!mounted) return;
+      if (pageIsHidden()) {
+        closeStream();
+        clearPolling();
+        clearReconnect();
+        return;
+      }
+      if (!eventSource) {
+        connectStream("Reconnecting live stream...");
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       mounted = false;
-      if (eventSource) {
-        eventSource.close();
-      }
-      if (pollingTimer !== null) {
-        window.clearInterval(pollingTimer);
-      }
+      closeStream();
+      clearPolling();
+      clearReconnect();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [pollMs, projectSlug]);
 

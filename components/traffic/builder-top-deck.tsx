@@ -1,9 +1,11 @@
 "use client";
 
-import Link from "next/link";
+import { useState } from "react";
 import ProjectHumanGraphs from "@/components/traffic/project-human-graphs";
 import LiveVisitorScreen from "@/components/traffic/live-visitor-screen";
 import type { ProjectGraphRangeKey } from "@/components/traffic/types";
+
+const DEFAULT_FEATURED_PROJECT_SLUG = "aoe2hdbets";
 
 export default function BuilderTopDeck({
   uniqueLivePeople,
@@ -12,85 +14,42 @@ export default function BuilderTopDeck({
   uniqueLivePeople: number;
   historyRangeKey?: ProjectGraphRangeKey;
 }) {
+  const [featuredProjectSlug, setFeaturedProjectSlug] = useState(DEFAULT_FEATURED_PROJECT_SLUG);
+
   return (
-    <div className="space-y-6">
-      <section className="grid grid-cols-1 gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 shadow-2xl shadow-black/20">
-          <div className="mb-3 inline-flex rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-200">
-            Builder mode
+    <section className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.84),rgba(6,7,10,0.92))] p-4 shadow-[0_25px_80px_rgba(0,0,0,0.38)]">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
+          Featured graph + live stream stay in one working lane
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <div className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 font-medium text-emerald-200">
+            Live now: {uniqueLivePeople}
           </div>
-
-          <h2 className="text-2xl font-semibold text-white">
-            Live Traffic Layer
-          </h2>
-
-          <p className="mt-2 max-w-2xl text-sm text-white/60">
-            This is the clearer live layer we are building on top of the
-            command center, not instead of it. Human graphs sit up top, the
-            realtime stream sits below, and the broader analytics surface continues
-            underneath.
-          </p>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Link
-              href="/visits"
-              className="rounded-full border border-sky-400/30 bg-sky-400/10 px-4 py-2 text-sm font-medium text-sky-200 transition hover:bg-sky-400/15"
-            >
-              Open visits history
-            </Link>
-
-            <div className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-200">
-              Additive build only
-            </div>
-          </div>
-
-          <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-3">
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <div className="text-xs uppercase tracking-wide text-white/45">
-                New surface
-              </div>
-              <div className="mt-2 text-base font-semibold text-white">
-                Human visitor graphs
-              </div>
-              <div className="mt-1 text-sm text-white/55">
-                Human-confirmed visitor flow by project.
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <div className="text-xs uppercase tracking-wide text-white/45">
-                New surface
-              </div>
-              <div className="mt-2 text-base font-semibold text-white">
-                Realtime visitor stream
-              </div>
-              <div className="mt-1 text-sm text-white/55">
-                Chronological visitor rows that stay pinned to the newest activity.
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <div className="text-xs uppercase tracking-wide text-white/45">
-                Archive
-              </div>
-              <div className="mt-2 text-base font-semibold text-white">
-                Visits history page
-              </div>
-              <div className="mt-1 text-sm text-white/55">
-                Older sessions stay readable in a searchable chronological log.
-              </div>
-            </div>
+          <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
+            Defaults to AoE2HDBets
           </div>
         </div>
+      </div>
 
+      <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr] xl:items-start">
         <ProjectHumanGraphs
-          pollMs={30000}
+          key={historyRangeKey}
+          pollMs={45000}
           uniqueLivePeople={uniqueLivePeople}
           initialRangeKey={historyRangeKey}
+          selectedProjectSlug={featuredProjectSlug}
+          onSelectProject={setFeaturedProjectSlug}
         />
-      </section>
 
-      <LiveVisitorScreen pollMs={15000} />
-    </div>
+        <div className="xl:sticky xl:top-6">
+          <LiveVisitorScreen
+            pollMs={20000}
+            mode="hero"
+            focusedProjectSlug={featuredProjectSlug}
+          />
+        </div>
+      </div>
+    </section>
   );
 }

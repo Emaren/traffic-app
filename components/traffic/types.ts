@@ -479,6 +479,7 @@ export type ProjectDetailResponse = {
   generated_at: string;
   window_hours: number;
   bucket_minutes: number;
+  deep_detail_included: boolean;
   project: {
     slug: string;
     name: string;
@@ -496,6 +497,8 @@ export type ProjectDetailResponse = {
   graph: ProjectGraphData;
   live_feed: SessionRecord[];
   recent_sessions: SessionRecord[];
+  top_humans: SessionRecord[];
+  top_suspicious_sessions: SessionRecord[];
   hosts: Array<{
     host: string;
     project_slug: string;

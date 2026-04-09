@@ -3,9 +3,11 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fetchProjectDetail } from "@/components/traffic/api";
+import ProjectDeepDivePanel from "@/components/traffic/project-deep-dive-panel";
 import ProjectLiveFeed from "@/components/traffic/project-live-feed";
 import { withFlag } from "@/components/traffic/display";
 import ProjectDetailGraph from "@/components/traffic/project-detail-graph";
+import type { SessionRecord } from "@/components/traffic/types";
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
@@ -45,13 +47,77 @@ function StatCard({
   );
 }
 
+function SessionHighlightCard({
+  session,
+  tone,
+}: {
+  session: SessionRecord;
+  tone: "human" | "suspicious";
+}) {
+  const accentClass =
+    tone === "human"
+      ? "border-emerald-400/20 bg-emerald-400/[0.05]"
+      : "border-rose-400/20 bg-rose-400/[0.05]";
+  const noiseHits = Math.max(session.event_count - session.page_count, 0);
+
+  return (
+    <div className={`rounded-2xl border p-4 ${accentClass}`}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="font-medium text-white">
+            <Link
+              href={`/visitors/${session.visitor_profile_id}`}
+              className="transition hover:text-sky-200"
+            >
+              {withFlag(session.country_code, session.visitor_alias)}
+            </Link>
+          </div>
+          <div className="mt-1 text-xs text-slate-400">
+            {session.verdict_label} • {session.data_confidence_label} data confidence •{" "}
+            {session.attention_label} attention
+          </div>
+          <div className="mt-2 text-sm text-slate-300">{session.classification_summary}</div>
+        </div>
+
+        <div className="text-xs text-slate-400 sm:text-right">
+          <div>{session.last_seen_alberta}</div>
+          <div className="mt-1">{formatSeconds(session.total_seconds)} total</div>
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 font-mono text-[11px] text-white/75">
+          IP {session.ip}
+        </span>
+        <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] font-medium text-amber-200">
+          Pages {session.page_count}
+        </span>
+        <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-[11px] font-medium text-sky-200">
+          Events {session.event_count}
+        </span>
+        {noiseHits > 0 ? (
+          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[11px] text-white/70">
+            Background hits {noiseHits}
+          </span>
+        ) : null}
+        <Link
+          href={`/visitors/${session.visitor_profile_id}`}
+          className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-[11px] font-medium text-emerald-200 transition hover:bg-emerald-400/15"
+        >
+          Open visitor profile
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 export default async function ProjectPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const detail = await fetchProjectDetail(slug).catch(() => null);
+  const detail = await fetchProjectDetail(slug, { includeDeep: false }).catch(() => null);
 
   if (!detail?.ok) {
     notFound();
@@ -96,24 +162,19 @@ export default async function ProjectPage({
 
         <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
           <StatCard
-            label="Requests"
-            value={formatNumber(detail.project.requests)}
-            helper="Every request Traffic kept for this project in the current window."
-          />
-          <StatCard
-            label="Visitors"
-            value={formatNumber(detail.project.unique_visitors)}
-            helper="Distinct visitor fingerprints seen on this project."
+            label="Sessions"
+            value={formatNumber(detail.project.sessions)}
+            helper="Session truth matters more here than raw hit volume."
           />
           <StatCard
             label="Real Humans"
             value={formatNumber(detail.project.real_humans)}
-            helper="Visitors Traffic currently believes are probably real."
+            helper="Likely real people Traffic can defend in this window."
           />
           <StatCard
             label="Live Now"
             value={formatNumber(detail.project.live_now)}
-            helper="Human-ish visitors still active right now."
+            helper="Human-ish visitors still active right now on this project."
           />
           <StatCard
             label="Returning"
@@ -121,173 +182,89 @@ export default async function ProjectPage({
             helper="Visitors seen more than once on this project in this window."
           />
           <StatCard
+            label="Engaged"
+            value={formatNumber(detail.project.engaged_sessions)}
+            helper="Sessions with real dwell instead of one-off chatter."
+          />
+          <StatCard
+            label="Raw Requests"
+            value={formatNumber(detail.project.requests)}
+            helper="Still available, but includes polling and API noise."
+          />
+          <StatCard
             label="Avg Session"
             value={formatSeconds(detail.project.avg_session_seconds)}
-            helper="Average session duration for this project."
+            helper="Average session duration across this project window."
           />
         </section>
 
-        <div className="mt-6">
+        <section className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
           <ProjectDetailGraph projectSlug={detail.project.slug} initialGraph={detail.graph} />
-        </div>
 
-        <section className="mt-6 grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
           <ProjectLiveFeed
             projectName={detail.project.name}
             projectSlug={detail.project.slug}
             initialItems={detail.live_feed}
           />
-
-          <div className="space-y-6">
-            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-              <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Top Pages</p>
-              <h2 className="mt-2 text-2xl font-semibold text-white">Where people went</h2>
-
-              <div className="mt-5 space-y-3">
-                {detail.top_pages.map((page) => (
-                  <div
-                    key={page.path}
-                    className="rounded-2xl border border-white/10 bg-black/20 p-4"
-                  >
-                    <div className="break-all font-mono text-sm text-white">{page.path}</div>
-                    <div className="mt-2 text-xs text-slate-400">
-                      {formatNumber(page.views)} views • {formatNumber(page.entries)} entries •{" "}
-                      {formatSeconds(page.avg_seconds)} avg
-                    </div>
-                    <div className="mt-2 break-all text-xs text-slate-400">
-                      Next: {page.top_next_paths[0]?.path || "—"}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-              <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Hosts</p>
-              <h2 className="mt-2 text-2xl font-semibold text-white">Project hosts</h2>
-
-              <div className="mt-5 space-y-3">
-                {detail.hosts.map((host) => (
-                  <div
-                    key={host.host}
-                    className="rounded-2xl border border-white/10 bg-black/20 p-4"
-                  >
-                    <div className="break-all font-medium text-white">{host.host}</div>
-                    <div className="mt-2 text-xs text-slate-400">
-                      {formatNumber(host.requests)} requests • {formatNumber(host.unique_visitors)} visitors
-                    </div>
-                    <div className="mt-2 break-all text-xs text-slate-400">
-                      Entry {host.top_entry_page} • Exit {host.top_exit_page}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
         </section>
 
         <section className="mt-6 grid gap-6 xl:grid-cols-[1fr_1fr]">
           <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-            <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Recent Sessions</p>
-            <h2 className="mt-2 text-2xl font-semibold text-white">Recent named visitors</h2>
+            <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Top Humans</p>
+            <h2 className="mt-2 text-2xl font-semibold text-white">Strongest human sessions</h2>
+            <p className="mt-2 text-sm text-slate-300">
+              Prioritizing session quality over raw request count keeps AoE2-style polling from
+              pretending to be user volume.
+            </p>
 
             <div className="mt-5 space-y-3">
-              {detail.recent_sessions.map((session) => (
-                <div
-                  key={session.session_id}
-                  className="rounded-2xl border border-white/10 bg-black/20 p-4"
-                >
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
-                      <div className="font-medium text-white">
-                        <Link
-                          href={`/visitors/${session.visitor_profile_id}`}
-                          className="transition hover:text-sky-200"
-                        >
-                          {withFlag(session.country_code, session.visitor_alias)}
-                        </Link>
-                      </div>
-                      <div className="mt-1 text-xs text-slate-400">
-                        {session.verdict_label} • {session.data_confidence_label} data confidence •{" "}
-                        {session.attention_label} attention
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 font-mono text-[11px] text-white/75">
-                          IP {session.ip}
-                        </span>
-                        <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] font-medium text-amber-200">
-                          Times Returned: {session.times_returned_in_project}
-                        </span>
-                        <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-[11px] font-medium text-sky-200">
-                          Total Project Visits: {session.total_project_visits}
-                        </span>
-                        <Link
-                          href={`/visitors/${session.visitor_profile_id}`}
-                          className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-[11px] font-medium text-emerald-200 transition hover:bg-emerald-400/15"
-                        >
-                          Open visitor profile
-                        </Link>
-                      </div>
-                    </div>
-                    <div className="text-xs text-slate-400 sm:text-right">
-                      Last movement {session.last_seen_alberta} • {formatSeconds(session.total_seconds)}
-                    </div>
-                  </div>
-
-                  <div className="mt-2 text-sm text-slate-300">{session.classification_summary}</div>
+              {detail.top_humans.length > 0 ? (
+                detail.top_humans.map((session) => (
+                  <SessionHighlightCard
+                    key={`human-${session.session_id}`}
+                    session={session}
+                    tone="human"
+                  />
+                ))
+              ) : (
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-white/60">
+                  No strong human sessions stood out in this project window yet.
                 </div>
-              ))}
+              )}
             </div>
           </div>
 
-          <div className="space-y-6">
-            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-              <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Geo Mix</p>
-              <h2 className="mt-2 text-2xl font-semibold text-white">Top countries</h2>
+          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+            <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Suspicious Watch</p>
+            <h2 className="mt-2 text-2xl font-semibold text-white">Top suspicious sessions</h2>
+            <p className="mt-2 text-sm text-slate-300">
+              Suspicious and probe-like sessions are separated from human highlights so they stay
+              visible without polluting the human story.
+            </p>
 
-              <div className="mt-5 space-y-3">
-                {detail.geo.countries.map((row) => (
-                  <div
-                    key={row.country}
-                    className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3"
-                  >
-                    <span className="min-w-0 flex-1 break-words text-sm text-white">{row.country}</span>
-                    <span className="text-sm font-semibold text-sky-300">
-                      {formatNumber(row.sessions)} sessions
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-              <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Threat Surface</p>
-              <h2 className="mt-2 text-2xl font-semibold text-white">Suspicious traffic</h2>
-
-              <div className="mt-5 space-y-3">
-                {detail.suspicious.top_paths.length > 0 ? (
-                  detail.suspicious.top_paths.map((row) => (
-                    <div
-                      key={row.path}
-                      className="flex items-start justify-between gap-3 rounded-2xl border border-rose-500/20 bg-rose-500/8 px-4 py-3"
-                    >
-                      <span className="min-w-0 flex-1 break-all font-mono text-sm text-rose-100">
-                        {row.path}
-                      </span>
-                      <span className="rounded-full bg-black/20 px-3 py-1 text-sm font-semibold text-rose-200">
-                        {formatNumber(row.count)}
-                      </span>
-                    </div>
-                  ))
-                ) : (
-                  <div className="rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-white/60">
-                    No notable suspicious paths in this project window.
-                  </div>
-                )}
-              </div>
+            <div className="mt-5 space-y-3">
+              {detail.top_suspicious_sessions.length > 0 ? (
+                detail.top_suspicious_sessions.map((session) => (
+                  <SessionHighlightCard
+                    key={`suspicious-${session.session_id}`}
+                    session={session}
+                    tone="suspicious"
+                  />
+                ))
+              ) : (
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-white/60">
+                  No suspicious sessions are standing out on this project right now.
+                </div>
+              )}
             </div>
           </div>
         </section>
+
+        <ProjectDeepDivePanel
+          projectName={detail.project.name}
+          projectSlug={detail.project.slug}
+          windowHours={detail.window_hours}
+        />
       </div>
     </main>
   );

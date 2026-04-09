@@ -155,7 +155,7 @@ export default function ProjectDetailGraph({
               strokeWidth={3}
               dot={false}
               activeDot={{ r: 4 }}
-              isAnimationActive
+              isAnimationActive={false}
             />
           </LineChart>
         </ResponsiveContainer>

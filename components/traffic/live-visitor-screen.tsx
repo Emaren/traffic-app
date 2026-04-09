@@ -34,6 +34,8 @@ import {
 
 type Props = {
   pollMs?: number;
+  mode?: "default" | "hero";
+  focusedProjectSlug?: string | null;
 };
 
 type StreamSection = {
@@ -91,7 +93,12 @@ function pageIsHidden() {
   return typeof document !== "undefined" && document.hidden;
 }
 
-export default function LiveVisitorScreen({ pollMs = 15000 }: Props) {
+export default function LiveVisitorScreen({
+  pollMs = 15000,
+  mode = "default",
+  focusedProjectSlug = null,
+}: Props) {
+  const heroMode = mode === "hero";
   const [data, setData] = useState<LiveVisitorsResponse | null>(null);
   const [error, setError] = useState<string>("");
   const [transportMode, setTransportMode] = useState<LiveTransportMode>("connecting");
@@ -106,6 +113,7 @@ export default function LiveVisitorScreen({ pollMs = 15000 }: Props) {
   const [density, setDensity] = useState<"full" | "compact">(() =>
     loadStoredString(TRAFFIC_LIVE_DENSITY_KEY) === "compact" ? "compact" : "full",
   );
+  const [followFeaturedProject, setFollowFeaturedProject] = useState(Boolean(focusedProjectSlug));
   const {
     supportsSharedRules,
     activeVisibilityRules,
@@ -117,6 +125,10 @@ export default function LiveVisitorScreen({ pollMs = 15000 }: Props) {
   } = useTrafficVisibilityRules();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const shouldStickToTopRef = useRef(true);
+
+  useEffect(() => {
+    setFollowFeaturedProject(Boolean(focusedProjectSlug));
+  }, [focusedProjectSlug]);
 
   useEffect(() => {
     let mounted = true;
@@ -288,15 +300,36 @@ export default function LiveVisitorScreen({ pollMs = 15000 }: Props) {
     () => availableProjects.map((project) => project.slug),
     [availableProjects],
   );
-  const effectiveSelectedProjects = useMemo(
+  const focusedProject = useMemo(
+    () =>
+      availableProjects.find((project) => project.slug === focusedProjectSlug) ?? null,
+    [availableProjects, focusedProjectSlug],
+  );
+  const storedSelectedProjects = useMemo(
     () => reconcileSelectedValues(selectedProjects, availableProjectSlugs),
     [availableProjectSlugs, selectedProjects],
   );
+  const effectiveSelectedProjects = useMemo(() => {
+    if (
+      followFeaturedProject &&
+      focusedProjectSlug &&
+      availableProjectSlugs.includes(focusedProjectSlug)
+    ) {
+      return [focusedProjectSlug];
+    }
+    return storedSelectedProjects;
+  }, [
+    availableProjectSlugs,
+    followFeaturedProject,
+    focusedProjectSlug,
+    storedSelectedProjects,
+  ]);
 
   useEffect(() => {
     if (availableProjectSlugs.length === 0) return;
-    storeStringArray(TRAFFIC_SHARED_PROJECT_FILTER_KEY, effectiveSelectedProjects);
-  }, [availableProjectSlugs.length, effectiveSelectedProjects]);
+    if (followFeaturedProject) return;
+    storeStringArray(TRAFFIC_SHARED_PROJECT_FILTER_KEY, storedSelectedProjects);
+  }, [availableProjectSlugs.length, followFeaturedProject, storedSelectedProjects]);
 
   useEffect(() => {
     storeBoolean(TRAFFIC_LIVE_GREEN_ONLY_KEY, showOnlyGreenHumans);
@@ -307,6 +340,7 @@ export default function LiveVisitorScreen({ pollMs = 15000 }: Props) {
   }, [density]);
 
   const allProjectsSelected =
+    !followFeaturedProject &&
     availableProjectSlugs.length > 0 &&
     effectiveSelectedProjects.length === availableProjectSlugs.length;
 
@@ -454,7 +488,8 @@ export default function LiveVisitorScreen({ pollMs = 15000 }: Props) {
     return sectionRows.filter((section) => section.items.length > 0);
   }, [automationItems, securityItems]);
 
-  const hasVisibleContent = streamItems.length > 0 || auxiliarySections.length > 0;
+  const hasVisibleContent =
+    streamItems.length > 0 || (!heroMode && auxiliarySections.length > 0);
 
   const streamHeadSignature = useMemo(
     () =>
@@ -494,6 +529,7 @@ export default function LiveVisitorScreen({ pollMs = 15000 }: Props) {
   };
 
   const toggleProject = (slug: string) => {
+    setFollowFeaturedProject(false);
     setSelectedProjects((current) => {
       const currentSet = new Set(reconcileSelectedValues(current, availableProjectSlugs));
       if (currentSet.has(slug)) {
@@ -530,13 +566,17 @@ export default function LiveVisitorScreen({ pollMs = 15000 }: Props) {
   };
 
   return (
-    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 shadow-2xl shadow-black/20">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 shadow-2xl shadow-black/20">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-semibold text-white">Realtime Visitor Stream</h2>
+          <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Realtime Visitor Stream</p>
+          <h2 className="mt-1 text-xl font-semibold text-white">
+            {heroMode ? "Newest rows stay beside the featured graph" : "Chronological visitor movement"}
+          </h2>
           <p className="max-w-3xl text-sm text-white/60">
-            Chronological, not ranked. When the stream is healthy, new movement pushes in live at the
-            top; if that pipe drops, Traffic falls back to timed refresh.
+            {heroMode
+              ? "Keep the spike and the top visitor rows in the same viewport."
+              : "Chronological, not ranked. When the stream is healthy, new movement pushes in live at the top; if that pipe drops, Traffic falls back to timed refresh."}
           </p>
         </div>
 
@@ -547,6 +587,16 @@ export default function LiveVisitorScreen({ pollMs = 15000 }: Props) {
           <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
             Human stream: {streamItems.length}
           </div>
+          {!showOnlyGreenHumans && !heroMode && automationItems.length > 0 ? (
+            <div className="rounded-full border border-fuchsia-400/30 bg-fuchsia-400/10 px-3 py-1 text-xs font-medium text-fuchsia-200">
+              Automation {automationItems.length}
+            </div>
+          ) : null}
+          {!showOnlyGreenHumans && !heroMode && securityItems.length > 0 ? (
+            <div className="rounded-full border border-rose-400/30 bg-rose-400/10 px-3 py-1 text-xs font-medium text-rose-200">
+              Security {securityItems.length}
+            </div>
+          ) : null}
           <button
             type="button"
             onClick={jumpToNewest}
@@ -573,25 +623,39 @@ export default function LiveVisitorScreen({ pollMs = 15000 }: Props) {
         </div>
       ) : null}
 
-      <div className="mb-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+      <div className={`mb-3 rounded-2xl border border-white/10 bg-black/20 ${heroMode ? "p-3" : "p-4"}`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="text-xs uppercase tracking-[0.22em] text-white/40">Feed Controls</div>
+            <div className="text-xs uppercase tracking-[0.22em] text-white/40">
+              {heroMode ? "Hero Feed Controls" : "Feed Controls"}
+            </div>
             <div className="mt-1 text-sm text-white/65">
               {effectiveSelectedProjects.length || availableProjectSlugs.length} of {availableProjectSlugs.length || 0} projects visible
               {showOnlyGreenHumans ? " • green humans only" : " • mixed human-confidence feed"}
-              {!showOnlyGreenHumans && automationItems.length > 0
+              {!showOnlyGreenHumans && !heroMode && automationItems.length > 0
                 ? ` • ${automationItems.length} automation in background`
                 : ""}
-              {!showOnlyGreenHumans && securityItems.length > 0
+              {!showOnlyGreenHumans && !heroMode && securityItems.length > 0
                 ? ` • ${securityItems.length} security watch`
                 : ""}
+              {followFeaturedProject && focusedProject ? ` • following ${focusedProject.name}` : ""}
               {effectiveHiddenIps.length > 0 ? ` • ${effectiveHiddenIps.length} hidden IPs` : ""}
               {activeVisibilityRules.length > 0 ? ` • ${activeVisibilityRules.length} shared hides` : ""}
             </div>
           </div>
 
           <div className="flex flex-wrap gap-2">
+            {focusedProject ? (
+              <button
+                type="button"
+                onClick={() => setFollowFeaturedProject((current) => !current)}
+                className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition ${pillClass(
+                  followFeaturedProject,
+                )}`}
+              >
+                {followFeaturedProject ? `Following ${focusedProject.name}` : "Follow featured graph"}
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => setDensity("full")}
@@ -622,10 +686,13 @@ export default function LiveVisitorScreen({ pollMs = 15000 }: Props) {
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className={`flex flex-wrap gap-2 ${heroMode ? "mt-3" : "mt-4"}`}>
           <button
             type="button"
-            onClick={() => setSelectedProjects([...availableProjectSlugs])}
+            onClick={() => {
+              setFollowFeaturedProject(false);
+              setSelectedProjects([...availableProjectSlugs]);
+            }}
             className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition ${pillClass(
               allProjectsSelected,
             )}`}
@@ -650,16 +717,18 @@ export default function LiveVisitorScreen({ pollMs = 15000 }: Props) {
           })}
         </div>
 
-        <VisibilityRulePanel
-          rules={activeVisibilityRules}
-          localOnlyHiddenIps={localOnlyHiddenIps}
-          onRemoveRule={(rule) => {
-            void removeVisibilityRule(rule);
-          }}
-          onRemoveLocalIp={(ip) => {
-            void unhideIp(ip);
-          }}
-        />
+        {!heroMode || activeVisibilityRules.length > 0 || localOnlyHiddenIps.length > 0 ? (
+          <VisibilityRulePanel
+            rules={activeVisibilityRules}
+            localOnlyHiddenIps={localOnlyHiddenIps}
+            onRemoveRule={(rule) => {
+              void removeVisibilityRule(rule);
+            }}
+            onRemoveLocalIp={(ip) => {
+              void unhideIp(ip);
+            }}
+          />
+        ) : null}
       </div>
 
       {error ? (
@@ -674,7 +743,38 @@ export default function LiveVisitorScreen({ pollMs = 15000 }: Props) {
         </div>
       ) : null}
 
-      {!error && hasVisibleContent ? (
+      {!error && hasVisibleContent && heroMode ? (
+        <div
+          ref={containerRef}
+          onScroll={handleScroll}
+          className="max-h-[42rem] overflow-y-auto pr-2"
+        >
+          <div className="space-y-3 pb-3">
+            <AnimatePresence initial={false}>
+              {newestFirstItems.map((session) => (
+                <motion.div
+                  key={session.session_id}
+                  layout="position"
+                  initial={{ opacity: 0, y: -18 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 12 }}
+                  transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <LiveVisitorStreamRow
+                    session={session}
+                    density={density}
+                    onHideIp={hideIp}
+                    onHidePath={supportsSharedRules ? hidePath : undefined}
+                    onHideProject={supportsSharedRules ? hideProject : undefined}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        </div>
+      ) : null}
+
+      {!error && hasVisibleContent && !heroMode ? (
         <div
           ref={containerRef}
           onScroll={handleScroll}

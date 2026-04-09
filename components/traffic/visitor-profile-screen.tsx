@@ -7,8 +7,8 @@ import {
   fetchVisitorProfile,
 } from "@/components/traffic/api";
 import { withFlag } from "@/components/traffic/display";
-import LiveVisitorStreamRow from "@/components/traffic/live-visitor-stream-row";
 import VisitorActivityReel from "@/components/traffic/visitor-activity-reel";
+import VisitorSessionCard from "@/components/traffic/visitor-session-card";
 import VisibilityRulePanel from "@/components/traffic/visibility-rule-panel";
 import {
   sessionHiddenByVisibilityRules,
@@ -108,9 +108,13 @@ function automationBadge(session: SessionRecord | null): { label: string; classN
   return null;
 }
 
+function pageIsHidden() {
+  return typeof document !== "undefined" && document.hidden;
+}
+
 export default function VisitorProfileScreen({
   initialProfile,
-  pollMs = 5000,
+  pollMs = 15000,
   visitorId,
 }: Props) {
   const [profile, setProfile] = useState(initialProfile);
@@ -147,16 +151,40 @@ export default function VisitorProfileScreen({
     let mounted = true;
     let eventSource: EventSource | null = null;
     let pollingTimer: number | null = null;
-    let pollingStarted = false;
+    let reconnectTimer: number | null = null;
 
     const activeRangeKey = profile.range_key;
+    const activeRangeLabel = profile.range_label;
+
+    const clearPolling = () => {
+      if (pollingTimer !== null) {
+        window.clearInterval(pollingTimer);
+        pollingTimer = null;
+      }
+    };
+
+    const clearReconnect = () => {
+      if (reconnectTimer !== null) {
+        window.clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+    };
+
+    const closeStream = () => {
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+    };
 
     const load = async () => {
+      if (pageIsHidden()) return;
+
       try {
         const next = await fetchVisitorProfile(visitorId, { rangeKey: activeRangeKey });
         if (!mounted) return;
         if (!next.ok) {
-          setTransportNotice(rangeMissNotice(profile.range_label));
+          setTransportNotice(rangeMissNotice(activeRangeLabel));
           return;
         }
 
@@ -170,89 +198,120 @@ export default function VisitorProfileScreen({
       }
     };
 
+    const scheduleReconnect = (notice: string) => {
+      clearReconnect();
+      reconnectTimer = window.setTimeout(() => {
+        if (!mounted || pageIsHidden()) return;
+        connectStream(notice);
+      }, Math.max(pollMs * 2, 30000));
+    };
+
     const startPollingFallback = (notice: string) => {
-      if (!mounted || pollingStarted) return;
-      pollingStarted = true;
+      if (!mounted) return;
+      closeStream();
+      clearPolling();
       setTransportMode("polling");
       setTransportNotice(notice);
       void load();
-      pollingTimer = window.setInterval(() => void load(), pollMs);
+      pollingTimer = window.setInterval(() => {
+        if (!pageIsHidden()) {
+          void load();
+        }
+      }, pollMs);
+      scheduleReconnect("Retrying live stream...");
     };
 
-    if (typeof window === "undefined" || typeof window.EventSource === "undefined") {
-      window.setTimeout(() => {
+    const connectStream = (notice = "") => {
+      if (!mounted || pageIsHidden()) return;
+
+      if (typeof window === "undefined" || typeof window.EventSource === "undefined") {
         startPollingFallback("Live stream is unavailable here, so Traffic is using refresh fallback.");
-      }, 0);
-      return () => {
-        mounted = false;
-        if (pollingTimer !== null) {
-          window.clearInterval(pollingTimer);
-        }
-      };
-    }
+        return;
+      }
 
-    try {
-      eventSource = new EventSource(
-        buildVisitorProfileStreamUrl(visitorId, { rangeKey: activeRangeKey }),
-      );
+      closeStream();
+      clearPolling();
+      clearReconnect();
 
-      eventSource.onopen = () => {
-        if (!mounted) return;
-        setTransportMode("streaming");
-        setTransportNotice("");
-        setError("");
-        if (pollingTimer !== null) {
-          window.clearInterval(pollingTimer);
-          pollingTimer = null;
-        }
-      };
+      setTransportMode("connecting");
+      setTransportNotice(notice);
 
-      eventSource.onmessage = (event) => {
-        if (!mounted) return;
+      try {
+        const source = new EventSource(
+          buildVisitorProfileStreamUrl(visitorId, {
+            rangeKey: activeRangeKey,
+            pollSeconds: 8,
+            heartbeatSeconds: 25,
+          }),
+        );
 
-        try {
-          const next = JSON.parse(event.data) as VisitorProfileResponse;
-          if (!next.ok) {
-            setTransportNotice(rangeMissNotice(profile.range_label));
-            return;
+        eventSource = source;
+
+        source.onopen = () => {
+          if (!mounted) return;
+          setTransportMode("streaming");
+          setTransportNotice("");
+          setError("");
+          clearPolling();
+          clearReconnect();
+        };
+
+        source.onmessage = (event) => {
+          if (!mounted) return;
+
+          try {
+            const next = JSON.parse(event.data) as VisitorProfileResponse;
+            if (!next.ok) {
+              setTransportNotice(rangeMissNotice(activeRangeLabel));
+              return;
+            }
+
+            startTransition(() => {
+              setProfile(next);
+              setTransportMode("streaming");
+              setTransportNotice("");
+              setError("");
+            });
+          } catch {
+            closeStream();
+            startPollingFallback("The live stream got out of shape, so Traffic fell back to refresh.");
           }
+        };
 
-          startTransition(() => {
-            setProfile(next);
-            setTransportMode("streaming");
-            setTransportNotice("");
-            setError("");
-          });
-        } catch {
-          if (eventSource) {
-            eventSource.close();
-            eventSource = null;
-          }
-          startPollingFallback("The live stream got out of shape, so Traffic fell back to refresh.");
-        }
-      };
-
-      eventSource.onerror = () => {
-        if (eventSource) {
-          eventSource.close();
-          eventSource = null;
-        }
-        startPollingFallback("The live stream dropped, so Traffic fell back to refresh.");
-      };
-    } catch {
-      window.setTimeout(() => {
+        source.onerror = () => {
+          closeStream();
+          startPollingFallback("The live stream dropped, so Traffic fell back to refresh.");
+        };
+      } catch {
         startPollingFallback("Traffic could not open the live stream, so refresh fallback is active.");
-      }, 0);
+      }
+    };
+
+    if (!pageIsHidden()) {
+      connectStream();
     }
+
+    const handleVisibilityChange = () => {
+      if (!mounted) return;
+      if (pageIsHidden()) {
+        closeStream();
+        clearPolling();
+        clearReconnect();
+        return;
+      }
+      if (!eventSource) {
+        connectStream("Reconnecting live stream...");
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       mounted = false;
-      if (eventSource) {
-        eventSource.close();
-      }
-      if (pollingTimer !== null) {
-        window.clearInterval(pollingTimer);
-      }
+      closeStream();
+      clearPolling();
+      clearReconnect();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [pollMs, profile.range_key, profile.range_label, visitorId]);
 
@@ -389,7 +448,7 @@ export default function VisitorProfileScreen({
   const sessionSummary =
     profile.visitor.total_sessions > visibleSessions.length
       ? `Showing ${visibleSessions.length} visible sessions out of ${profile.visitor.total_sessions} stored in this range.`
-      : "Newest visit start first. Expand a row to see the full stored path and why Traffic ties it to this visitor.";
+      : "Human-first grouped activity comes first. Raw route-by-route truth stays available inside each session drawer.";
 
   return (
     <main className="min-h-screen bg-[#06070a] text-slate-100">
@@ -718,12 +777,10 @@ export default function VisitorProfileScreen({
             <div className="mt-5 space-y-3">
               {visibleSessions.length > 0 ? (
                 visibleSessions.map((session) => (
-                  <LiveVisitorStreamRow
+                  <VisitorSessionCard
                     key={session.session_id}
                     session={session}
-                    showVisitorLink={false}
                     density={density}
-                    primaryTime="first_seen"
                     onHideIp={hideIp}
                     onHidePath={supportsSharedRules ? hidePath : undefined}
                     onHideProject={supportsSharedRules ? hideProject : undefined}

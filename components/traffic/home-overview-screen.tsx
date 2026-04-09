@@ -54,6 +54,7 @@ export default function HomeOverviewScreen({
   const [pendingRange, setPendingRange] = useState<HistoryRangeKey | null>(null);
   const [error, setError] = useState("");
   const activeRangeKey = overview?.range_key ?? "24h";
+  const hasOverview = Boolean(overview);
 
   useEffect(() => {
     setOverview(initialOverview);
@@ -89,7 +90,7 @@ export default function HomeOverviewScreen({
   }, [overview]);
 
   useEffect(() => {
-    if (!overview) return;
+    if (!hasOverview) return;
 
     let mounted = true;
 
@@ -128,7 +129,7 @@ export default function HomeOverviewScreen({
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [activeRangeKey, pollMs]);
+  }, [activeRangeKey, hasOverview, pollMs]);
 
   const loadRange = async (rangeKey: HistoryRangeKey) => {
     if (!overview) return;
@@ -161,47 +162,65 @@ export default function HomeOverviewScreen({
     () => maxCount(overview?.projects.map((row) => row.requests) ?? []),
     [overview?.projects],
   );
+  const featuredProjectKpi = useMemo(() => {
+    const aoe2Project = overview?.projects.find((project) => project.slug === "aoe2hdbets");
+    if (!aoe2Project) return null;
+    return {
+      name: aoe2Project.name,
+      humans: aoe2Project.human_confirmed_sessions ?? 0,
+    };
+  }, [overview?.projects]);
 
   if (!overview) {
     return (
       <main className="min-h-screen bg-[#06070a] text-slate-100">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-          <header className="rounded-[32px] border border-amber-500/20 bg-[linear-gradient(180deg,rgba(245,158,11,0.08),rgba(255,255,255,0.03))] p-6 shadow-[0_25px_80px_rgba(0,0,0,0.45)]">
-            <p className="text-xs uppercase tracking-[0.28em] text-amber-200/80">
-              traffic.tokentap.ca
-            </p>
-            <h1 className="mt-3 text-4xl font-semibold tracking-tight text-white">
-              Traffic observatory
-            </h1>
-            <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
-              The shell is up. Traffic is loading the observatory data in the browser so the page
-              can appear fast even when analytics queries are heavy.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <div className="inline-flex rounded-full border border-sky-400/30 bg-sky-400/10 px-4 py-2 text-sm font-medium text-sky-200">
-                Loading live overview...
+          <header className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.84),rgba(6,7,10,0.92))] p-4 shadow-[0_25px_80px_rgba(0,0,0,0.45)]">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.28em] text-amber-200/80">
+                  traffic.tokentap.ca
+                </p>
+                <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">
+                  Traffic observatory
+                </h1>
+                <p className="mt-2 max-w-3xl text-sm text-slate-300">
+                  Reconnecting the command center. Traffic is trying to hydrate the featured graph
+                  and live stream without blocking the page.
+                </p>
               </div>
-              <Link
-                href="/admin"
-                className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-300/15"
-              >
-                Open admin cockpit
-              </Link>
+
+              <div className="flex flex-wrap gap-2 text-xs">
+                <div className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 font-medium text-sky-200">
+                  Loading overview
+                </div>
+                <Link
+                  href="/admin"
+                  className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1 font-medium text-cyan-100 transition hover:bg-cyan-300/15"
+                >
+                  Admin cockpit
+                </Link>
+              </div>
             </div>
             {error ? (
-              <div className="mt-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-100">
+              <div className="mt-3 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-100">
                 {error}
               </div>
             ) : null}
           </header>
 
-          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, index) => (
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+            {Array.from({ length: 6 }).map((_, index) => (
               <div
                 key={`overview-loading-${index}`}
-                className="h-36 animate-pulse rounded-3xl border border-white/10 bg-white/[0.03]"
+                className="h-24 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]"
               />
             ))}
+          </div>
+
+          <div className="mt-4 grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+            <div className="h-[34rem] animate-pulse rounded-[28px] border border-white/10 bg-white/[0.03]" />
+            <div className="h-[34rem] animate-pulse rounded-[28px] border border-white/10 bg-white/[0.03]" />
           </div>
         </div>
       </main>
@@ -211,21 +230,21 @@ export default function HomeOverviewScreen({
   return (
     <main className="min-h-screen bg-[#06070a] text-slate-100">
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-        <header className="rounded-[32px] border border-amber-500/20 bg-[linear-gradient(180deg,rgba(245,158,11,0.08),rgba(255,255,255,0.03))] p-6 shadow-[0_25px_80px_rgba(0,0,0,0.45)]">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+        <header className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.84),rgba(6,7,10,0.92))] p-4 shadow-[0_25px_80px_rgba(0,0,0,0.45)]">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.28em] text-amber-200/80">
+              <p className="text-[11px] uppercase tracking-[0.28em] text-amber-200/80">
                 traffic.tokentap.ca
               </p>
-              <h1 className="mt-3 text-4xl font-semibold tracking-tight text-white">
+              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">
                 Traffic observatory
               </h1>
-              <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
-                Clearer visitor intelligence for noobs first and operators second: how many people
-                came, how many were probably real, what they touched, and what deserves attention.
+              <p className="mt-2 max-w-3xl text-sm text-slate-300">
+                Featured graph left, realtime stream right, mini project graphs up top. The rest
+                of the stack can stay below the fold.
               </p>
 
-              <div className="mt-4 flex flex-wrap gap-2 text-xs">
+              <div className="mt-3 flex flex-wrap gap-2 text-xs">
                 {RANGE_OPTIONS.map((option) => {
                   const isActive = overview.range_key === option.key;
                   const isPending = pendingRange === option.key;
@@ -255,25 +274,23 @@ export default function HomeOverviewScreen({
               </div>
             </div>
 
-            <div className="grid w-full gap-3 text-sm text-slate-300 lg:w-auto">
-              <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+            <div className="grid w-full gap-2 text-sm text-slate-300 lg:w-auto lg:min-w-[18rem]">
+              <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2.5">
                 <span className="text-slate-400">Window:</span>{" "}
                 <span className="text-white">{overview.range_label}</span>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+              <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2.5">
                 <span className="text-slate-400">Generated:</span>{" "}
                 <span className="text-white">{formatTimestamp(overview.generated_at)}</span>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-                <span className="text-slate-400">Quick read:</span>{" "}
-                <span className="text-white">
-                  Historical counts follow the selected range. Live Right Now still means right now.
-                </span>
+              <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2.5">
+                <span className="text-slate-400">Focus:</span>{" "}
+                <span className="text-white">AoE2 first, live stream always visible</span>
               </div>
             </div>
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-2 text-xs">
+          <div className="mt-3 flex flex-wrap gap-2 text-xs">
             <div className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 font-medium text-emerald-200">
               {overview.coverage_mode === "durable_store" ? "Durable history" : "Live log fallback"}
             </div>
@@ -291,7 +308,7 @@ export default function HomeOverviewScreen({
           </div>
 
           {overview.note ? (
-            <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100">
+            <div className="mt-3 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100">
               {overview.note}
             </div>
           ) : null}
@@ -301,6 +318,7 @@ export default function HomeOverviewScreen({
           generatedAt={overview.generated_at}
           totals={overview.totals}
           pollMs={pollMs}
+          featuredProject={featuredProjectKpi}
         />
 
         {error ? (
@@ -309,54 +327,7 @@ export default function HomeOverviewScreen({
           </div>
         ) : null}
 
-        <section className="mt-6 rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-slate-400">How To Read Traffic</p>
-              <h2 className="mt-2 text-2xl font-semibold text-white">Clearer language first</h2>
-              <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-300">
-                The old machine-style labels are being replaced with plain-English ones. Verdict
-                says what Traffic thinks the visitor is, data confidence says how much solid detail
-                we captured, and attention says whether the session is worth watching right now.
-              </p>
-            </div>
-
-            <Link
-              href="/visits"
-              className="rounded-full border border-sky-400/30 bg-sky-400/10 px-4 py-2 text-sm font-medium text-sky-200 transition hover:bg-sky-400/15"
-            >
-              Open live archive
-            </Link>
-          </div>
-
-          <div className="mt-5 grid gap-4 md:grid-cols-3">
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Verdict</div>
-              <div className="mt-2 text-lg font-semibold text-white">Who Traffic thinks this is</div>
-              <div className="mt-2 text-sm leading-6 text-slate-400">
-                Likely Human, Probably Human, Unclear, Known Bot, or Suspicious.
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Data Confidence</div>
-              <div className="mt-2 text-lg font-semibold text-white">How solid the session trail is</div>
-              <div className="mt-2 text-sm leading-6 text-slate-400">
-                High means browser, route, and timing data are strong. Low means the trail is thin.
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Attention</div>
-              <div className="mt-2 text-lg font-semibold text-white">What deserves operator focus</div>
-              <div className="mt-2 text-sm leading-6 text-slate-400">
-                High attention usually means strong dwell, repeat behavior, active sessions, or something weird.
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <div className="mt-6">
+        <div className="mt-4">
           <BuilderTopDeck
             uniqueLivePeople={overview.totals.live_now}
             historyRangeKey={overview.range_key}
@@ -460,30 +431,6 @@ export default function HomeOverviewScreen({
         </section>
 
         <section className="mt-6 space-y-6">
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Archive Direction</p>
-                <h2 className="mt-2 text-2xl font-semibold text-white">
-                  Visitor history replaces the old explorer slab
-                </h2>
-              </div>
-
-              <Link
-                href="/visits"
-                className="rounded-full border border-sky-400/30 bg-sky-400/10 px-4 py-2 text-sm text-sky-200 transition hover:bg-sky-400/15"
-              >
-                Open visits history
-              </Link>
-            </div>
-
-            <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-300">
-              The live stream above is now the realtime surface, and the dedicated archive is the deep
-              history surface. Traffic is slimming away the duplicate session-explorer slab so this page
-              stays focused on observatory truth instead of repeating the same story twice.
-            </p>
-          </div>
-
           <div className="space-y-6">
             <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
               <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Geo Intelligence</p>

@@ -11,7 +11,7 @@ type Props = {
   transportMode: LiveTransportMode;
 };
 
-const LIVE_REEL_LIMIT = 180;
+const LIVE_REEL_LIMIT = 120;
 
 function routeKindClass(routeKind: string) {
   switch (routeKind) {

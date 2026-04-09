@@ -22,19 +22,18 @@ type Props = {
   pollMs?: number;
   uniqueLivePeople: number;
   initialRangeKey?: ProjectGraphRangeKey;
+  selectedProjectSlug?: string | null;
+  onSelectProject?: (slug: string) => void;
 };
 
 const DEFAULT_RANGE_KEY: ProjectGraphRangeKey = "7d";
+const DEFAULT_FEATURED_PROJECT_SLUG = "aoe2hdbets";
 const RANGE_OPTIONS: Array<{ key: ProjectGraphRangeKey; label: string }> = [
   { key: "24h", label: "24 Hours" },
   { key: "7d", label: "1 Week" },
   { key: "30d", label: "1 Month" },
   { key: "all", label: "All Time" },
 ];
-
-function prettyProjectName(name: string): string {
-  return name;
-}
 
 function formatBucketSize(bucketMinutes: number) {
   if (bucketMinutes < 60) return `${bucketMinutes}m buckets`;
@@ -50,22 +49,26 @@ function pageIsHidden() {
   return typeof document !== "undefined" && document.hidden;
 }
 
+function sumVisitors(project: HumanSeriesProject): number {
+  return project.points.reduce((sum, point) => sum + point.visitors, 0);
+}
+
+function peakVisitors(project: HumanSeriesProject): number {
+  return project.points.reduce((peak, point) => Math.max(peak, point.visitors), 0);
+}
+
 export default function ProjectHumanGraphs({
   pollMs = 30000,
   uniqueLivePeople,
   initialRangeKey = DEFAULT_RANGE_KEY,
+  selectedProjectSlug,
+  onSelectProject,
 }: Props) {
   const [data, setData] = useState<ProjectHumanSeriesResponse | null>(null);
-  const [error, setError] = useState<string>("");
-  const [activeRangeKey, setActiveRangeKey] =
-    useState<ProjectGraphRangeKey>(initialRangeKey);
+  const [error, setError] = useState("");
+  const [activeRangeKey, setActiveRangeKey] = useState<ProjectGraphRangeKey>(initialRangeKey);
   const [pendingRange, setPendingRange] = useState<ProjectGraphRangeKey | null>(null);
-
-  useEffect(() => {
-    setActiveRangeKey(initialRangeKey);
-    setPendingRange(null);
-    setError("");
-  }, [initialRangeKey]);
+  const [internalSelectedSlug, setInternalSelectedSlug] = useState(DEFAULT_FEATURED_PROJECT_SLUG);
 
   useEffect(() => {
     let mounted = true;
@@ -111,7 +114,29 @@ export default function ProjectHumanGraphs({
     };
   }, [activeRangeKey, pollMs]);
 
-  const projects = useMemo<HumanSeriesProject[]>(() => data?.projects ?? [], [data]);
+  const projects = useMemo<HumanSeriesProject[]>(() => {
+    const rawProjects = data?.projects ?? [];
+    return [...rawProjects].sort((left, right) => {
+      const leftScore = left.live_humans * 1000 + peakVisitors(left) * 10 + sumVisitors(left);
+      const rightScore = right.live_humans * 1000 + peakVisitors(right) * 10 + sumVisitors(right);
+      return rightScore - leftScore;
+    });
+  }, [data]);
+
+  const fallbackProjectSlug = useMemo(() => {
+    if (projects.some((project) => project.slug === DEFAULT_FEATURED_PROJECT_SLUG)) {
+      return DEFAULT_FEATURED_PROJECT_SLUG;
+    }
+    return projects[0]?.slug ?? null;
+  }, [projects]);
+
+  const selectedSlugCandidate = selectedProjectSlug ?? internalSelectedSlug;
+  const activeSelectedSlug =
+    projects.some((project) => project.slug === selectedSlugCandidate)
+      ? selectedSlugCandidate
+      : fallbackProjectSlug;
+  const featuredProject =
+    projects.find((project) => project.slug === activeSelectedSlug) ?? projects[0] ?? null;
   const projectLiveTotal = useMemo(
     () => projects.reduce((sum, project) => sum + project.live_humans, 0),
     [projects],
@@ -119,7 +144,7 @@ export default function ProjectHumanGraphs({
   const fallbackRangeLabel = rangeLabelFor(activeRangeKey);
   const description =
     data?.note ||
-    `${data?.range_label ?? fallbackRangeLabel} of human-confirmed visitor flow across the observatory.`;
+    `${data?.range_label ?? fallbackRangeLabel} of human-confirmed visitor flow across Traffic.`;
 
   const loadRange = (rangeKey: ProjectGraphRangeKey) => {
     if (rangeKey === activeRangeKey || pendingRange) return;
@@ -128,12 +153,24 @@ export default function ProjectHumanGraphs({
     setError("");
   };
 
+  const selectProject = (slug: string) => {
+    if (!selectedProjectSlug) {
+      setInternalSelectedSlug(slug);
+    }
+    onSelectProject?.(slug);
+  };
+
   return (
-    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 shadow-2xl shadow-black/20">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 shadow-2xl shadow-black/20">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-white">Human Visitor Graphs</h2>
-          <p className="text-sm text-white/60">{description}</p>
+          <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Featured Human Visitor Graph</p>
+          <h2 className="mt-1 text-xl font-semibold text-white">
+            {featuredProject ? featuredProject.name : "Project movement"}
+          </h2>
+          <p className="mt-1 max-w-3xl text-sm text-slate-300">
+            Mini graphs swap the focused project without losing the live stream beside it.
+          </p>
         </div>
 
         <div className="flex flex-wrap gap-2 text-xs">
@@ -160,7 +197,7 @@ export default function ProjectHumanGraphs({
         </div>
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-2 text-xs">
+      <div className="mt-4 flex flex-wrap gap-2 text-xs">
         <div className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 font-medium text-emerald-300">
           {!data
             ? "Loading history"
@@ -187,97 +224,161 @@ export default function ProjectHumanGraphs({
         </div>
       </div>
 
-      <p className="mb-4 text-sm leading-6 text-white/60">
-        Project badges count who is active inside each project. The homepage
-        <span className="font-medium text-white"> Live Right Now </span>
-        tile counts unique live people across all of Traffic, so one person can
-        raise multiple project badges while only counting once there.
-      </p>
+      <p className="mt-3 text-sm leading-6 text-white/60">{description}</p>
 
       {error ? (
-        <div className="rounded-2xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-200">
+        <div className="mt-4 rounded-2xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-200">
           {error}
         </div>
       ) : null}
 
       {!error && !data ? (
-        <div className="rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-white/60">
+        <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-white/60">
           Loading project history for {fallbackRangeLabel.toLowerCase()}.
         </div>
       ) : null}
 
       {!error && data && projects.length === 0 ? (
-        <div className="rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-white/60">
+        <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-white/60">
           No human series yet in this range.
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        {projects.map((project) => (
-          <div
-            key={project.slug}
-            className="rounded-2xl border border-white/10 bg-black/20 p-4"
-          >
-            <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <h3 className="text-base font-semibold text-white">
-                  {prettyProjectName(project.name)}
-                </h3>
-                <p className="text-xs text-white/50">Human-confirmed visitor flow</p>
-              </div>
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <div className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-200">
-                  Live on project: {project.live_humans}
+      {projects.length > 0 ? (
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {projects.map((project) => {
+            const selected = featuredProject?.slug === project.slug;
+            const totalVisitors = sumVisitors(project);
+            const peak = peakVisitors(project);
+
+            return (
+              <button
+                key={project.slug}
+                type="button"
+                onClick={() => selectProject(project.slug)}
+                className={`cursor-pointer rounded-2xl border p-4 text-left transition ${
+                  selected
+                    ? "border-amber-400/35 bg-amber-400/10 shadow-[0_0_0_1px_rgba(251,191,36,0.22)]"
+                    : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-black/30"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-semibold text-white">{project.name}</div>
+                    <div className="mt-1 text-[11px] text-white/45">
+                      {selected ? "Featured graph" : "Swap into focus"}
+                    </div>
+                  </div>
+                  <div className="rounded-full border border-sky-400/30 bg-sky-400/10 px-2.5 py-1 text-[11px] font-medium text-sky-200">
+                    Live {project.live_humans}
+                  </div>
                 </div>
-                <Link
-                  href={`/projects/${project.slug}`}
-                  className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-medium text-white/70 transition hover:border-white/20 hover:text-white"
-                >
-                  Open project
-                </Link>
-              </div>
+
+                <div className="mt-3 h-20">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={project.points}>
+                      <Tooltip
+                        contentStyle={{
+                          background: "rgba(10,10,14,0.95)",
+                          border: "1px solid rgba(255,255,255,0.12)",
+                          borderRadius: 16,
+                          color: "#fff",
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="visitors"
+                        stroke={selected ? "#f59e0b" : "#38bdf8"}
+                        strokeWidth={2.5}
+                        dot={false}
+                        isAnimationActive={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-white/60">
+                  <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
+                    Peak {peak}
+                  </span>
+                  <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
+                    Total {totalVisitors}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {featuredProject ? (
+        <div className="mt-4 rounded-[28px] border border-white/10 bg-[#05070c]/90 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Focused Project</p>
+              <h3 className="mt-1 text-xl font-semibold text-white">{featuredProject.name}</h3>
+              <p className="mt-1 max-w-3xl text-sm text-slate-300">
+                Human-confirmed visitor arrivals only, so one chatty page or polling loop does not
+                masquerade as a crowd.
+              </p>
             </div>
 
-            <div className="h-44">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={project.points}>
-                  <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
-                  <XAxis
-                    dataKey="label"
-                    tick={{ fill: "rgba(255,255,255,0.55)", fontSize: 11 }}
-                    tickLine={false}
-                    axisLine={false}
-                    minTickGap={18}
-                  />
-                  <YAxis
-                    allowDecimals={false}
-                    tick={{ fill: "rgba(255,255,255,0.55)", fontSize: 11 }}
-                    tickLine={false}
-                    axisLine={false}
-                    width={24}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: "rgba(10,10,14,0.95)",
-                      border: "1px solid rgba(255,255,255,0.12)",
-                      borderRadius: 16,
-                      color: "#fff",
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="visitors"
-                    strokeWidth={3}
-                    dot={false}
-                    activeDot={{ r: 4 }}
-                    isAnimationActive
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <div className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 font-medium text-emerald-200">
+                Live on project: {featuredProject.live_humans}
+              </div>
+              <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
+                Peak bucket: {peakVisitors(featuredProject)}
+              </div>
+              <Link
+                href={`/projects/${featuredProject.slug}`}
+                className="rounded-full border border-white/10 bg-black/20 px-3 py-1 font-medium text-white/75 transition hover:border-white/20 hover:text-white"
+              >
+                Open project
+              </Link>
             </div>
           </div>
-        ))}
-      </div>
+
+          <div className="mt-4 h-[20rem]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={featuredProject.points}>
+                <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fill: "rgba(255,255,255,0.55)", fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                  minTickGap={18}
+                />
+                <YAxis
+                  allowDecimals={false}
+                  tick={{ fill: "rgba(255,255,255,0.55)", fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={24}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: "rgba(10,10,14,0.95)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    borderRadius: 16,
+                    color: "#fff",
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="visitors"
+                  stroke="#f59e0b"
+                  strokeWidth={3}
+                  dot={false}
+                  activeDot={{ r: 4 }}
+                  isAnimationActive={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

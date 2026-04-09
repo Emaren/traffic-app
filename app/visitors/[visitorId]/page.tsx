@@ -10,11 +10,15 @@ export default async function VisitorPage({
   params: Promise<{ visitorId: string }>;
 }) {
   const { visitorId } = await params;
-  const profile = await fetchVisitorProfile(visitorId, { rangeKey: "all" }).catch(() => null);
+  let profile = await fetchVisitorProfile(visitorId, { rangeKey: "30d" }).catch(() => null);
+
+  if (!profile?.ok) {
+    profile = await fetchVisitorProfile(visitorId, { rangeKey: "all" }).catch(() => null);
+  }
 
   if (!profile?.ok) {
     notFound();
   }
 
-  return <VisitorProfileScreen initialProfile={profile} visitorId={visitorId} />;
+  return <VisitorProfileScreen initialProfile={profile} visitorId={visitorId} pollMs={15000} />;
 }
