@@ -2,6 +2,7 @@
 
 export const TRAFFIC_SHARED_PROJECT_FILTER_KEY = "traffic.filters.projects";
 export const TRAFFIC_HIDDEN_IPS_KEY = "traffic.filters.hidden-ips";
+export const TRAFFIC_HOME_VIEW_KEY = "traffic.home.view";
 export const TRAFFIC_LIVE_DENSITY_KEY = "traffic.live.density";
 export const TRAFFIC_LIVE_GREEN_ONLY_KEY = "traffic.live.green-only";
 export const TRAFFIC_HISTORY_DENSITY_KEY = "traffic.history.density";

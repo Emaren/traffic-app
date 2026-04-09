@@ -190,14 +190,14 @@ export type OverviewResponse = {
   note?: string | null;
   totals: OverviewTotals;
   projects: ProjectSummary[];
-  hosts: HostSummary[];
-  suspicious: {
+  hosts?: HostSummary[];
+  suspicious?: {
     top_paths: SuspiciousPath[];
     top_ips: SuspiciousIp[];
   };
-  recent_sessions: SessionRecord[];
-  top_pages: TopPage[];
-  geo: {
+  recent_sessions?: SessionRecord[];
+  top_pages?: TopPage[];
+  geo?: {
     countries: GeoRowCountry[];
     areas: GeoRowArea[];
     cities: GeoRowCity[];

@@ -24,6 +24,7 @@ type Props = {
   initialRangeKey?: ProjectGraphRangeKey;
   selectedProjectSlug?: string | null;
   onSelectProject?: (slug: string) => void;
+  layout?: "combined" | "stacked";
 };
 
 const DEFAULT_RANGE_KEY: ProjectGraphRangeKey = "7d";
@@ -63,6 +64,7 @@ export default function ProjectHumanGraphs({
   initialRangeKey = DEFAULT_RANGE_KEY,
   selectedProjectSlug,
   onSelectProject,
+  layout = "combined",
 }: Props) {
   const [data, setData] = useState<ProjectHumanSeriesResponse | null>(null);
   const [error, setError] = useState("");
@@ -159,6 +161,257 @@ export default function ProjectHumanGraphs({
     }
     onSelectProject?.(slug);
   };
+
+  if (layout === "stacked") {
+    return (
+      <div className="space-y-5">
+        <section className="rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(8,10,14,0.92))] p-5 shadow-[0_25px_80px_rgba(0,0,0,0.28)] md:p-6">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.24em] text-slate-500">
+                Multi-Project Pulse
+              </p>
+              <h2 className="mt-1 text-2xl font-semibold tracking-tight text-white">
+                Four project lanes, one clean first read
+              </h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
+                Select any mini graph to move it into the featured lane below without crowding the
+                live visitor stream.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2 text-xs">
+              {RANGE_OPTIONS.map((option) => {
+                const isActive = activeRangeKey === option.key;
+                const isPending = pendingRange === option.key;
+
+                return (
+                  <button
+                    key={option.key}
+                    type="button"
+                    onClick={() => loadRange(option.key)}
+                    disabled={Boolean(pendingRange)}
+                    className={`cursor-pointer rounded-full border px-3 py-1 font-medium transition disabled:cursor-not-allowed ${
+                      isActive
+                        ? "border-sky-400/30 bg-sky-400/10 text-sky-200"
+                        : "border-white/10 bg-black/20 text-white/70 hover:border-white/20 hover:text-white"
+                    } ${isPending ? "opacity-70" : ""}`}
+                  >
+                    {isPending ? `Loading ${option.label}` : option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2 text-xs">
+            <div className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 font-medium text-emerald-300">
+              {!data
+                ? "Loading history"
+                : data.coverage_mode === "durable_store"
+                  ? "Durable history"
+                  : "Live log fallback"}
+            </div>
+            <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
+              {data?.range_label ?? fallbackRangeLabel}
+            </div>
+            <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
+              {formatBucketSize(data?.bucket_minutes ?? 180)}
+            </div>
+            {data?.coverage_started_alberta ? (
+              <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
+                Stored since {data.coverage_started_alberta}
+              </div>
+            ) : null}
+            <div className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 font-medium text-sky-200">
+              Unique live people: {uniqueLivePeople}
+            </div>
+            <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
+              Featured defaults to AoE2HDBets
+            </div>
+          </div>
+
+          <p className="mt-3 text-sm leading-6 text-white/60">{description}</p>
+
+          {error ? (
+            <div className="mt-4 rounded-2xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-200">
+              {error}
+            </div>
+          ) : null}
+
+          {!error && !data ? (
+            <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-white/60">
+              Loading project history for {fallbackRangeLabel.toLowerCase()}.
+            </div>
+          ) : null}
+
+          {!error && data && projects.length === 0 ? (
+            <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-white/60">
+              No human series yet in this range.
+            </div>
+          ) : null}
+
+          {projects.length > 0 ? (
+            <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {projects.map((project) => {
+                const selected = featuredProject?.slug === project.slug;
+                const totalVisitors = sumVisitors(project);
+                const peak = peakVisitors(project);
+
+                return (
+                  <button
+                    key={project.slug}
+                    type="button"
+                    onClick={() => selectProject(project.slug)}
+                    className={`cursor-pointer rounded-[24px] border p-5 text-left transition ${
+                      selected
+                        ? "border-amber-400/35 bg-amber-400/10 shadow-[0_0_0_1px_rgba(251,191,36,0.22)]"
+                        : "border-white/10 bg-black/25 hover:border-white/20 hover:bg-black/35"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold text-white">
+                          {project.name}
+                        </div>
+                        <div className="mt-1 text-[11px] text-white/45">
+                          {selected ? "Featured below" : "Move into featured lane"}
+                        </div>
+                      </div>
+                      <div className="rounded-full border border-sky-400/30 bg-sky-400/10 px-2.5 py-1 text-[11px] font-medium text-sky-200">
+                        Live {project.live_humans}
+                      </div>
+                    </div>
+
+                    <div className="mt-4 h-24">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={project.points}>
+                          <Tooltip
+                            contentStyle={{
+                              background: "rgba(10,10,14,0.95)",
+                              border: "1px solid rgba(255,255,255,0.12)",
+                              borderRadius: 16,
+                              color: "#fff",
+                            }}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="visitors"
+                            stroke={selected ? "#f59e0b" : "#38bdf8"}
+                            strokeWidth={2.5}
+                            dot={false}
+                            isAnimationActive={false}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-white/60">
+                      <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
+                        Peak {peak}
+                      </span>
+                      <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
+                        Total {totalVisitors}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+        </section>
+
+        <section className="rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.86),rgba(5,7,12,0.96))] p-5 shadow-[0_25px_80px_rgba(0,0,0,0.32)] md:p-6">
+          <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.24em] text-slate-500">
+                  Featured Graph
+                </p>
+                <h3 className="mt-1 text-3xl font-semibold tracking-tight text-white">
+                  {featuredProject ? featuredProject.name : "Project movement"}
+                </h3>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
+                  The main analytical surface stays dedicated to one project at a time, so the
+                  spike story is easy to read.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2 text-xs">
+                {featuredProject ? (
+                  <>
+                    <div className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 font-medium text-emerald-200">
+                      Live on project: {featuredProject.live_humans}
+                    </div>
+                    <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
+                      Peak bucket: {peakVisitors(featuredProject)}
+                    </div>
+                    <Link
+                      href={`/projects/${featuredProject.slug}`}
+                      className="rounded-full border border-white/10 bg-black/20 px-3 py-1 font-medium text-white/75 transition hover:border-white/20 hover:text-white"
+                    >
+                      Open project
+                    </Link>
+                  </>
+                ) : (
+                  <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
+                    Featured graph is waiting for project history
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {featuredProject ? (
+              <div className="h-[24rem] rounded-[28px] border border-white/10 bg-[#05070c]/75 p-4">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={featuredProject.points}>
+                    <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fill: "rgba(255,255,255,0.55)", fontSize: 11 }}
+                      tickLine={false}
+                      axisLine={false}
+                      minTickGap={18}
+                    />
+                    <YAxis
+                      allowDecimals={false}
+                      tick={{ fill: "rgba(255,255,255,0.55)", fontSize: 11 }}
+                      tickLine={false}
+                      axisLine={false}
+                      width={24}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        background: "rgba(10,10,14,0.95)",
+                        border: "1px solid rgba(255,255,255,0.12)",
+                        borderRadius: 16,
+                        color: "#fff",
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="visitors"
+                      stroke="#f59e0b"
+                      strokeWidth={3}
+                      dot={false}
+                      activeDot={{ r: 4 }}
+                      isAnimationActive={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-white/60">
+                {data
+                  ? "No featured project graph is available in this range yet."
+                  : `Loading featured project history for ${fallbackRangeLabel.toLowerCase()}.`}
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 shadow-2xl shadow-black/20">

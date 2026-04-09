@@ -19,6 +19,13 @@ Next.js reporting and operator UI for Traffic.
 - `/visitors/[visitorId]` - visitor profile and live activity
 - `/admin` - notification cockpit and device enrollment
 
+## Homepage notes
+
+- View A is the default homepage composition: four mini project graphs, one featured graph, then the realtime visitor stream in its own full-width lane
+- View B preserves the older split-screen composition as an alternate homepage mode
+- `/api/overview` may be intentionally slimmer than older payloads, so homepage surfaces must not assume `geo`, `suspicious`, or other heavy sections are always present
+- overview-driven UI should degrade gracefully when optional sections are absent instead of crashing
+
 ## Admin notification truths
 
 - `selected_projects = []` means wide-open mode, not "nothing selected"

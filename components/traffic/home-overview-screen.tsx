@@ -55,6 +55,15 @@ export default function HomeOverviewScreen({
   const [error, setError] = useState("");
   const activeRangeKey = overview?.range_key ?? "24h";
   const hasOverview = Boolean(overview);
+  const alerts = overview?.alerts ?? [];
+  const notes = overview?.notes ?? [];
+  const geoCountries = overview?.geo?.countries ?? [];
+  const geoAreas = overview?.geo?.areas ?? [];
+  const geoCities = overview?.geo?.cities ?? [];
+  const suspiciousPaths = overview?.suspicious?.top_paths ?? [];
+  const suspiciousIps = overview?.suspicious?.top_ips ?? [];
+  const hasGeo = geoCountries.length > 0 || geoAreas.length > 0 || geoCities.length > 0;
+  const hasSuspicious = suspiciousPaths.length > 0 || suspiciousIps.length > 0;
 
   useEffect(() => {
     setOverview(initialOverview);
@@ -154,10 +163,7 @@ export default function HomeOverviewScreen({
     }
   };
 
-  const countryMax = useMemo(
-    () => maxCount(overview?.geo.countries.map((row) => row.sessions) ?? []),
-    [overview?.geo.countries],
-  );
+  const countryMax = maxCount(geoCountries.map((row) => row.sessions));
   const projectMax = useMemo(
     () => maxCount(overview?.projects.map((row) => row.requests) ?? []),
     [overview?.projects],
@@ -399,32 +405,42 @@ export default function HomeOverviewScreen({
             <h2 className="mt-2 text-2xl font-semibold text-white">Operator alerts</h2>
 
             <div className="mt-5 space-y-3">
-              {overview.alerts.map((alert) => (
-                <div
-                  key={`${alert.severity}-${alert.title}`}
-                  className={`rounded-2xl border p-4 ${severityClass(alert.severity)}`}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.18em]">{alert.severity}</p>
-                      <p className="mt-2 text-sm leading-6 text-white">{alert.title}</p>
-                    </div>
-                    <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-sm font-semibold text-white">
-                      {formatNumber(alert.count)}
+              {alerts.length > 0 ? (
+                alerts.map((alert) => (
+                  <div
+                    key={`${alert.severity}-${alert.title}`}
+                    className={`rounded-2xl border p-4 ${severityClass(alert.severity)}`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.18em]">{alert.severity}</p>
+                        <p className="mt-2 text-sm leading-6 text-white">{alert.title}</p>
+                      </div>
+                      <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-sm font-semibold text-white">
+                        {formatNumber(alert.count)}
+                      </div>
                     </div>
                   </div>
+                ))
+              ) : (
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/60">
+                  No operator alerts are included in this overview payload right now.
                 </div>
-              ))}
+              )}
             </div>
 
             <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-4">
               <p className="text-sm font-medium text-white">What the dashboard is doing</p>
               <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-300">
-                {(overview.notes || []).map((note) => (
-                  <li key={note} className="break-all">
-                    • {note}
-                  </li>
-                ))}
+                {notes.length > 0 ? (
+                  notes.map((note) => (
+                    <li key={note} className="break-all">
+                      • {note}
+                    </li>
+                  ))
+                ) : (
+                  <li>No dashboard notes are present in this payload.</li>
+                )}
               </ul>
             </div>
           </div>
@@ -436,109 +452,128 @@ export default function HomeOverviewScreen({
               <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Geo Intelligence</p>
               <h2 className="mt-2 text-2xl font-semibold text-white">Country and area mix</h2>
 
-              <div className="mt-5 space-y-4">
-                {overview.geo.countries.map((row) => {
-                  const width = Math.max(10, Math.round((row.sessions / countryMax) * 100));
+              {hasGeo ? (
+                <>
+                  <div className="mt-5 space-y-4">
+                    {geoCountries.map((row) => {
+                      const width = Math.max(10, Math.round((row.sessions / countryMax) * 100));
 
-                  return (
-                    <div key={row.country}>
-                      <div className="mb-2 flex items-center justify-between gap-3">
-                        <span className="text-sm text-white">{row.country}</span>
-                        <span className="text-sm text-slate-400">
-                          {formatNumber(row.sessions)} sessions
-                        </span>
-                      </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-white/8">
-                        <div
-                          className="h-full rounded-full bg-gradient-to-r from-sky-400 to-cyan-200"
-                          style={{ width: `${width}%` }}
-                        />
+                      return (
+                        <div key={row.country}>
+                          <div className="mb-2 flex items-center justify-between gap-3">
+                            <span className="text-sm text-white">{row.country}</span>
+                            <span className="text-sm text-slate-400">
+                              {formatNumber(row.sessions)} sessions
+                            </span>
+                          </div>
+                          <div className="h-2 overflow-hidden rounded-full bg-white/8">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-sky-400 to-cyan-200"
+                              style={{ width: `${width}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-6 grid gap-4 md:grid-cols-2">
+                    <div className="rounded-2xl border border-white/8 bg-black/20 p-4">
+                      <p className="text-sm font-medium text-white">Top areas</p>
+                      <div className="mt-3 space-y-2 text-sm text-slate-300">
+                        {geoAreas.map((row) => (
+                          <div
+                            key={`${row.country}-${row.area}`}
+                            className="flex items-center justify-between gap-3"
+                          >
+                            <span>
+                              {row.area}, {row.country}
+                            </span>
+                            <span className="font-semibold text-amber-300">
+                              {formatNumber(row.sessions)}
+                            </span>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
 
-              <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <div className="rounded-2xl border border-white/8 bg-black/20 p-4">
-                  <p className="text-sm font-medium text-white">Top areas</p>
-                  <div className="mt-3 space-y-2 text-sm text-slate-300">
-                    {overview.geo.areas.map((row) => (
-                      <div
-                        key={`${row.country}-${row.area}`}
-                        className="flex items-center justify-between gap-3"
-                      >
-                        <span>
-                          {row.area}, {row.country}
-                        </span>
-                        <span className="font-semibold text-amber-300">
-                          {formatNumber(row.sessions)}
-                        </span>
+                    <div className="rounded-2xl border border-white/8 bg-black/20 p-4">
+                      <p className="text-sm font-medium text-white">Top cities</p>
+                      <div className="mt-3 space-y-2 text-sm text-slate-300">
+                        {geoCities.map((row) => (
+                          <div
+                            key={`${row.country}-${row.area}-${row.city}`}
+                            className="flex items-center justify-between gap-3"
+                          >
+                            <span>{row.city}</span>
+                            <span className="font-semibold text-sky-300">
+                              {formatNumber(row.sessions)}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    </div>
                   </div>
+                </>
+              ) : (
+                <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/60">
+                  Geo detail is not included in the current overview contract, so this panel stays
+                  quiet instead of crashing.
                 </div>
-
-                <div className="rounded-2xl border border-white/8 bg-black/20 p-4">
-                  <p className="text-sm font-medium text-white">Top cities</p>
-                  <div className="mt-3 space-y-2 text-sm text-slate-300">
-                    {overview.geo.cities.map((row) => (
-                      <div
-                        key={`${row.country}-${row.area}-${row.city}`}
-                        className="flex items-center justify-between gap-3"
-                      >
-                        <span>{row.city}</span>
-                        <span className="font-semibold text-sky-300">
-                          {formatNumber(row.sessions)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
 
             <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
               <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Threat Surface</p>
               <h2 className="mt-2 text-2xl font-semibold text-white">Suspicious paths</h2>
 
-              <div className="mt-5 space-y-3">
-                {overview.suspicious.top_paths.map((row) => (
-                  <div
-                    key={row.path}
-                    className="flex items-start justify-between gap-3 rounded-2xl border border-rose-500/20 bg-rose-500/8 px-4 py-3"
-                  >
-                    <span className="min-w-0 flex-1 break-all font-mono text-sm text-rose-100">
-                      {row.path}
-                    </span>
-                    <span className="rounded-full bg-black/20 px-3 py-1 text-sm font-semibold text-rose-200">
-                      {formatNumber(row.count)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-6">
-                <p className="text-sm font-medium text-white">Top bad IPs</p>
-                <div className="mt-3 space-y-3">
-                  {overview.suspicious.top_ips.map((row) => (
-                    <div
-                      key={row.ip}
-                      className="rounded-2xl border border-white/8 bg-black/20 p-4"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="font-mono text-sm text-white">{row.ip}</span>
-                        <span className="text-sm font-semibold text-amber-300">
+              {hasSuspicious ? (
+                <>
+                  <div className="mt-5 space-y-3">
+                    {suspiciousPaths.map((row) => (
+                      <div
+                        key={row.path}
+                        className="flex items-start justify-between gap-3 rounded-2xl border border-rose-500/20 bg-rose-500/8 px-4 py-3"
+                      >
+                        <span className="min-w-0 flex-1 break-all font-mono text-sm text-rose-100">
+                          {row.path}
+                        </span>
+                        <span className="rounded-full bg-black/20 px-3 py-1 text-sm font-semibold text-rose-200">
                           {formatNumber(row.count)}
                         </span>
                       </div>
-                      <p className="mt-2 text-sm text-slate-400">
-                        {row.country} • {row.category} • last seen {formatTimestamp(row.last_seen || "")}
-                      </p>
+                    ))}
+                  </div>
+
+                  <div className="mt-6">
+                    <p className="text-sm font-medium text-white">Top bad IPs</p>
+                    <div className="mt-3 space-y-3">
+                      {suspiciousIps.map((row) => (
+                        <div
+                          key={row.ip}
+                          className="rounded-2xl border border-white/8 bg-black/20 p-4"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="font-mono text-sm text-white">{row.ip}</span>
+                            <span className="text-sm font-semibold text-amber-300">
+                              {formatNumber(row.count)}
+                            </span>
+                          </div>
+                          <p className="mt-2 text-sm text-slate-400">
+                            {row.country} • {row.category} • last seen{" "}
+                            {formatTimestamp(row.last_seen || "")}
+                          </p>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  </div>
+                </>
+              ) : (
+                <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/60">
+                  Threat detail is absent from this overview payload, so the dashboard leaves this
+                  panel empty on purpose.
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </section>

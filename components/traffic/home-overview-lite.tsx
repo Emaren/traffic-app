@@ -1,22 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
 import BuilderTopDeck from "@/components/traffic/builder-top-deck";
+import OverviewTopline from "@/components/traffic/overview-topline";
 import { fetchOverviewRange } from "@/components/traffic/api";
 import type { HistoryRangeKey, OverviewResponse } from "@/components/traffic/types";
-
-type OverviewSeed = Pick<
-  OverviewResponse,
-  | "ok"
-  | "generated_at"
-  | "range_key"
-  | "range_label"
-  | "coverage_mode"
-  | "coverage_started_alberta"
-  | "note"
-  | "totals"
->;
 
 function formatTimestamp(value: string) {
   const date = new Date(value);
@@ -25,7 +14,7 @@ function formatTimestamp(value: string) {
 }
 
 export default function HomeOverviewLite() {
-  const [overview, setOverview] = useState<OverviewSeed | null>(null);
+  const [overview, setOverview] = useState<OverviewResponse | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -33,7 +22,7 @@ export default function HomeOverviewLite() {
 
     const load = async () => {
       try {
-        const next = (await fetchOverviewRange("24h")) as OverviewSeed;
+        const next = await fetchOverviewRange("24h");
         if (!mounted || !next.ok) return;
 
         startTransition(() => {
@@ -55,6 +44,16 @@ export default function HomeOverviewLite() {
 
   const uniqueLivePeople = overview?.totals.live_now ?? 0;
   const historyRangeKey: HistoryRangeKey = overview?.range_key ?? "24h";
+  const featuredProjectKpi = useMemo(() => {
+    const featuredProject = overview?.projects.find((project) => project.slug === "aoe2hdbets");
+    if (!featuredProject) return null;
+    return {
+      name: featuredProject.name,
+      humans: featuredProject.human_confirmed_sessions ?? 0,
+    };
+  }, [overview?.projects]);
+  const alertCount = overview?.alerts.length ?? 0;
+  const noteCount = overview?.notes.length ?? 0;
 
   return (
     <main className="min-h-screen bg-[#06070a] text-slate-100">
@@ -71,7 +70,8 @@ export default function HomeOverviewLite() {
               </h1>
 
               <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
-                Live visitor stream and project graphs first. Everything else can live deeper in the stack.
+                Operator-grade homepage for multi-project pulse, one clear featured graph, and a
+                dedicated live visitor lane that can breathe on its own.
               </p>
 
               <div className="mt-5 flex flex-wrap gap-3">
@@ -94,7 +94,7 @@ export default function HomeOverviewLite() {
             <div className="grid w-full gap-3 text-sm text-slate-300 lg:w-auto">
               <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
                 <span className="text-slate-400">Homepage mode:</span>{" "}
-                <span className="text-white">Live surfaces only</span>
+                <span className="text-white">View A default, View B alternate</span>
               </div>
 
               {overview ? (
@@ -133,6 +133,12 @@ export default function HomeOverviewLite() {
               <div className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 font-medium text-sky-200">
                 Live people seed: {uniqueLivePeople}
               </div>
+              <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
+                Alerts: {alertCount}
+              </div>
+              <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
+                Notes: {noteCount}
+              </div>
             </div>
           ) : null}
 
@@ -148,6 +154,14 @@ export default function HomeOverviewLite() {
             </div>
           ) : null}
         </header>
+
+        {overview ? (
+          <OverviewTopline
+            generatedAt={overview.generated_at}
+            totals={overview.totals}
+            featuredProject={featuredProjectKpi}
+          />
+        ) : null}
 
         <div className="mt-6">
           <BuilderTopDeck
