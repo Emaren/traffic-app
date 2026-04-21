@@ -125,11 +125,13 @@ export type SessionRecord = {
   country_code: string;
   area: string;
   city: string;
+  geo_resolved?: boolean;
   device: string;
   os: string;
   browser: string;
   known_automation: boolean;
   automation_family: string;
+  route_bundle_spam?: boolean;
   referrer: string;
   source: string;
   medium: string;
@@ -156,6 +158,7 @@ export type SessionRecord = {
     | "candidate"
     | "likely_human"
     | "human_confirmed"
+    | "browser_script"
     | "bot"
     | "suspicious"
     | "archived";
@@ -212,6 +215,7 @@ export type LiveProjectCount = {
   human_confirmed: number;
   likely_human: number;
   candidate: number;
+  browser_script?: number;
   active_now: number;
 };
 
@@ -228,6 +232,8 @@ export type LiveVisitorsResponse = {
   history_count: number;
   stream_total: number;
   stream_items: SessionRecord[];
+  browser_script_count?: number;
+  browser_script_preview?: SessionRecord[];
   automation_count: number;
   automation_preview: SessionRecord[];
   security_count: number;
@@ -249,6 +255,7 @@ export type HistoryRangeKey = ProjectGraphRangeKey;
 
 export type ProjectGraphData = {
   label: string;
+  series_kind?: string;
   range_key: ProjectGraphRangeKey;
   range_label: string;
   window_hours?: number | null;

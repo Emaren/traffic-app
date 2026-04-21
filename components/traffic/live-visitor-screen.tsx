@@ -47,7 +47,7 @@ type StreamSection = {
 };
 
 type AuxiliarySection = {
-  key: "automation" | "security";
+  key: "browser_scripts" | "automation" | "security";
   title: string;
   description: string;
   badgeClass: string;
@@ -374,6 +374,26 @@ export default function LiveVisitorScreen({
     showOnlyGreenHumans,
   ]);
 
+  const browserScriptItems = useMemo(() => {
+    if (showOnlyGreenHumans) {
+      return [];
+    }
+
+    const selectedProjectSet = new Set(effectiveSelectedProjects);
+    return (data?.browser_script_preview ?? []).filter((session) => {
+      if (selectedProjectSet.size > 0 && !selectedProjectSet.has(session.project_slug)) {
+        return false;
+      }
+      return !sessionHiddenByVisibilityRules(session, activeVisibilityRules, effectiveHiddenIps);
+    });
+  }, [
+    activeVisibilityRules,
+    data?.browser_script_preview,
+    effectiveHiddenIps,
+    effectiveSelectedProjects,
+    showOnlyGreenHumans,
+  ]);
+
   const automationItems = useMemo(() => {
     if (showOnlyGreenHumans) {
       return [];
@@ -468,10 +488,18 @@ export default function LiveVisitorScreen({
   const auxiliarySections = useMemo<AuxiliarySection[]>(() => {
     const sectionRows: AuxiliarySection[] = [
       {
-        key: "automation",
-        title: "Background Automation",
+        key: "browser_scripts",
+        title: "Browser Script Watch",
         description:
-          "Recognized crawlers, previews, and proxy fetches kept visible without polluting the human stream.",
+          "Browser-shaped sessions that look too thin or too patterned to trust as real people.",
+        badgeClass: "border-fuchsia-400/30 bg-fuchsia-400/10 text-fuchsia-200",
+        items: browserScriptItems,
+      },
+      {
+        key: "automation",
+        title: "Known Automation",
+        description:
+          "Recognized crawlers, previews, and proxy fetches kept visible without polluting the people feed.",
         badgeClass: "border-fuchsia-400/30 bg-fuchsia-400/10 text-fuchsia-200",
         items: automationItems,
       },
@@ -486,7 +514,7 @@ export default function LiveVisitorScreen({
     ];
 
     return sectionRows.filter((section) => section.items.length > 0);
-  }, [automationItems, securityItems]);
+  }, [automationItems, browserScriptItems, securityItems]);
 
   const hasVisibleContent =
     streamItems.length > 0 || (!heroMode && auxiliarySections.length > 0);
@@ -575,8 +603,8 @@ export default function LiveVisitorScreen({
           </h2>
           <p className="max-w-3xl text-sm text-white/60">
             {heroMode
-              ? "Keep the spike and the top visitor rows in the same viewport."
-              : "Chronological, not ranked. When the stream is healthy, new movement pushes in live at the top; if that pipe drops, Traffic falls back to timed refresh."}
+              ? "Keep the spike and the top rows in the same viewport without pretending every row is equally trustworthy."
+              : "Chronological, not ranked. Strict humans, likely humans, unclear sessions, browser scripts, and automation are separated so noisy browser traffic does not masquerade as people."}
           </p>
         </div>
 
@@ -585,8 +613,13 @@ export default function LiveVisitorScreen({
             {transport.label}
           </div>
           <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
-            Human stream: {streamItems.length}
+            Visible people/unclear: {streamItems.length}
           </div>
+          {!showOnlyGreenHumans && !heroMode && browserScriptItems.length > 0 ? (
+            <div className="rounded-full border border-fuchsia-400/30 bg-fuchsia-400/10 px-3 py-1 text-xs font-medium text-fuchsia-200">
+              Browser scripts {browserScriptItems.length}
+            </div>
+          ) : null}
           {!showOnlyGreenHumans && !heroMode && automationItems.length > 0 ? (
             <div className="rounded-full border border-fuchsia-400/30 bg-fuchsia-400/10 px-3 py-1 text-xs font-medium text-fuchsia-200">
               Automation {automationItems.length}
@@ -631,9 +664,12 @@ export default function LiveVisitorScreen({
             </div>
             <div className="mt-1 text-sm text-white/65">
               {effectiveSelectedProjects.length || availableProjectSlugs.length} of {availableProjectSlugs.length || 0} projects visible
-              {showOnlyGreenHumans ? " • green humans only" : " • mixed human-confidence feed"}
+              {showOnlyGreenHumans ? " • confirmed humans only" : " • mixed-confidence people feed"}
+              {!showOnlyGreenHumans && !heroMode && browserScriptItems.length > 0
+                ? ` • ${browserScriptItems.length} browser scripts separated`
+                : ""}
               {!showOnlyGreenHumans && !heroMode && automationItems.length > 0
-                ? ` • ${automationItems.length} automation in background`
+                ? ` • ${automationItems.length} known automation separated`
                 : ""}
               {!showOnlyGreenHumans && !heroMode && securityItems.length > 0
                 ? ` • ${securityItems.length} security watch`
@@ -681,7 +717,7 @@ export default function LiveVisitorScreen({
                 showOnlyGreenHumans,
               )}`}
             >
-              Only green humans
+              Confirmed humans only
             </button>
           </div>
         </div>

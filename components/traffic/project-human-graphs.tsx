@@ -146,7 +146,7 @@ export default function ProjectHumanGraphs({
   const fallbackRangeLabel = rangeLabelFor(activeRangeKey);
   const description =
     data?.note ||
-    `${data?.range_label ?? fallbackRangeLabel} of human-confirmed visitor flow across Traffic.`;
+    `${data?.range_label ?? fallbackRangeLabel} of confirmed human arrivals across Traffic. Browser scripts and known automation are intentionally excluded from this line.`;
 
   const loadRange = (rangeKey: ProjectGraphRangeKey) => {
     if (rangeKey === activeRangeKey || pendingRange) return;
@@ -571,7 +571,7 @@ export default function ProjectHumanGraphs({
               <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Focused Project</p>
               <h3 className="mt-1 text-xl font-semibold text-white">{featuredProject.name}</h3>
               <p className="mt-1 max-w-3xl text-sm text-slate-300">
-                Human-confirmed visitor arrivals only, so one chatty page or polling loop does not
+                Confirmed human arrivals only, so one chatty page, browser script, or polling loop does not
                 masquerade as a crowd.
               </p>
             </div>

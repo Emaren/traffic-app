@@ -33,6 +33,8 @@ function verdictClass(state: SessionRecord["classification_state"]) {
       return "border-emerald-400/30 bg-emerald-400/10 text-emerald-200";
     case "likely_human":
       return "border-sky-400/30 bg-sky-400/10 text-sky-200";
+    case "browser_script":
+      return "border-fuchsia-400/30 bg-fuchsia-400/10 text-fuchsia-200";
     case "candidate":
       return "border-amber-400/30 bg-amber-400/10 text-amber-200";
     default:
@@ -84,9 +86,11 @@ export default function LiveVisitorStreamRow({
   const actionPath = session.current_page || session.exit_page || session.entry_page;
 
   const visitorLabel = withFlag(session.country_code, session.visitor_alias);
-  const metaLine = `${session.city || "Unknown city"}${session.area ? `, ${session.area}` : ""}${
-    session.country ? `, ${session.country}` : ""
-  }`;
+  const metaLine = session.geo_resolved
+    ? `${session.city || "Unknown city"}${session.area ? `, ${session.area}` : ""}${
+        session.country ? `, ${session.country}` : ""
+      }`
+    : "Unknown location";
   const automationPill = automationLabel(session);
   const primaryTimestamp =
     primaryTime === "first_seen"
@@ -96,6 +100,12 @@ export default function LiveVisitorStreamRow({
     primaryTime === "first_seen" && session.last_seen_alberta !== session.first_seen_alberta
       ? `Last move ${session.last_seen_alberta}`
       : null;
+  const warningChips = [
+    !session.geo_resolved ? "Geo unresolved" : null,
+    session.classification_reasons.includes("thin_direct_browser") ? "Thin direct session" : null,
+    session.classification_reasons.includes("player_page_hop") ? "Player-page hop" : null,
+    session.route_bundle_spam ? "Route bundle spam" : null,
+  ].filter(Boolean) as string[];
 
   return (
     <details className="group rounded-2xl border border-white/10 bg-black/20 transition open:bg-black/30">
@@ -162,6 +172,19 @@ export default function LiveVisitorStreamRow({
               <span>Returned {session.times_returned_in_project}</span>
               <span>Total visits {session.total_project_visits}</span>
             </div>
+
+            {warningChips.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-white/60">
+                {warningChips.map((chip) => (
+                  <span
+                    key={`${session.session_id}-${chip}`}
+                    className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-white/60"
+                  >
+                    {chip}
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </div>
         ) : (
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
@@ -225,6 +248,19 @@ export default function LiveVisitorStreamRow({
               <div className="mt-2 font-mono text-xs text-sky-100/70 break-all">
                 {journey}
               </div>
+
+              {warningChips.length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-white/60">
+                  {warningChips.map((chip) => (
+                    <span
+                      key={`${session.session_id}-${chip}`}
+                      className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-white/60"
+                    >
+                      {chip}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
             </div>
 
             <div className="flex flex-wrap gap-2 text-xs lg:justify-end">
