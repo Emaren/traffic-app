@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
 import {
   CartesianGrid,
   Line,
@@ -69,10 +69,18 @@ export default function ProjectDetailGraph({
     graph.note ||
     `${graph.range_label} is now backed by Traffic's durable history so this graph can grow beyond the live window.`;
 
+  const points = useMemo(
+    () => (Array.isArray(graph.points) ? graph.points.filter(Boolean) : []),
+    [graph.points],
+  );
+
+  const hasPoints = points.length > 0;
+  const chartKey = `${projectSlug}:${graph.range_key}:${graph.coverage_started_at ?? "na"}:${points.length}`;
+
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+    <div className="min-w-0 rounded-3xl border border-white/10 bg-white/[0.03] p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0">
           <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Project Graph</p>
           <h2 className="mt-2 text-2xl font-semibold text-white">{graph.label}</h2>
           <p className="mt-2 max-w-3xl text-sm text-slate-400">{description}</p>
@@ -122,43 +130,51 @@ export default function ProjectDetailGraph({
         </div>
       ) : null}
 
-      <div className="mt-5 h-72">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={graph.points}>
-            <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
-            <XAxis
-              dataKey="label"
-              tick={{ fill: "rgba(255,255,255,0.55)", fontSize: 11 }}
-              tickLine={false}
-              axisLine={false}
-              minTickGap={18}
-            />
-            <YAxis
-              allowDecimals={false}
-              tick={{ fill: "rgba(255,255,255,0.55)", fontSize: 11 }}
-              tickLine={false}
-              axisLine={false}
-              width={24}
-            />
-            <Tooltip
-              contentStyle={{
-                background: "rgba(10,10,14,0.95)",
-                border: "1px solid rgba(255,255,255,0.12)",
-                borderRadius: 16,
-                color: "#fff",
-              }}
-            />
-            <Line
-              type="monotone"
-              dataKey="visitors"
-              stroke="#f59e0b"
-              strokeWidth={3}
-              dot={false}
-              activeDot={{ r: 4 }}
-              isAnimationActive={false}
-            />
-          </LineChart>
-        </ResponsiveContainer>
+      <div className="mt-5 min-w-0">
+        {hasPoints ? (
+          <div className="h-72 min-w-0">
+            <ResponsiveContainer key={chartKey} width="100%" height={288} minWidth={0}>
+              <LineChart data={points}>
+                <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fill: "rgba(255,255,255,0.55)", fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                  minTickGap={18}
+                />
+                <YAxis
+                  allowDecimals={false}
+                  tick={{ fill: "rgba(255,255,255,0.55)", fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={24}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: "rgba(10,10,14,0.95)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    borderRadius: 16,
+                    color: "#fff",
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="visitors"
+                  stroke="#f59e0b"
+                  strokeWidth={3}
+                  dot={false}
+                  activeDot={{ r: 4 }}
+                  isAnimationActive={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="flex h-72 items-center justify-center rounded-2xl border border-white/10 bg-black/20 text-sm text-slate-400">
+            No graph data available for this range yet.
+          </div>
+        )}
       </div>
     </div>
   );

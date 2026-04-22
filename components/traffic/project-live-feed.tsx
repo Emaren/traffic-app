@@ -72,12 +72,9 @@ export default function ProjectLiveFeed({
   const [error, setError] = useState("");
   const [transportMode, setTransportMode] = useState<LiveTransportMode>("connecting");
   const [transportNotice, setTransportNotice] = useState("");
-  const [showOnlyGreenHumans, setShowOnlyGreenHumans] = useState(() =>
-    loadStoredBoolean(TRAFFIC_PROJECT_LIVE_GREEN_ONLY_KEY),
-  );
-  const [density, setDensity] = useState<"full" | "compact">(() =>
-    loadStoredString(TRAFFIC_PROJECT_LIVE_DENSITY_KEY) === "compact" ? "compact" : "full",
-  );
+  const [showOnlyGreenHumans, setShowOnlyGreenHumans] = useState(false);
+  const [density, setDensity] = useState<"full" | "compact">("full");
+  const [preferencesHydrated, setPreferencesHydrated] = useState(false);
   const {
     supportsSharedRules,
     activeVisibilityRules,
@@ -250,12 +247,20 @@ export default function ProjectLiveFeed({
   }, [pollMs, projectSlug]);
 
   useEffect(() => {
-    storeBoolean(TRAFFIC_PROJECT_LIVE_GREEN_ONLY_KEY, showOnlyGreenHumans);
-  }, [showOnlyGreenHumans]);
+    setShowOnlyGreenHumans(loadStoredBoolean(TRAFFIC_PROJECT_LIVE_GREEN_ONLY_KEY));
+    setDensity(loadStoredString(TRAFFIC_PROJECT_LIVE_DENSITY_KEY) === "compact" ? "compact" : "full");
+    setPreferencesHydrated(true);
+  }, []);
 
   useEffect(() => {
+    if (!preferencesHydrated) return;
+    storeBoolean(TRAFFIC_PROJECT_LIVE_GREEN_ONLY_KEY, showOnlyGreenHumans);
+  }, [preferencesHydrated, showOnlyGreenHumans]);
+
+  useEffect(() => {
+    if (!preferencesHydrated) return;
     storeString(TRAFFIC_PROJECT_LIVE_DENSITY_KEY, density);
-  }, [density]);
+  }, [preferencesHydrated, density]);
 
   const transport = useMemo(() => transportBadge(transportMode, pollMs), [pollMs, transportMode]);
   const visibleItems = useMemo(
