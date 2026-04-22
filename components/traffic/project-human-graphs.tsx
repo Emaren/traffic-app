@@ -39,6 +39,16 @@ const PINNED_PROJECT_SLUGS = [
   "wallyverse",
   "wheatandstone",
 ] as const;
+const PINNED_PROJECT_NAMES: Record<(typeof PINNED_PROJECT_SLUGS)[number], string> = {
+  aoe2hdbets: "AoE2HDBets",
+  aoe2dewarwagers: "AoE2DEWarWagers",
+  tokentap: "TokenTap",
+  tokenchain: "TokenChain",
+  llama: "Llama",
+  "llama-chat": "Llama Chat",
+  wallyverse: "Wallyverse",
+  wheatandstone: "Wheat & Stone",
+};
 const RANGE_OPTIONS: Array<{ key: ProjectGraphRangeKey; label: string }> = [
   { key: "24h", label: "24 Hours" },
   { key: "7d", label: "1 Week" },
@@ -71,6 +81,15 @@ function peakVisitors(project: HumanSeriesProject): number {
 function pinnedIndex(slug: string) {
   const index = PINNED_PROJECT_SLUGS.indexOf(slug as (typeof PINNED_PROJECT_SLUGS)[number]);
   return index === -1 ? Number.POSITIVE_INFINITY : index;
+}
+
+function placeholderProject(slug: (typeof PINNED_PROJECT_SLUGS)[number]): HumanSeriesProject {
+  return {
+    slug,
+    name: PINNED_PROJECT_NAMES[slug],
+    live_humans: 0,
+    points: [],
+  } as HumanSeriesProject;
 }
 
 export default function ProjectHumanGraphs({
@@ -148,9 +167,10 @@ export default function ProjectHumanGraphs({
   }, [data]);
 
   const visibleProjects = useMemo<HumanSeriesProject[]>(() => {
-    const pinned = PINNED_PROJECT_SLUGS
-      .map((slug) => projects.find((project) => project.slug === slug))
-      .filter((project): project is HumanSeriesProject => Boolean(project));
+    const projectMap = new Map(projects.map((project) => [project.slug, project]));
+    const pinned = PINNED_PROJECT_SLUGS.map(
+      (slug) => projectMap.get(slug) ?? placeholderProject(slug),
+    );
 
     const seen = new Set(pinned.map((project) => project.slug));
     const strongestRemainder = projects
