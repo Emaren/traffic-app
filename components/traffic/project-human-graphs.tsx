@@ -11,9 +11,11 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { fetchProjectHumanSeries } from "@/components/traffic/api";
+import { fetchOverviewRange, fetchProjectHumanSeries } from "@/components/traffic/api";
 import type {
+  HistoryRangeKey,
   HumanSeriesProject,
+  OverviewResponse,
   ProjectGraphRangeKey,
   ProjectHumanSeriesResponse,
 } from "@/components/traffic/types";
@@ -38,6 +40,9 @@ const PINNED_PROJECT_SLUGS = [
   "llama-chat",
   "wallyverse",
   "wheatandstone",
+  "tmail",
+  "pulse",
+  "redlinelegal",
 ] as const;
 const PINNED_PROJECT_NAMES: Record<(typeof PINNED_PROJECT_SLUGS)[number], string> = {
   aoe2hdbets: "AoE2HDBets",
@@ -48,7 +53,30 @@ const PINNED_PROJECT_NAMES: Record<(typeof PINNED_PROJECT_SLUGS)[number], string
   "llama-chat": "Llama Chat",
   wallyverse: "Wallyverse",
   wheatandstone: "Wheat & Stone",
+  tmail: "TMail",
+  pulse: "Pulse",
+  redlinelegal: "Redline Legal",
 };
+
+type ActivityProject = HumanSeriesProject & {
+  requests_seen: number;
+  sessions_seen: number;
+  engaged_sessions_seen: number;
+  human_confirmed_sessions_seen: number;
+  suspicious_sessions_seen: number;
+  activity_mode: "confirmed_humans" | "fallback_activity" | "no_activity";
+};
+
+type OverviewProjectStats = {
+  slug: string;
+  name: string;
+  requests?: number;
+  sessions?: number;
+  engaged_sessions?: number;
+  human_confirmed_sessions?: number;
+  suspicious?: number;
+};
+
 const RANGE_OPTIONS: Array<{ key: ProjectGraphRangeKey; label: string }> = [
   { key: "24h", label: "24 Hours" },
   { key: "7d", label: "1 Week" },
@@ -83,13 +111,76 @@ function pinnedIndex(slug: string) {
   return index === -1 ? Number.POSITIVE_INFINITY : index;
 }
 
-function placeholderProject(slug: (typeof PINNED_PROJECT_SLUGS)[number]): HumanSeriesProject {
+function buildActivityProject(
+  project: HumanSeriesProject,
+  stats?: OverviewProjectStats | null,
+): ActivityProject {
+  const requests_seen = stats?.requests ?? 0;
+  const sessions_seen = stats?.sessions ?? 0;
+  const engaged_sessions_seen = stats?.engaged_sessions ?? 0;
+  const human_confirmed_sessions_seen = stats?.human_confirmed_sessions ?? 0;
+  const suspicious_sessions_seen = stats?.suspicious ?? 0;
+  const activity_mode =
+    project.points.length > 0 || human_confirmed_sessions_seen > 0
+      ? "confirmed_humans"
+      : sessions_seen > 0 || engaged_sessions_seen > 0 || requests_seen > 0
+        ? "fallback_activity"
+        : "no_activity";
+
   return {
-    slug,
-    name: PINNED_PROJECT_NAMES[slug],
-    live_humans: 0,
-    points: [],
-  } as HumanSeriesProject;
+    ...project,
+    requests_seen,
+    sessions_seen,
+    engaged_sessions_seen,
+    human_confirmed_sessions_seen,
+    suspicious_sessions_seen,
+    activity_mode,
+  };
+}
+
+function placeholderProject(
+  slug: (typeof PINNED_PROJECT_SLUGS)[number],
+  stats?: OverviewProjectStats | null,
+): ActivityProject {
+  return buildActivityProject(
+    {
+      slug,
+      name: stats?.name || PINNED_PROJECT_NAMES[slug],
+      live_humans: 0,
+      points: [],
+    },
+    stats,
+  );
+}
+
+function hasFallbackActivity(project: ActivityProject) {
+  return project.activity_mode === "fallback_activity";
+}
+
+function activityTone(project: ActivityProject) {
+  if (project.activity_mode === "confirmed_humans") {
+    return {
+      label: "Confirmed humans",
+      className: "border-emerald-400/30 bg-emerald-400/10 text-emerald-200",
+    };
+  }
+  if (project.activity_mode === "fallback_activity") {
+    return {
+      label: "Seen in Traffic",
+      className: "border-amber-400/30 bg-amber-400/10 text-amber-200",
+    };
+  }
+  return {
+    label: "No confirmed humans",
+    className: "border-white/10 bg-black/20 text-white/45",
+  };
+}
+
+function activityEmptyLabel(project: ActivityProject) {
+  if (project.activity_mode === "fallback_activity") {
+    return `Seen in Traffic • ${project.sessions_seen} sessions • ${project.engaged_sessions_seen} engaged`;
+  }
+  return "No human points yet";
 }
 
 export default function ProjectHumanGraphs({
@@ -101,6 +192,7 @@ export default function ProjectHumanGraphs({
   layout = "combined",
 }: Props) {
   const [data, setData] = useState<ProjectHumanSeriesResponse | null>(null);
+  const [overview, setOverview] = useState<OverviewResponse | null>(null);
   const [error, setError] = useState("");
   const [activeRangeKey, setActiveRangeKey] = useState<ProjectGraphRangeKey>(initialRangeKey);
   const [pendingRange, setPendingRange] = useState<ProjectGraphRangeKey | null>(null);
@@ -113,11 +205,15 @@ export default function ProjectHumanGraphs({
       if (pageIsHidden()) return;
 
       try {
-        const next = await fetchProjectHumanSeries(activeRangeKey);
+        const [nextSeries, nextOverview] = await Promise.all([
+          fetchProjectHumanSeries(activeRangeKey),
+          fetchOverviewRange(activeRangeKey as HistoryRangeKey),
+        ]);
         if (!mounted) return;
 
         startTransition(() => {
-          setData(next);
+          setData(nextSeries);
+          setOverview(nextOverview);
         });
         setError("");
         setPendingRange(null);
@@ -150,35 +246,54 @@ export default function ProjectHumanGraphs({
     };
   }, [activeRangeKey, pollMs]);
 
-  const projects = useMemo<HumanSeriesProject[]>(() => {
+  const overviewProjectMap = useMemo(() => {
+    const entries = (overview?.projects ?? []).map((project) => [
+      project.slug,
+      {
+        slug: project.slug,
+        name: project.name,
+        requests: project.requests,
+        sessions: project.sessions,
+        engaged_sessions: project.engaged_sessions,
+        human_confirmed_sessions: project.human_confirmed_sessions,
+        suspicious: project.suspicious,
+      } satisfies OverviewProjectStats,
+    ] as const);
+
+    return new Map<string, OverviewProjectStats>(entries);
+  }, [overview]);
+
+  const projects = useMemo<ActivityProject[]>(() => {
     const rawProjects = data?.projects ?? [];
-    return [...rawProjects].sort((left, right) => {
-      const leftPinned = pinnedIndex(left.slug);
-      const rightPinned = pinnedIndex(right.slug);
+    return rawProjects
+      .map((project) => buildActivityProject(project, overviewProjectMap.get(project.slug)))
+      .sort((left, right) => {
+        const leftPinned = pinnedIndex(left.slug);
+        const rightPinned = pinnedIndex(right.slug);
 
-      if (leftPinned !== rightPinned) {
-        return leftPinned - rightPinned;
-      }
+        if (leftPinned !== rightPinned) {
+          return leftPinned - rightPinned;
+        }
 
-      const leftScore = left.live_humans * 1000 + peakVisitors(left) * 10 + sumVisitors(left);
-      const rightScore = right.live_humans * 1000 + peakVisitors(right) * 10 + sumVisitors(right);
-      return rightScore - leftScore;
-    });
-  }, [data]);
+        const leftScore = left.live_humans * 1000 + peakVisitors(left) * 10 + sumVisitors(left);
+        const rightScore = right.live_humans * 1000 + peakVisitors(right) * 10 + sumVisitors(right);
+        return rightScore - leftScore;
+      });
+  }, [data, overviewProjectMap]);
 
-  const visibleProjects = useMemo<HumanSeriesProject[]>(() => {
+  const visibleProjects = useMemo<ActivityProject[]>(() => {
     const projectMap = new Map(projects.map((project) => [project.slug, project]));
     const pinned = PINNED_PROJECT_SLUGS.map(
-      (slug) => projectMap.get(slug) ?? placeholderProject(slug),
+      (slug) => projectMap.get(slug) ?? placeholderProject(slug, overviewProjectMap.get(slug)),
     );
 
     const seen = new Set(pinned.map((project) => project.slug));
     const strongestRemainder = projects
       .filter((project) => !seen.has(project.slug))
-      .slice(0, Math.max(0, 8 - pinned.length));
+      .slice(0, Math.max(0, 12 - pinned.length));
 
     return [...pinned, ...strongestRemainder];
-  }, [projects]);
+  }, [overviewProjectMap, projects]);
 
   const fallbackProjectSlug = useMemo(() => {
     if (visibleProjects.some((project) => project.slug === DEFAULT_FEATURED_PROJECT_SLUG)) {
@@ -203,7 +318,7 @@ export default function ProjectHumanGraphs({
   const fallbackRangeLabel = rangeLabelFor(activeRangeKey);
   const description =
     data?.note ||
-    `${data?.range_label ?? fallbackRangeLabel} of human-confirmed visitor flow across Traffic.`;
+    `${data?.range_label ?? fallbackRangeLabel} of human-confirmed visitor flow across Traffic. Pinned lanes fall back to broader seen activity when confirmed-human points are absent.`;
 
   const loadRange = (rangeKey: ProjectGraphRangeKey) => {
     if (rangeKey === activeRangeKey || pendingRange) return;
@@ -314,6 +429,7 @@ export default function ProjectHumanGraphs({
                 const selected = featuredProject?.slug === project.slug;
                 const totalVisitors = sumVisitors(project);
                 const peak = peakVisitors(project);
+                const tone = activityTone(project);
 
                 return (
                   <button
@@ -334,6 +450,14 @@ export default function ProjectHumanGraphs({
                         <div className="mt-1 text-[11px] text-white/45">
                           {selected ? "Featured below" : "Move into featured lane"}
                         </div>
+                        <div className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-[10px] font-medium ${tone.className}`}>
+                          {tone.label}
+                        </div>
+                        {hasFallbackActivity(project) ? (
+                          <div className="mt-2 text-[11px] leading-5 text-white/55">
+                            {project.sessions_seen} sessions • {project.engaged_sessions_seen} engaged • {project.requests_seen} requests
+                          </div>
+                        ) : null}
                       </div>
                       <div className="rounded-full border border-sky-400/30 bg-sky-400/10 px-2.5 py-1 text-[11px] font-medium text-sky-200">
                         Live {project.live_humans}
@@ -363,19 +487,32 @@ export default function ProjectHumanGraphs({
                           </LineChart>
                         </ResponsiveContainer>
                       ) : (
-                        <div className="flex h-full items-center justify-center rounded-xl border border-white/10 bg-black/20 text-[11px] text-white/45">
-                          No human points yet
+                        <div className="flex h-full items-center justify-center rounded-xl border border-white/10 bg-black/20 px-3 text-center text-[11px] text-white/45">
+                          {activityEmptyLabel(project)}
                         </div>
                       )}
                     </div>
 
                     <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-white/60">
-                      <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
-                        Peak {peak}
-                      </span>
-                      <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
-                        Total {totalVisitors}
-                      </span>
+                      {project.points.length > 0 ? (
+                        <>
+                          <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
+                            Peak {peak}
+                          </span>
+                          <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
+                            Total {totalVisitors}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
+                            Sessions {project.sessions_seen}
+                          </span>
+                          <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
+                            Engaged {project.engaged_sessions_seen}
+                          </span>
+                        </>
+                      )}
                     </div>
                   </button>
                 );
@@ -396,7 +533,9 @@ export default function ProjectHumanGraphs({
                 </h3>
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
                   The main analytical surface stays dedicated to one project at a time, so the
-                  spike story is easy to read.
+                  spike story is easy to read. When confirmed-human points are absent, the pinned
+                  lane stays visible with broader seen-activity context instead of pretending the
+                  project is dead.
                 </p>
               </div>
 
@@ -409,6 +548,14 @@ export default function ProjectHumanGraphs({
                     <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
                       Peak bucket: {peakVisitors(featuredProject)}
                     </div>
+                    <div className={`rounded-full border px-3 py-1 font-medium ${activityTone(featuredProject).className}`}>
+                      {activityTone(featuredProject).label}
+                    </div>
+                    {hasFallbackActivity(featuredProject) ? (
+                      <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
+                        Sessions {featuredProject.sessions_seen} • Engaged {featuredProject.engaged_sessions_seen}
+                      </div>
+                    ) : null}
                     <Link
                       href={`/projects/${featuredProject.slug}`}
                       className="rounded-full border border-white/10 bg-black/20 px-3 py-1 font-medium text-white/75 transition hover:border-white/20 hover:text-white"
@@ -464,8 +611,13 @@ export default function ProjectHumanGraphs({
                     </LineChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="flex h-full items-center justify-center rounded-2xl border border-white/10 bg-black/20 text-sm text-white/45">
-                    No human points yet
+                  <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-white/10 bg-black/20 px-6 text-center text-sm text-white/45">
+                    <div>{activityEmptyLabel(featuredProject)}</div>
+                    {hasFallbackActivity(featuredProject) ? (
+                      <div className="mt-2 text-xs text-white/45">
+                        Requests {featuredProject.requests_seen} • Suspicious {featuredProject.suspicious_sessions_seen}
+                      </div>
+                    ) : null}
                   </div>
                 )}
               </div>
@@ -572,6 +724,7 @@ export default function ProjectHumanGraphs({
             const selected = featuredProject?.slug === project.slug;
             const totalVisitors = sumVisitors(project);
             const peak = peakVisitors(project);
+            const tone = activityTone(project);
 
             return (
               <button
@@ -590,6 +743,14 @@ export default function ProjectHumanGraphs({
                     <div className="mt-1 text-[11px] text-white/45">
                       {selected ? "Featured graph" : "Swap into focus"}
                     </div>
+                    <div className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-[10px] font-medium ${tone.className}`}>
+                      {tone.label}
+                    </div>
+                    {hasFallbackActivity(project) ? (
+                      <div className="mt-2 text-[11px] leading-5 text-white/55">
+                        {project.sessions_seen} sessions • {project.engaged_sessions_seen} engaged • {project.requests_seen} requests
+                      </div>
+                    ) : null}
                   </div>
                   <div className="rounded-full border border-sky-400/30 bg-sky-400/10 px-2.5 py-1 text-[11px] font-medium text-sky-200">
                     Live {project.live_humans}
@@ -619,19 +780,32 @@ export default function ProjectHumanGraphs({
                       </LineChart>
                     </ResponsiveContainer>
                   ) : (
-                    <div className="flex h-full items-center justify-center rounded-xl border border-white/10 bg-black/20 text-[11px] text-white/45">
-                      No human points yet
+                    <div className="flex h-full items-center justify-center rounded-xl border border-white/10 bg-black/20 px-3 text-center text-[11px] text-white/45">
+                      {activityEmptyLabel(project)}
                     </div>
                   )}
                 </div>
 
                 <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-white/60">
-                  <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
-                    Peak {peak}
-                  </span>
-                  <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
-                    Total {totalVisitors}
-                  </span>
+                  {project.points.length > 0 ? (
+                    <>
+                      <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
+                        Peak {peak}
+                      </span>
+                      <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
+                        Total {totalVisitors}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
+                        Sessions {project.sessions_seen}
+                      </span>
+                      <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
+                        Engaged {project.engaged_sessions_seen}
+                      </span>
+                    </>
+                  )}
                 </div>
               </button>
             );
@@ -646,8 +820,9 @@ export default function ProjectHumanGraphs({
               <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Focused Project</p>
               <h3 className="mt-1 text-xl font-semibold text-white">{featuredProject.name}</h3>
               <p className="mt-1 max-w-3xl text-sm text-slate-300">
-                Human-confirmed visitor arrivals only, so one chatty page or polling loop does not
-                masquerade as a crowd.
+                Human-confirmed visitor arrivals lead this line. When a pinned project has no
+                confirmed-human points yet, Traffic falls back to broader seen-activity context so
+                the lane still tells the truth.
               </p>
             </div>
 
@@ -658,6 +833,14 @@ export default function ProjectHumanGraphs({
               <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
                 Peak bucket: {peakVisitors(featuredProject)}
               </div>
+              <div className={`rounded-full border px-3 py-1 font-medium ${activityTone(featuredProject).className}`}>
+                {activityTone(featuredProject).label}
+              </div>
+              {hasFallbackActivity(featuredProject) ? (
+                <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
+                  Sessions {featuredProject.sessions_seen} • Engaged {featuredProject.engaged_sessions_seen}
+                </div>
+              ) : null}
               <Link
                 href={`/projects/${featuredProject.slug}`}
                 className="rounded-full border border-white/10 bg-black/20 px-3 py-1 font-medium text-white/75 transition hover:border-white/20 hover:text-white"
@@ -706,8 +889,13 @@ export default function ProjectHumanGraphs({
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex h-full items-center justify-center rounded-2xl border border-white/10 bg-black/20 text-sm text-white/45">
-                No human points yet
+              <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-white/10 bg-black/20 px-6 text-center text-sm text-white/45">
+                <div>{activityEmptyLabel(featuredProject)}</div>
+                {hasFallbackActivity(featuredProject) ? (
+                  <div className="mt-2 text-xs text-white/45">
+                    Requests {featuredProject.requests_seen} • Suspicious {featuredProject.suspicious_sessions_seen}
+                  </div>
+                ) : null}
               </div>
             )}
           </div>
