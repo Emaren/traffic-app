@@ -29,6 +29,16 @@ type Props = {
 
 const DEFAULT_RANGE_KEY: ProjectGraphRangeKey = "7d";
 const DEFAULT_FEATURED_PROJECT_SLUG = "aoe2hdbets";
+const PINNED_PROJECT_SLUGS = [
+  "aoe2hdbets",
+  "aoe2dewarwagers",
+  "tokentap",
+  "tokenchain",
+  "llama",
+  "llama-chat",
+  "wallyverse",
+  "wheatandstone",
+] as const;
 const RANGE_OPTIONS: Array<{ key: ProjectGraphRangeKey; label: string }> = [
   { key: "24h", label: "24 Hours" },
   { key: "7d", label: "1 Week" },
@@ -56,6 +66,11 @@ function sumVisitors(project: HumanSeriesProject): number {
 
 function peakVisitors(project: HumanSeriesProject): number {
   return project.points.reduce((peak, point) => Math.max(peak, point.visitors), 0);
+}
+
+function pinnedIndex(slug: string) {
+  const index = PINNED_PROJECT_SLUGS.indexOf(slug as (typeof PINNED_PROJECT_SLUGS)[number]);
+  return index === -1 ? Number.POSITIVE_INFINITY : index;
 }
 
 export default function ProjectHumanGraphs({
@@ -119,6 +134,13 @@ export default function ProjectHumanGraphs({
   const projects = useMemo<HumanSeriesProject[]>(() => {
     const rawProjects = data?.projects ?? [];
     return [...rawProjects].sort((left, right) => {
+      const leftPinned = pinnedIndex(left.slug);
+      const rightPinned = pinnedIndex(right.slug);
+
+      if (leftPinned !== rightPinned) {
+        return leftPinned - rightPinned;
+      }
+
       const leftScore = left.live_humans * 1000 + peakVisitors(left) * 10 + sumVisitors(left);
       const rightScore = right.live_humans * 1000 + peakVisitors(right) * 10 + sumVisitors(right);
       return rightScore - leftScore;
@@ -146,7 +168,7 @@ export default function ProjectHumanGraphs({
   const fallbackRangeLabel = rangeLabelFor(activeRangeKey);
   const description =
     data?.note ||
-    `${data?.range_label ?? fallbackRangeLabel} of confirmed human arrivals across Traffic. Browser scripts and known automation are intentionally excluded from this line.`;
+    `${data?.range_label ?? fallbackRangeLabel} of human-confirmed visitor flow across Traffic.`;
 
   const loadRange = (rangeKey: ProjectGraphRangeKey) => {
     if (rangeKey === activeRangeKey || pendingRange) return;
@@ -172,7 +194,7 @@ export default function ProjectHumanGraphs({
                 Multi-Project Pulse
               </p>
               <h2 className="mt-1 text-2xl font-semibold tracking-tight text-white">
-                Four project lanes, one clean first read
+                Pinned project lanes, then strongest movers
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
                 Select any mini graph to move it into the featured lane below without crowding the
@@ -283,27 +305,33 @@ export default function ProjectHumanGraphs({
                       </div>
                     </div>
 
-                    <div className="mt-4 h-24">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={project.points}>
-                          <Tooltip
-                            contentStyle={{
-                              background: "rgba(10,10,14,0.95)",
-                              border: "1px solid rgba(255,255,255,0.12)",
-                              borderRadius: 16,
-                              color: "#fff",
-                            }}
-                          />
-                          <Line
-                            type="monotone"
-                            dataKey="visitors"
-                            stroke={selected ? "#f59e0b" : "#38bdf8"}
-                            strokeWidth={2.5}
-                            dot={false}
-                            isAnimationActive={false}
-                          />
-                        </LineChart>
-                      </ResponsiveContainer>
+                    <div className="mt-4 h-24 min-w-0 overflow-hidden">
+                      {project.points.length > 0 ? (
+                        <ResponsiveContainer width="100%" height={96} minWidth={0}>
+                          <LineChart data={project.points}>
+                            <Tooltip
+                              contentStyle={{
+                                background: "rgba(10,10,14,0.95)",
+                                border: "1px solid rgba(255,255,255,0.12)",
+                                borderRadius: 16,
+                                color: "#fff",
+                              }}
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="visitors"
+                              stroke={selected ? "#f59e0b" : "#38bdf8"}
+                              strokeWidth={2.5}
+                              dot={false}
+                              isAnimationActive={false}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="flex h-full items-center justify-center rounded-xl border border-white/10 bg-black/20 text-[11px] text-white/45">
+                          No human points yet
+                        </div>
+                      )}
                     </div>
 
                     <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-white/60">
@@ -527,27 +555,33 @@ export default function ProjectHumanGraphs({
                   </div>
                 </div>
 
-                <div className="mt-3 h-20">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={project.points}>
-                      <Tooltip
-                        contentStyle={{
-                          background: "rgba(10,10,14,0.95)",
-                          border: "1px solid rgba(255,255,255,0.12)",
-                          borderRadius: 16,
-                          color: "#fff",
-                        }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="visitors"
-                        stroke={selected ? "#f59e0b" : "#38bdf8"}
-                        strokeWidth={2.5}
-                        dot={false}
-                        isAnimationActive={false}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                <div className="mt-3 h-20 min-w-0 overflow-hidden">
+                  {project.points.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={80} minWidth={0}>
+                      <LineChart data={project.points}>
+                        <Tooltip
+                          contentStyle={{
+                            background: "rgba(10,10,14,0.95)",
+                            border: "1px solid rgba(255,255,255,0.12)",
+                            borderRadius: 16,
+                            color: "#fff",
+                          }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="visitors"
+                          stroke={selected ? "#f59e0b" : "#38bdf8"}
+                          strokeWidth={2.5}
+                          dot={false}
+                          isAnimationActive={false}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex h-full items-center justify-center rounded-xl border border-white/10 bg-black/20 text-[11px] text-white/45">
+                      No human points yet
+                    </div>
+                  )}
                 </div>
 
                 <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-white/60">
@@ -571,7 +605,7 @@ export default function ProjectHumanGraphs({
               <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Focused Project</p>
               <h3 className="mt-1 text-xl font-semibold text-white">{featuredProject.name}</h3>
               <p className="mt-1 max-w-3xl text-sm text-slate-300">
-                Confirmed human arrivals only, so one chatty page, browser script, or polling loop does not
+                Human-confirmed visitor arrivals only, so one chatty page or polling loop does not
                 masquerade as a crowd.
               </p>
             </div>
