@@ -147,23 +147,38 @@ export default function ProjectHumanGraphs({
     });
   }, [data]);
 
+  const visibleProjects = useMemo<HumanSeriesProject[]>(() => {
+    const pinned = PINNED_PROJECT_SLUGS
+      .map((slug) => projects.find((project) => project.slug === slug))
+      .filter((project): project is HumanSeriesProject => Boolean(project));
+
+    const seen = new Set(pinned.map((project) => project.slug));
+    const strongestRemainder = projects
+      .filter((project) => !seen.has(project.slug))
+      .slice(0, Math.max(0, 8 - pinned.length));
+
+    return [...pinned, ...strongestRemainder];
+  }, [projects]);
+
   const fallbackProjectSlug = useMemo(() => {
-    if (projects.some((project) => project.slug === DEFAULT_FEATURED_PROJECT_SLUG)) {
+    if (visibleProjects.some((project) => project.slug === DEFAULT_FEATURED_PROJECT_SLUG)) {
       return DEFAULT_FEATURED_PROJECT_SLUG;
     }
-    return projects[0]?.slug ?? null;
-  }, [projects]);
+    return visibleProjects[0]?.slug ?? null;
+  }, [visibleProjects]);
 
   const selectedSlugCandidate = selectedProjectSlug ?? internalSelectedSlug;
   const activeSelectedSlug =
-    projects.some((project) => project.slug === selectedSlugCandidate)
+    visibleProjects.some((project) => project.slug === selectedSlugCandidate)
       ? selectedSlugCandidate
       : fallbackProjectSlug;
   const featuredProject =
-    projects.find((project) => project.slug === activeSelectedSlug) ?? projects[0] ?? null;
+    visibleProjects.find((project) => project.slug === activeSelectedSlug) ??
+    visibleProjects[0] ??
+    null;
   const projectLiveTotal = useMemo(
-    () => projects.reduce((sum, project) => sum + project.live_humans, 0),
-    [projects],
+    () => visibleProjects.reduce((sum, project) => sum + project.live_humans, 0),
+    [visibleProjects],
   );
   const fallbackRangeLabel = rangeLabelFor(activeRangeKey);
   const description =
@@ -267,15 +282,15 @@ export default function ProjectHumanGraphs({
             </div>
           ) : null}
 
-          {!error && data && projects.length === 0 ? (
+          {!error && data && visibleProjects.length === 0 ? (
             <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-white/60">
               No human series yet in this range.
             </div>
           ) : null}
 
-          {projects.length > 0 ? (
+          {visibleProjects.length > 0 ? (
             <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              {projects.map((project) => {
+              {visibleProjects.map((project) => {
                 const selected = featuredProject?.slug === project.slug;
                 const totalVisitors = sumVisitors(project);
                 const peak = peakVisitors(project);
@@ -390,9 +405,10 @@ export default function ProjectHumanGraphs({
             </div>
 
             {featuredProject ? (
-              <div className="h-[24rem] rounded-[28px] border border-white/10 bg-[#05070c]/75 p-4">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={featuredProject.points}>
+              <div className="h-[24rem] min-w-0 overflow-hidden rounded-[28px] border border-white/10 bg-[#05070c]/75 p-4">
+                {featuredProject.points.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={384} minWidth={0}>
+                    <LineChart data={featuredProject.points}>
                     <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
                     <XAxis
                       dataKey="label"
@@ -425,8 +441,13 @@ export default function ProjectHumanGraphs({
                       activeDot={{ r: 4 }}
                       isAnimationActive={false}
                     />
-                  </LineChart>
-                </ResponsiveContainer>
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex h-full items-center justify-center rounded-2xl border border-white/10 bg-black/20 text-sm text-white/45">
+                    No human points yet
+                  </div>
+                )}
               </div>
             ) : (
               <div className="rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-white/60">
@@ -519,15 +540,15 @@ export default function ProjectHumanGraphs({
         </div>
       ) : null}
 
-      {!error && data && projects.length === 0 ? (
+      {!error && data && visibleProjects.length === 0 ? (
         <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-white/60">
           No human series yet in this range.
         </div>
       ) : null}
 
-      {projects.length > 0 ? (
+      {visibleProjects.length > 0 ? (
         <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {projects.map((project) => {
+          {visibleProjects.map((project) => {
             const selected = featuredProject?.slug === project.slug;
             const totalVisitors = sumVisitors(project);
             const peak = peakVisitors(project);
@@ -626,9 +647,10 @@ export default function ProjectHumanGraphs({
             </div>
           </div>
 
-          <div className="mt-4 h-[20rem]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={featuredProject.points}>
+          <div className="mt-4 h-[20rem] min-w-0 overflow-hidden">
+            {featuredProject.points.length > 0 ? (
+              <ResponsiveContainer width="100%" height={320} minWidth={0}>
+                <LineChart data={featuredProject.points}>
                 <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
                 <XAxis
                   dataKey="label"
@@ -661,8 +683,13 @@ export default function ProjectHumanGraphs({
                   activeDot={{ r: 4 }}
                   isAnimationActive={false}
                 />
-              </LineChart>
-            </ResponsiveContainer>
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center rounded-2xl border border-white/10 bg-black/20 text-sm text-white/45">
+                No human points yet
+              </div>
+            )}
           </div>
         </div>
       ) : null}
