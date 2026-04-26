@@ -132,6 +132,16 @@ export type SessionRecord = {
   known_automation: boolean;
   automation_family: string;
   route_bundle_spam?: boolean;
+  is_burst_cluster?: boolean;
+  burst_member_count?: number;
+  burst_ip_count?: number;
+  burst_path_count?: number;
+  burst_window_seconds?: number;
+  burst_ip_families?: string[];
+  burst_sample_ips?: string[];
+  burst_paths?: string[];
+  network_ua_count?: number;
+  network_path_count?: number;
   referrer: string;
   source: string;
   medium: string;
@@ -159,6 +169,7 @@ export type SessionRecord = {
     | "likely_human"
     | "human_confirmed"
     | "browser_script"
+    | "script_burst"
     | "bot"
     | "suspicious"
     | "archived";

@@ -32,7 +32,7 @@ function formatSeconds(total: number): string {
   return `${seconds}s`;
 }
 
-function verdictClass(state: SessionRecord["classification_state"]) {
+function verdictClass(state: string) {
   switch (state) {
     case "human_confirmed":
       return "border-emerald-400/30 bg-emerald-400/10 text-emerald-200";
@@ -40,6 +40,8 @@ function verdictClass(state: SessionRecord["classification_state"]) {
       return "border-sky-400/30 bg-sky-400/10 text-sky-200";
     case "candidate":
       return "border-amber-400/30 bg-amber-400/10 text-amber-200";
+    case "script_burst":
+      return "border-fuchsia-400/30 bg-fuchsia-400/10 text-fuchsia-200";
     case "suspicious":
       return "border-rose-400/30 bg-rose-400/10 text-rose-200";
     default:

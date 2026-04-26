@@ -27,13 +27,14 @@ function formatSeconds(total: number): string {
   return `${seconds}s`;
 }
 
-function verdictClass(state: SessionRecord["classification_state"]) {
+function verdictClass(state: string) {
   switch (state) {
     case "human_confirmed":
       return "border-emerald-400/30 bg-emerald-400/10 text-emerald-200";
     case "likely_human":
       return "border-sky-400/30 bg-sky-400/10 text-sky-200";
     case "browser_script":
+    case "script_burst":
       return "border-fuchsia-400/30 bg-fuchsia-400/10 text-fuchsia-200";
     case "candidate":
       return "border-amber-400/30 bg-amber-400/10 text-amber-200";
@@ -43,26 +44,36 @@ function verdictClass(state: SessionRecord["classification_state"]) {
 }
 
 function automationClass(session: SessionRecord): string {
-  if (session.classification_state === "suspicious") {
+  const state = session.classification_state as string;
+
+  if (state === "script_burst") {
+    return "border-fuchsia-400/30 bg-fuchsia-400/10 text-fuchsia-200";
+  }
+  if (state === "suspicious") {
     return "border-rose-400/30 bg-rose-400/10 text-rose-200";
   }
   if (session.known_automation) {
     return "border-fuchsia-400/30 bg-fuchsia-400/10 text-fuchsia-200";
   }
-  if (session.classification_state === "bot") {
+  if (state === "bot") {
     return "border-violet-400/30 bg-violet-400/10 text-violet-200";
   }
   return "border-white/10 bg-white/5 text-white/70";
 }
 
 function automationLabel(session: SessionRecord): string | null {
+  const state = session.classification_state as string;
+
+  if (state === "script_burst") {
+    return "Script burst";
+  }
   if (session.known_automation) {
     return session.automation_family || "Known automation";
   }
-  if (session.classification_state === "suspicious") {
+  if (state === "suspicious") {
     return "Security watch";
   }
-  if (session.classification_state === "bot") {
+  if (state === "bot") {
     return "Other bot";
   }
   return null;
@@ -79,10 +90,14 @@ export default function LiveVisitorStreamRow({
   onHidePath,
   onHideProject,
 }: Props) {
+  const burstSummary = session.is_burst_cluster
+    ? `${session.burst_ip_count ?? 0} IPs · ${session.burst_path_count ?? session.page_count} routes · ${session.burst_window_seconds ?? session.total_seconds}s`
+    : null;
   const journey =
-    session.entry_page === session.current_page
+    burstSummary ??
+    (session.entry_page === session.current_page
       ? session.current_page
-      : `${session.entry_page} -> ${session.current_page}`;
+      : `${session.entry_page} -> ${session.current_page}`);
   const actionPath = session.current_page || session.exit_page || session.entry_page;
 
   const visitorLabel = withFlag(session.country_code, session.visitor_alias);
@@ -105,6 +120,7 @@ export default function LiveVisitorStreamRow({
     session.classification_reasons.includes("thin_direct_browser") ? "Thin direct session" : null,
     session.classification_reasons.includes("player_page_hop") ? "Player-page hop" : null,
     session.route_bundle_spam ? "Route bundle spam" : null,
+    session.is_burst_cluster ? "Collapsed burst" : null,
   ].filter(Boolean) as string[];
 
   return (
@@ -158,7 +174,9 @@ export default function LiveVisitorStreamRow({
               ) : (
                 <span className="font-semibold text-white">{visitorLabel}</span>
               )}
-              <span className="font-mono text-[11px] text-white/50">{session.ip}</span>
+              <span className="font-mono text-[11px] text-white/50">
+                {session.is_burst_cluster ? `${session.burst_ip_count ?? 0} IPs collapsed` : session.ip}
+              </span>
               <span className="text-white/50">{metaLine}</span>
               <span className="text-white/50">
                 {session.device} • {session.browser}
@@ -235,7 +253,9 @@ export default function LiveVisitorStreamRow({
                 ) : (
                   <span className="text-base font-semibold text-white">{visitorLabel}</span>
                 )}
-                <span className="font-mono text-xs text-white/55">IP {session.ip}</span>
+                <span className="font-mono text-xs text-white/55">
+                  {session.is_burst_cluster ? `${session.burst_ip_count ?? 0} IPs collapsed` : `IP ${session.ip}`}
+                </span>
               </div>
 
               <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-white/55">
@@ -304,7 +324,11 @@ export default function LiveVisitorStreamRow({
           <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
             <div className="text-[11px] uppercase tracking-wide text-white/45">Context</div>
             <div className="mt-2 space-y-1 text-sm text-white/80">
-              <div>Traffic visits: {session.visits_in_window}</div>
+              {session.is_burst_cluster ? (
+                <div>Burst members: {session.burst_member_count ?? 0}</div>
+              ) : (
+                <div>Traffic visits: {session.visits_in_window}</div>
+              )}
               <div>Projects visited: {session.projects_visited_in_window}</div>
               <div>Source: {session.source || "direct"}</div>
               <div>Referrer: {session.referrer || "direct"}</div>
