@@ -104,15 +104,9 @@ export default function LiveVisitorScreen({
   const [transportMode, setTransportMode] = useState<LiveTransportMode>("connecting");
   const [transportNotice, setTransportNotice] = useState("");
   const [pinnedToTop, setPinnedToTop] = useState(true);
-  const [selectedProjects, setSelectedProjects] = useState<string[]>(() =>
-    loadStoredStringArray(TRAFFIC_SHARED_PROJECT_FILTER_KEY),
-  );
-  const [showOnlyGreenHumans, setShowOnlyGreenHumans] = useState(() =>
-    loadStoredBoolean(TRAFFIC_LIVE_GREEN_ONLY_KEY),
-  );
-  const [density, setDensity] = useState<"full" | "compact">(() =>
-    loadStoredString(TRAFFIC_LIVE_DENSITY_KEY) === "compact" ? "compact" : "full",
-  );
+  const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
+  const [showOnlyGreenHumans, setShowOnlyGreenHumans] = useState(false);
+  const [density, setDensity] = useState<"full" | "compact">("full");
   const [followFeaturedProject, setFollowFeaturedProject] = useState(Boolean(focusedProjectSlug));
   const {
     supportsSharedRules,
@@ -127,6 +121,9 @@ export default function LiveVisitorScreen({
   const shouldStickToTopRef = useRef(true);
 
   useEffect(() => {
+    setSelectedProjects(loadStoredStringArray(TRAFFIC_SHARED_PROJECT_FILTER_KEY));
+    setShowOnlyGreenHumans(loadStoredBoolean(TRAFFIC_LIVE_GREEN_ONLY_KEY));
+    setDensity(loadStoredString(TRAFFIC_LIVE_DENSITY_KEY) === "compact" ? "compact" : "full");
     setFollowFeaturedProject(Boolean(focusedProjectSlug));
   }, [focusedProjectSlug]);
 
