@@ -93,7 +93,7 @@ function pageIsHidden() {
   return typeof document !== "undefined" && document.hidden;
 }
 
-export default function LiveVisitorScreen({
+function LiveVisitorScreenInner({
   pollMs = 15000,
   mode = "default",
   focusedProjectSlug = null,
@@ -896,4 +896,22 @@ export default function LiveVisitorScreen({
       ) : null}
     </section>
   );
+}
+
+export default function LiveVisitorScreen(props: Parameters<typeof LiveVisitorScreenInner>[0]) {
+  const [isClientMounted, setIsClientMounted] = useState(false);
+
+  useEffect(() => {
+    setIsClientMounted(true);
+  }, []);
+
+  if (!isClientMounted) {
+    return (
+      <section className="rounded-[2rem] border border-white/10 bg-black/30 p-6 text-sm text-white/60">
+        Loading live visitor stream…
+      </section>
+    );
+  }
+
+  return <LiveVisitorScreenInner {...props} />;
 }

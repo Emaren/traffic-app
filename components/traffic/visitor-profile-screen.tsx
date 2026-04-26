@@ -112,7 +112,7 @@ function pageIsHidden() {
   return typeof document !== "undefined" && document.hidden;
 }
 
-export default function VisitorProfileScreen({
+function VisitorProfileScreenInner({
   initialProfile,
   pollMs = 15000,
   visitorId,
@@ -797,4 +797,22 @@ export default function VisitorProfileScreen({
       </div>
     </main>
   );
+}
+
+export default function VisitorProfileScreen(props: Parameters<typeof VisitorProfileScreenInner>[0]) {
+  const [isClientMounted, setIsClientMounted] = useState(false);
+
+  useEffect(() => {
+    setIsClientMounted(true);
+  }, []);
+
+  if (!isClientMounted) {
+    return (
+      <section className="rounded-[2rem] border border-white/10 bg-black/30 p-6 text-sm text-white/60">
+        Loading visitor profile…
+      </section>
+    );
+  }
+
+  return <VisitorProfileScreenInner {...props} />;
 }
