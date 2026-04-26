@@ -164,16 +164,7 @@ export default function LiveVisitorStreamRow({
             </div>
 
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-              {showVisitorLink ? (
-                <Link
-                  href={`/visitors/${session.visitor_profile_id}`}
-                  className="font-semibold text-white transition hover:text-sky-200"
-                >
-                  {visitorLabel}
-                </Link>
-              ) : (
-                <span className="font-semibold text-white">{visitorLabel}</span>
-              )}
+              <span className="font-semibold text-white">{visitorLabel}</span>
               <span className="font-mono text-[11px] text-white/50">
                 {session.is_burst_cluster ? `${session.burst_ip_count ?? 0} IPs collapsed` : session.ip}
               </span>
@@ -243,16 +234,7 @@ export default function LiveVisitorStreamRow({
               </div>
 
               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-                {showVisitorLink ? (
-                  <Link
-                    href={`/visitors/${session.visitor_profile_id}`}
-                    className="text-base font-semibold text-white transition hover:text-sky-200"
-                  >
-                    {visitorLabel}
-                  </Link>
-                ) : (
-                  <span className="text-base font-semibold text-white">{visitorLabel}</span>
-                )}
+                <span className="text-base font-semibold text-white">{visitorLabel}</span>
                 <span className="font-mono text-xs text-white/55">
                   {session.is_burst_cluster ? `${session.burst_ip_count ?? 0} IPs collapsed` : `IP ${session.ip}`}
                 </span>
