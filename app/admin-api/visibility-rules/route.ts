@@ -3,7 +3,12 @@ import { hasAdminSession, trafficAdminRequest } from "@/lib/traffic-admin";
 
 export async function GET() {
   if (!(await hasAdminSession())) {
-    return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({
+      rules: [],
+      items: [],
+      visibility_rules: [],
+      public_fallback: true,
+    });
   }
 
   try {
