@@ -1,19 +1,18 @@
+import type { ReactNode } from "react";
 import {
+  FaAndroid,
   FaApple,
+  FaChrome,
   FaDesktop,
+  FaEdge,
+  FaFirefoxBrowser,
   FaLinux,
   FaMobileScreenButton,
   FaRobot,
+  FaSafari,
   FaTabletScreenButton,
+  FaWindows,
 } from "react-icons/fa6";
-import {
-  SiAndroid,
-  SiFirefoxbrowser,
-  SiGooglechrome,
-  SiMicrosoftedge,
-  SiSafari,
-  SiWindows11,
-} from "react-icons/si";
 
 type VisitorTechIconsProps = {
   device?: string;
@@ -26,7 +25,7 @@ function normalized(value?: string) {
   return (value || "").trim().toLowerCase();
 }
 
-function iconShell(label: string, icon: React.ReactNode, compact = false) {
+function iconShell(label: string, icon: ReactNode, compact = false) {
   return (
     <span
       title={label}
@@ -61,13 +60,13 @@ function osIcon(os?: string, compact = false) {
   const value = normalized(os);
 
   if (value.includes("win")) {
-    return iconShell("Windows", <SiWindows11 />, compact);
+    return iconShell("Windows", <FaWindows />, compact);
   }
   if (value.includes("mac") || value.includes("ios")) {
     return iconShell(value.includes("ios") ? "iOS" : "macOS", <FaApple />, compact);
   }
   if (value.includes("android")) {
-    return iconShell("Android", <SiAndroid />, compact);
+    return iconShell("Android", <FaAndroid />, compact);
   }
   if (value.includes("linux") || value.includes("ubuntu")) {
     return iconShell("Linux", <FaLinux />, compact);
@@ -80,16 +79,16 @@ function browserIcon(browser?: string, compact = false) {
   const value = normalized(browser);
 
   if (value.includes("chrome") || value.includes("chromium")) {
-    return iconShell("Chrome", <SiGooglechrome />, compact);
+    return iconShell("Chrome", <FaChrome />, compact);
   }
   if (value.includes("safari")) {
-    return iconShell("Safari", <SiSafari />, compact);
+    return iconShell("Safari", <FaSafari />, compact);
   }
   if (value.includes("edge")) {
-    return iconShell("Edge", <SiMicrosoftedge />, compact);
+    return iconShell("Edge", <FaEdge />, compact);
   }
   if (value.includes("firefox")) {
-    return iconShell("Firefox", <SiFirefoxbrowser />, compact);
+    return iconShell("Firefox", <FaFirefoxBrowser />, compact);
   }
 
   return iconShell(browser || "Unknown browser", <FaDesktop />, compact);
