@@ -4,6 +4,7 @@ import Link from "next/link";
 import { memo, useMemo } from "react";
 import type { ReactNode } from "react";
 import type { SessionActivityItem, SessionRecord } from "@/components/traffic/types";
+import VisitorTechIcons from "@/components/traffic/visitor-tech-icons";
 
 type Props = {
   session: SessionRecord;
@@ -217,7 +218,9 @@ function VisitorSessionCard({
           <div>Referrer: {session.referrer || "direct"}</div>
           <div>Source: {session.source || "direct"}</div>
           <div>{session.city || "Unknown city"}{session.area ? `, ${session.area}` : ""}{session.country ? `, ${session.country}` : ""}</div>
-          <div>{session.device} • {session.os} • {session.browser}</div>
+          <div className="pt-1">
+            <VisitorTechIcons device={session.device} os={session.os} browser={session.browser} />
+          </div>
         </SessionMetaCard>
 
         <SessionMetaCard label="Activity Lens">

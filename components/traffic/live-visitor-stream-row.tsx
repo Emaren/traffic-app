@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { withFlag } from "@/components/traffic/display";
+import VisitorTechIcons from "@/components/traffic/visitor-tech-icons";
 import type { SessionRecord } from "@/components/traffic/types";
 
 type Props = {
@@ -169,9 +170,12 @@ export default function LiveVisitorStreamRow({
                 {session.is_burst_cluster ? `${session.burst_ip_count ?? 0} IPs collapsed` : session.ip}
               </span>
               <span className="text-white/50">{metaLine}</span>
-              <span className="text-white/50">
-                {session.device} • {session.browser}
-              </span>
+              <VisitorTechIcons
+                device={session.device}
+                os={session.os}
+                browser={session.browser}
+                compact
+              />
             </div>
 
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/60">
@@ -242,9 +246,11 @@ export default function LiveVisitorStreamRow({
 
               <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-white/55">
                 <span>{metaLine}</span>
-                <span>
-                  {session.device} • {session.os} • {session.browser}
-                </span>
+                <VisitorTechIcons
+                  device={session.device}
+                  os={session.os}
+                  browser={session.browser}
+                />
               </div>
 
               <div className="mt-2 font-mono text-xs text-sky-100/70 break-all">
