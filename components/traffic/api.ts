@@ -77,9 +77,10 @@ export async function fetchOverviewRange(
 export async function fetchLiveVisitors(
   limit = 25,
   historyLimit = 95,
+  windowHours = 24,
 ): Promise<LiveVisitorsResponse> {
   return fetchJson<LiveVisitorsResponse>(
-    `/api/live-visitors?limit=${limit}&history_limit=${historyLimit}`,
+    `/api/live-visitors?limit=${limit}&history_limit=${historyLimit}&window_hours=${windowHours}`,
   );
 }
 

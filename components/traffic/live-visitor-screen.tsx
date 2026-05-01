@@ -55,8 +55,9 @@ type AuxiliarySection = {
 };
 
 const RECENT_WINDOW_MINUTES = 60;
-const STREAM_LIMIT = 25;
-const STREAM_HISTORY_LIMIT = 95;
+const STREAM_LIMIT = 100;
+const STREAM_HISTORY_LIMIT = 500;
+const STREAM_WINDOW_HOURS = 168;
 const STREAM_RETRY_MIN_MS = 30000;
 
 function parseTimestamp(value: string): number {
@@ -158,7 +159,7 @@ function LiveVisitorScreenInner({
       if (pageIsHidden()) return;
 
       try {
-        const next = await fetchLiveVisitors(STREAM_LIMIT, STREAM_HISTORY_LIMIT);
+        const next = await fetchLiveVisitors(STREAM_LIMIT, STREAM_HISTORY_LIMIT, STREAM_WINDOW_HOURS);
         if (!mounted) return;
 
         startTransition(() => {
@@ -193,6 +194,7 @@ function LiveVisitorScreenInner({
           buildLiveVisitorsStreamUrl({
             limit: STREAM_LIMIT,
             historyLimit: STREAM_HISTORY_LIMIT,
+            windowHours: STREAM_WINDOW_HOURS,
           }),
         );
 
