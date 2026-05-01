@@ -500,7 +500,7 @@ function LiveVisitorScreenInner({
     showOnlyGreenHumans,
   ]);
 
-  const newestFirstItems = useMemo(() => [...streamItems].reverse(), [streamItems]);
+  const newestFirstItems = useMemo(() => streamItems, [streamItems]);
   const generatedAt = useMemo(
     () => parseTimestamp(data?.generated_at ?? new Date().toISOString()),
     [data?.generated_at],
