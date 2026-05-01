@@ -47,7 +47,7 @@ type StreamSection = {
 };
 
 type AuxiliarySection = {
-  key: "browser_scripts" | "automation" | "security";
+  key: "recent_page_review" | "browser_scripts" | "automation" | "security";
   title: string;
   description: string;
   badgeClass: string;
@@ -94,6 +94,28 @@ function pageIsHidden() {
   return typeof document !== "undefined" && document.hidden;
 }
 
+function sessionSearchText(session: SessionRecord) {
+  return [
+    session.ip,
+    session.city,
+    session.area,
+    session.country,
+    session.country_code,
+    session.project_slug,
+    session.project_name,
+    session.entry_page,
+    session.current_page,
+    session.exit_page,
+    session.verdict_label,
+    session.classification_state,
+    session.visitor_alias,
+    ...(session.page_sequence || []),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
 function LiveVisitorScreenInner({
   pollMs = 15000,
   mode = "default",
@@ -108,6 +130,7 @@ function LiveVisitorScreenInner({
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [showOnlyGreenHumans, setShowOnlyGreenHumans] = useState(false);
   const [density, setDensity] = useState<"full" | "compact">("full");
+  const [recentReviewQuery, setRecentReviewQuery] = useState("");
   const [followFeaturedProject, setFollowFeaturedProject] = useState(Boolean(focusedProjectSlug));
   const {
     supportsSharedRules,
@@ -373,6 +396,50 @@ function LiveVisitorScreenInner({
     showOnlyGreenHumans,
   ]);
 
+
+  const recentPageReviewItems = useMemo(() => {
+    if (showOnlyGreenHumans) {
+      return [];
+    }
+
+    const selectedProjectSet = new Set(effectiveSelectedProjects);
+    const streamSessionIds = new Set(streamItems.map((session) => session.session_id));
+    const query = recentReviewQuery.trim().toLowerCase();
+
+    return (data?.recent_page_review ?? [])
+      .filter((session) => {
+        if (streamSessionIds.has(session.session_id)) {
+          return false;
+        }
+        if (selectedProjectSet.size > 0 && !selectedProjectSet.has(session.project_slug)) {
+          return false;
+        }
+        if (
+          sessionHiddenByVisibilityRules(
+            session,
+            activeVisibilityRules,
+            effectiveHiddenIps,
+          )
+        ) {
+          return false;
+        }
+        if (query && !sessionSearchText(session).includes(query)) {
+          return false;
+        }
+        return true;
+      })
+      .slice(0, query ? 100 : 40);
+  }, [
+    activeVisibilityRules,
+    data?.recent_page_review,
+    effectiveHiddenIps,
+    effectiveSelectedProjects,
+    recentReviewQuery,
+    showOnlyGreenHumans,
+    streamItems,
+  ]);
+
+
   const browserScriptItems = useMemo(() => {
     if (showOnlyGreenHumans) {
       return [];
@@ -513,7 +580,7 @@ function LiveVisitorScreenInner({
     ];
 
     return sectionRows.filter((section) => section.items.length > 0);
-  }, [automationItems, browserScriptItems, securityItems]);
+  }, [automationItems, browserScriptItems, recentPageReviewItems, securityItems]);
 
   const hasVisibleContent =
     streamItems.length > 0 || (!heroMode && auxiliarySections.length > 0);
@@ -614,6 +681,11 @@ function LiveVisitorScreenInner({
           <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
             Visible people/unclear: {streamItems.length}
           </div>
+          {!showOnlyGreenHumans && !heroMode && recentPageReviewItems.length > 0 ? (
+            <div className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-medium text-cyan-200">
+              Recently seen review {recentPageReviewItems.length}
+            </div>
+          ) : null}
           {!showOnlyGreenHumans && !heroMode && browserScriptItems.length > 0 ? (
             <div className="rounded-full border border-fuchsia-400/30 bg-fuchsia-400/10 px-3 py-1 text-xs font-medium text-fuchsia-200">
               Browser scripts {browserScriptItems.length}
@@ -664,6 +736,9 @@ function LiveVisitorScreenInner({
             <div className="mt-1 text-sm text-white/65">
               {effectiveSelectedProjects.length || availableProjectSlugs.length} of {availableProjectSlugs.length || 0} projects visible
               {showOnlyGreenHumans ? " • confirmed humans only" : " • mixed-confidence people feed"}
+              {!showOnlyGreenHumans && !heroMode && recentPageReviewItems.length > 0
+                ? ` • ${recentPageReviewItems.length} recently seen review`
+                : ""}
               {!showOnlyGreenHumans && !heroMode && browserScriptItems.length > 0
                 ? ` • ${browserScriptItems.length} browser scripts separated`
                 : ""}
@@ -720,6 +795,20 @@ function LiveVisitorScreenInner({
             </button>
           </div>
         </div>
+
+        {!showOnlyGreenHumans && !heroMode ? (
+          <div className="mt-3">
+            <label className="text-xs uppercase tracking-[0.22em] text-white/35">
+              Find recently seen
+            </label>
+            <input
+              value={recentReviewQuery}
+              onChange={(event) => setRecentReviewQuery(event.target.value)}
+              placeholder="Search recent review: Seoul, /staking, IP, country, verdict..."
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-2 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-cyan-400/40 focus:bg-black/45"
+            />
+          </div>
+        ) : null}
 
         <div className={`flex flex-wrap gap-2 ${heroMode ? "mt-3" : "mt-4"}`}>
           <button

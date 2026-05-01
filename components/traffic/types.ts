@@ -249,6 +249,10 @@ export type LiveVisitorsResponse = {
   automation_preview: SessionRecord[];
   security_count: number;
   security_preview: SessionRecord[];
+  review_count?: number;
+  review_preview?: SessionRecord[];
+  recent_page_review_count?: number;
+  recent_page_review?: SessionRecord[];
   available_projects: ProjectFilterOption[];
   project_counts: LiveProjectCount[];
   top_25: SessionRecord[];
