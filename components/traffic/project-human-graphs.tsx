@@ -45,7 +45,7 @@ const PINNED_PROJECT_SLUGS = [
   "redlinelegal",
 ] as const;
 const PINNED_PROJECT_NAMES: Record<(typeof PINNED_PROJECT_SLUGS)[number], string> = {
-  aoe2hdbets: "AoE2HDBets",
+  aoe2hdbets: "AoE2 War",
   aoe2dewarwagers: "AoE2DEWarWagers",
   tokentap: "TokenTap",
   tokenchain: "TokenChain",
@@ -399,7 +399,7 @@ export default function ProjectHumanGraphs({
               Unique live people: {uniqueLivePeople}
             </div>
             <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
-              Featured defaults to AoE2HDBets
+              Featured defaults to AoE2 War
             </div>
           </div>
 

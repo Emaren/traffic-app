@@ -84,7 +84,7 @@ export default function BuilderTopDeck({
             Live now: {uniqueLivePeople}
           </div>
           <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
-            Featured project defaults to AoE2HDBets
+            Featured project defaults to AoE2 War
           </div>
           <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
             {homepageView === "view-a"
