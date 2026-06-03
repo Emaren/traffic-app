@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { memo, useMemo } from "react";
 import type { ReactNode } from "react";
+import { formatVisitorLocation } from "@/components/traffic/display";
 import type { SessionActivityItem, SessionRecord } from "@/components/traffic/types";
 import VisitorTechIcons from "@/components/traffic/visitor-tech-icons";
 
@@ -217,7 +218,7 @@ function VisitorSessionCard({
         <SessionMetaCard label="Context">
           <div>Referrer: {session.referrer || "direct"}</div>
           <div>Source: {session.source || "direct"}</div>
-          <div>{session.city || "Unknown city"}{session.area ? `, ${session.area}` : ""}{session.country ? `, ${session.country}` : ""}</div>
+          <div>{formatVisitorLocation(session)}</div>
           <div className="pt-1">
             <VisitorTechIcons device={session.device} os={session.os} browser={session.browser} />
           </div>

@@ -7,7 +7,7 @@ import {
   fetchVisibilityRules,
   fetchVisitsHistory,
 } from "@/components/traffic/api";
-import { withFlag } from "@/components/traffic/display";
+import { formatVisitorLocation, withFlag } from "@/components/traffic/display";
 import type {
   HistoryRangeKey,
   ProjectFilterOption,
@@ -180,9 +180,7 @@ function MobileVisitCard({
           </button>
         </div>
         <div className="mt-1 text-xs text-white/45">
-          {row.city || "Unknown city"}
-          {row.area ? `, ${row.area}` : ""}
-          {row.country ? `, ${row.country}` : ""}
+          {formatVisitorLocation(row)}
         </div>
         <div className="mt-1 text-xs text-white/45">
           {row.device} • {row.os} • {row.browser}
@@ -306,9 +304,7 @@ function CompactVisitRow({
             </span>
             <span className="font-mono text-[11px] text-white/55">{row.ip}</span>
             <span className="text-white/50">
-              {row.city || "Unknown city"}
-              {row.area ? `, ${row.area}` : ""}
-              {row.country ? `, ${row.country}` : ""}
+              {formatVisitorLocation(row)}
             </span>
             <span className="text-white/50">
               {row.device} • {row.browser}
@@ -876,9 +872,7 @@ export default function VisitsHistoryTable() {
                           </button>
                         </div>
                         <div className="mt-1 text-xs text-white/45">
-                          {row.city || "Unknown city"}
-                          {row.area ? `, ${row.area}` : ""}
-                          {row.country ? `, ${row.country}` : ""}
+                          {formatVisitorLocation(row)}
                         </div>
                         <div className="mt-1 text-xs text-white/45">
                           {row.device} • {row.os} • {row.browser}

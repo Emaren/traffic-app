@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { withFlag } from "@/components/traffic/display";
+import { formatVisitorLocation, withFlag } from "@/components/traffic/display";
 import type { LiveProjectCount, SessionRecord } from "@/components/traffic/types";
 
 type Props = {
@@ -101,9 +101,7 @@ export default function LiveVisitorTile({ session, projectCount }: Props) {
             {withFlag(session.country_code, session.visitor_alias)}
           </h3>
           <p className="mt-1 text-sm text-white/55">
-            {session.city || "Unknown city"}
-            {session.area ? `, ${session.area}` : ""}
-            {session.country ? `, ${session.country}` : ""} • {session.device} • {session.os} •{" "}
+            {formatVisitorLocation(session)} • {session.device} • {session.os} •{" "}
             {session.browser}
           </p>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-white/75">

@@ -14,3 +14,21 @@ export function withFlag(countryCode: string | undefined, label: string): string
   const flag = flagFromCountryCode(countryCode);
   return flag ? `${flag} ${label}` : label;
 }
+
+type VisitorLocationFields = {
+  city?: string | null;
+  area?: string | null;
+  country?: string | null;
+};
+
+export function formatVisitorLocation(
+  location: VisitorLocationFields,
+  fallback = "Location pending",
+): string {
+  const parts = [location.city, location.area, location.country].flatMap((value) => {
+    const cleaned = value?.trim();
+    return cleaned && cleaned.toLowerCase() !== "unknown" ? [cleaned] : [];
+  });
+
+  return parts.length > 0 ? parts.join(", ") : fallback;
+}

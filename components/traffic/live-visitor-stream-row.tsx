@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { withFlag } from "@/components/traffic/display";
+import { formatVisitorLocation, withFlag } from "@/components/traffic/display";
 import VisitorTechIcons from "@/components/traffic/visitor-tech-icons";
 import type { SessionRecord } from "@/components/traffic/types";
 
@@ -102,11 +102,7 @@ export default function LiveVisitorStreamRow({
   const actionPath = session.current_page || session.exit_page || session.entry_page;
 
   const visitorLabel = withFlag(session.country_code, session.visitor_alias);
-  const metaLine = session.geo_resolved
-    ? `${session.city || "Unknown city"}${session.area ? `, ${session.area}` : ""}${
-        session.country ? `, ${session.country}` : ""
-      }`
-    : "Unknown location";
+  const metaLine = formatVisitorLocation(session);
   const automationPill = automationLabel(session);
   const primaryTimestamp =
     primaryTime === "first_seen"
@@ -117,7 +113,7 @@ export default function LiveVisitorStreamRow({
       ? `Last move ${session.last_seen_alberta}`
       : null;
   const warningChips = [
-    !session.geo_resolved ? "Geo unresolved" : null,
+    !session.geo_resolved ? "Location pending" : null,
     session.classification_reasons.includes("thin_direct_browser") ? "Thin direct session" : null,
     session.classification_reasons.includes("player_page_hop") ? "Player-page hop" : null,
     session.route_bundle_spam ? "Route bundle spam" : null,

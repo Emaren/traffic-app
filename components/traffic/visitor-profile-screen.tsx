@@ -6,7 +6,7 @@ import {
   buildVisitorProfileStreamUrl,
   fetchVisitorProfile,
 } from "@/components/traffic/api";
-import { withFlag } from "@/components/traffic/display";
+import { formatVisitorLocation, withFlag } from "@/components/traffic/display";
 import VisitorActivityReel from "@/components/traffic/visitor-activity-reel";
 import VisitorSessionCard from "@/components/traffic/visitor-session-card";
 import VisibilityRulePanel from "@/components/traffic/visibility-rule-panel";
@@ -478,9 +478,7 @@ function VisitorProfileScreenInner({
                   IP {profile.visitor.ip}
                 </span>
                 <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/75">
-                  {profile.visitor.city || "Unknown city"}
-                  {profile.visitor.area ? `, ${profile.visitor.area}` : ""}
-                  {profile.visitor.country ? `, ${profile.visitor.country}` : ""}
+                  {formatVisitorLocation(profile.visitor)}
                 </span>
                 <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/75">
                   {profile.visitor.device} • {profile.visitor.os} • {profile.visitor.browser}
