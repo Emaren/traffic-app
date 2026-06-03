@@ -247,9 +247,13 @@ export default function ProjectLiveFeed({
   }, [pollMs, projectSlug]);
 
   useEffect(() => {
-    setShowOnlyGreenHumans(loadStoredBoolean(TRAFFIC_PROJECT_LIVE_GREEN_ONLY_KEY));
-    setDensity(loadStoredString(TRAFFIC_PROJECT_LIVE_DENSITY_KEY) === "compact" ? "compact" : "full");
-    setPreferencesHydrated(true);
+    const frame = window.requestAnimationFrame(() => {
+      setShowOnlyGreenHumans(loadStoredBoolean(TRAFFIC_PROJECT_LIVE_GREEN_ONLY_KEY));
+      setDensity(loadStoredString(TRAFFIC_PROJECT_LIVE_DENSITY_KEY) === "compact" ? "compact" : "full");
+      setPreferencesHydrated(true);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   useEffect(() => {

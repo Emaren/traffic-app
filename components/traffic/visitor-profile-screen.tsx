@@ -803,7 +803,8 @@ export default function VisitorProfileScreen(props: Parameters<typeof VisitorPro
   const [isClientMounted, setIsClientMounted] = useState(false);
 
   useEffect(() => {
-    setIsClientMounted(true);
+    const timer = window.setTimeout(() => setIsClientMounted(true), 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   if (!isClientMounted) {

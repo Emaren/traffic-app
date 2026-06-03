@@ -34,6 +34,11 @@ const DEFAULT_FEATURED_PROJECT_SLUG = "aoe2hdbets";
 const PINNED_PROJECT_SLUGS = [
   "aoe2hdbets",
   "aoe2dewarwagers",
+  "usetab",
+  "creditchain",
+  "ascendai",
+  "ascendchain",
+  "ascend-chains",
   "tokentap",
   "tokenchain",
   "llama",
@@ -47,6 +52,11 @@ const PINNED_PROJECT_SLUGS = [
 const PINNED_PROJECT_NAMES: Record<(typeof PINNED_PROJECT_SLUGS)[number], string> = {
   aoe2hdbets: "AoE2 War",
   aoe2dewarwagers: "AoE2DEWarWagers",
+  usetab: "UseTab",
+  creditchain: "CreditChain",
+  ascendai: "AscendAI",
+  ascendchain: "AscendChain",
+  "ascend-chains": "Ascend Chains",
   tokentap: "TokenTap",
   tokenchain: "TokenChain",
   llama: "Llama",
@@ -205,10 +215,8 @@ export default function ProjectHumanGraphs({
       if (pageIsHidden()) return;
 
       try {
-        const [nextSeries, nextOverview] = await Promise.all([
-          fetchProjectHumanSeries(activeRangeKey),
-          fetchOverviewRange(activeRangeKey as HistoryRangeKey),
-        ]);
+        const nextOverview = await fetchOverviewRange(activeRangeKey as HistoryRangeKey);
+        const nextSeries = await fetchProjectHumanSeries(activeRangeKey);
         if (!mounted) return;
 
         startTransition(() => {

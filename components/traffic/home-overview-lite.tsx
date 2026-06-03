@@ -164,10 +164,16 @@ export default function HomeOverviewLite() {
         ) : null}
 
         <div className="mt-6">
-          <BuilderTopDeck
-            uniqueLivePeople={uniqueLivePeople}
-            historyRangeKey={historyRangeKey}
-          />
+          {overview ? (
+            <BuilderTopDeck
+              uniqueLivePeople={uniqueLivePeople}
+              historyRangeKey={historyRangeKey}
+            />
+          ) : (
+            <div className="rounded-[32px] border border-white/10 bg-white/[0.03] p-6 text-sm text-white/60">
+              Loading project lanes.
+            </div>
+          )}
         </div>
       </div>
     </main>

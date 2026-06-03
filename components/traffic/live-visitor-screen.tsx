@@ -57,7 +57,7 @@ type AuxiliarySection = {
 const RECENT_WINDOW_MINUTES = 60;
 const STREAM_LIMIT = 100;
 const STREAM_HISTORY_LIMIT = 500;
-const STREAM_WINDOW_HOURS = 168;
+const STREAM_WINDOW_HOURS = 24;
 const STREAM_RETRY_MIN_MS = 30000;
 
 function parseTimestamp(value: string): number {
@@ -145,10 +145,14 @@ function LiveVisitorScreenInner({
   const shouldStickToTopRef = useRef(true);
 
   useEffect(() => {
-    setSelectedProjects(loadStoredStringArray(TRAFFIC_SHARED_PROJECT_FILTER_KEY));
-    setShowOnlyGreenHumans(loadStoredBoolean(TRAFFIC_LIVE_GREEN_ONLY_KEY));
-    setDensity(loadStoredString(TRAFFIC_LIVE_DENSITY_KEY) === "compact" ? "compact" : "full");
-    setFollowFeaturedProject(Boolean(focusedProjectSlug));
+    const frame = window.requestAnimationFrame(() => {
+      setSelectedProjects(loadStoredStringArray(TRAFFIC_SHARED_PROJECT_FILTER_KEY));
+      setShowOnlyGreenHumans(loadStoredBoolean(TRAFFIC_LIVE_GREEN_ONLY_KEY));
+      setDensity(loadStoredString(TRAFFIC_LIVE_DENSITY_KEY) === "compact" ? "compact" : "full");
+      setFollowFeaturedProject(Boolean(focusedProjectSlug));
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, [focusedProjectSlug]);
 
   useEffect(() => {
@@ -580,7 +584,7 @@ function LiveVisitorScreenInner({
     ];
 
     return sectionRows.filter((section) => section.items.length > 0);
-  }, [automationItems, browserScriptItems, recentPageReviewItems, securityItems]);
+  }, [automationItems, browserScriptItems, securityItems]);
 
   const hasVisibleContent =
     streamItems.length > 0 || (!heroMode && auxiliarySections.length > 0);
@@ -993,7 +997,8 @@ export default function LiveVisitorScreen(props: Parameters<typeof LiveVisitorSc
   const [isClientMounted, setIsClientMounted] = useState(false);
 
   useEffect(() => {
-    setIsClientMounted(true);
+    const timer = window.setTimeout(() => setIsClientMounted(true), 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   if (!isClientMounted) {

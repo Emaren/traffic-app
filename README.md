@@ -24,6 +24,8 @@ Next.js reporting and operator UI for Traffic.
 - View A is the default homepage composition: four mini project graphs, one featured graph, then the realtime visitor stream in its own full-width lane
 - View B preserves the older split-screen composition as an alternate homepage mode
 - the featured HD AoE2 project uses the stable `aoe2hdbets` analytics slug while presenting as AoE2 War / `aoe2war.com`
+- pinned lanes include UseTab, CreditChain, AscendAI, AscendChain, and the planned Ascend Chains directory when Traffic has matching host data
+- the live visitor lane defaults to a 24h window; longer ranges should be selected deliberately so homepage load does not force a 7d session rebuild
 - `/api/overview` may be intentionally slimmer than older payloads, so homepage surfaces must not assume `geo`, `suspicious`, or other heavy sections are always present
 - overview-driven UI should degrade gracefully when optional sections are absent instead of crashing
 
