@@ -882,7 +882,6 @@ function LiveVisitorScreenInner({
               {newestFirstItems.map((session) => (
                 <motion.div
                   key={session.session_id}
-                  layout="position"
                   initial={{ opacity: 0, y: -18 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 12 }}
@@ -928,7 +927,6 @@ function LiveVisitorScreenInner({
                     {section.items.map((session) => (
                       <motion.div
                         key={`${section.key}-${session.session_id}`}
-                        layout="position"
                         initial={{ opacity: 0, y: -18 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 12 }}
@@ -967,7 +965,6 @@ function LiveVisitorScreenInner({
                     {section.items.map((session) => (
                       <motion.div
                         key={`${section.key}-${session.session_id}`}
-                        layout="position"
                         initial={{ opacity: 0, y: -18 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 12 }}
