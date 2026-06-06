@@ -36,7 +36,6 @@ const RANGE_OPTIONS: Array<{ key: HistoryRangeKey; label: string }> = [
   { key: "24h", label: "24 Hours" },
   { key: "7d", label: "1 Week" },
   { key: "30d", label: "1 Month" },
-  { key: "all", label: "All Time" },
 ];
 
 function formatSeconds(total: number): string {
@@ -350,7 +349,7 @@ export default function VisitsHistoryTable() {
   const [data, setData] = useState<VisitsHistoryResponse | null>(null);
   const [error, setError] = useState("");
   const [offset, setOffset] = useState(0);
-  const [rangeKey, setRangeKey] = useState<HistoryRangeKey>("all");
+  const [rangeKey, setRangeKey] = useState<HistoryRangeKey>("24h");
   const [classification, setClassification] = useState(() =>
     loadStoredString(TRAFFIC_HISTORY_CLASSIFICATION_KEY),
   );
