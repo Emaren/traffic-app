@@ -4,6 +4,7 @@ import Link from "next/link";
 import { memo, useMemo } from "react";
 import type { ReactNode } from "react";
 import { formatVisitorLocation, knownVisitorChipClassName, knownVisitorChipLabel, knownVisitorForSession } from "@/components/traffic/display";
+import KnownIdentityActions from "@/components/traffic/known-identity-actions";
 import type { SessionActivityItem, SessionRecord } from "@/components/traffic/types";
 import VisitorTechIcons from "@/components/traffic/visitor-tech-icons";
 
@@ -192,6 +193,7 @@ function VisitorSessionCard({
           >
             Open {session.project_name}
           </Link>
+          <KnownIdentityActions session={session} compact={density === "compact"} />
           {onHideIp ? (
             <button
               type="button"

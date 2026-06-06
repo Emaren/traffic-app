@@ -1,5 +1,27 @@
 export type Severity = "low" | "medium" | "high";
 
+export type KnownIdentityKind =
+  | "owner"
+  | "family"
+  | "known_player"
+  | "known_human"
+  | "known_automation"
+  | "crawler";
+
+export type KnownIdentity = {
+  id: number;
+  rule_type: "ip";
+  match_value: string;
+  label: string;
+  detail: string;
+  identity_kind: KnownIdentityKind;
+  confidence: "confirmed" | "likely" | "weak";
+  notes: string;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type OverviewTotals = {
   requests: number;
   humans: number;

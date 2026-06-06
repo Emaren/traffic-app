@@ -1,5 +1,7 @@
 import type {
   HistoryRangeKey,
+  KnownIdentity,
+  KnownIdentityKind,
   LiveVisitorsResponse,
   OverviewResponse,
   ProjectDetailResponse,
@@ -245,6 +247,42 @@ export async function deleteVisibilityRule(ruleId: number): Promise<{
   generated_at: string;
 }> {
   return fetchAppJson(`/admin-api/visibility-rules/${ruleId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function fetchKnownIdentities(): Promise<{
+  ok: boolean;
+  generated_at?: string;
+  identities: KnownIdentity[];
+}> {
+  return fetchAppJson("/admin-api/known-identities");
+}
+
+export async function createKnownIdentity(payload: {
+  rule_type: "ip";
+  match_value: string;
+  label: string;
+  detail?: string;
+  identity_kind: KnownIdentityKind;
+  confidence?: "confirmed" | "likely" | "weak";
+  notes?: string;
+}): Promise<{
+  ok: boolean;
+  generated_at: string;
+  identity: KnownIdentity;
+}> {
+  return fetchAppJson("/admin-api/known-identities", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteKnownIdentity(identityId: number): Promise<{
+  ok: boolean;
+  generated_at: string;
+}> {
+  return fetchAppJson(`/admin-api/known-identities/${identityId}`, {
     method: "DELETE",
   });
 }
