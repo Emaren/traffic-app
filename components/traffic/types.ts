@@ -131,6 +131,10 @@ export type SessionRecord = {
   browser: string;
   known_automation: boolean;
   automation_family: string;
+  known_visitor_label?: string | null;
+  known_visitor_detail?: string | null;
+  known_visitor_kind?: string | null;
+  known_visitor_confirmed?: boolean | null;
   route_bundle_spam?: boolean;
   is_burst_cluster?: boolean;
   burst_member_count?: number;

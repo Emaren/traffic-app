@@ -6,7 +6,7 @@ import {
   buildVisitorProfileStreamUrl,
   fetchVisitorProfile,
 } from "@/components/traffic/api";
-import { formatVisitorLocation, knownVisitorChipClassName, knownVisitorChipLabel, knownVisitorForIp, withFlag } from "@/components/traffic/display";
+import { formatVisitorLocation, knownVisitorChipClassName, knownVisitorChipLabel, knownVisitorForSession, withFlag } from "@/components/traffic/display";
 import VisitorActivityReel from "@/components/traffic/visitor-activity-reel";
 import VisitorSessionCard from "@/components/traffic/visitor-session-card";
 import VisibilityRulePanel from "@/components/traffic/visibility-rule-panel";
@@ -443,7 +443,7 @@ function VisitorProfileScreenInner({
   const leadSession = useMemo(() => profile.sessions[0] ?? null, [profile.sessions]);
   const leadBadge = useMemo(() => automationBadge(leadSession), [leadSession]);
   const transport = useMemo(() => transportBadge(transportMode, pollMs), [pollMs, transportMode]);
-  const knownVisitor = knownVisitorForIp(profile.visitor.ip);
+  const knownVisitor = knownVisitorForSession(profile.visitor);
   const sessionCoverageLabel =
     profile.range_key === "all" ? "stored history" : `${profile.range_label.toLowerCase()} view`;
   const sessionSummary =

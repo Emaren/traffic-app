@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { memo, useMemo } from "react";
 import type { ReactNode } from "react";
-import { formatVisitorLocation, knownVisitorChipClassName, knownVisitorChipLabel, knownVisitorForIp } from "@/components/traffic/display";
+import { formatVisitorLocation, knownVisitorChipClassName, knownVisitorChipLabel, knownVisitorForSession } from "@/components/traffic/display";
 import type { SessionActivityItem, SessionRecord } from "@/components/traffic/types";
 import VisitorTechIcons from "@/components/traffic/visitor-tech-icons";
 
@@ -143,7 +143,7 @@ function VisitorSessionCard({
   const activityPreviewCount = density === "compact" ? 6 : 10;
   const activityPreview = groupedActivity.slice(0, activityPreviewCount);
   const rawPreviewCount = density === "compact" ? 30 : 80;
-  const knownVisitor = knownVisitorForIp(session.ip);
+  const knownVisitor = knownVisitorForSession(session);
 
   return (
     <article className="rounded-3xl border border-white/10 bg-black/20 p-4 shadow-[0_20px_50px_rgba(0,0,0,0.18)]">

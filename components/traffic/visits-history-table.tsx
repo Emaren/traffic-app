@@ -7,7 +7,7 @@ import {
   fetchVisibilityRules,
   fetchVisitsHistory,
 } from "@/components/traffic/api";
-import { formatVisitorLocation, knownVisitorChipClassName, knownVisitorChipLabel, knownVisitorForIp, withFlag } from "@/components/traffic/display";
+import { formatVisitorLocation, knownVisitorChipClassName, knownVisitorChipLabel, knownVisitorForSession, withFlag } from "@/components/traffic/display";
 import type {
   HistoryRangeKey,
   ProjectFilterOption,
@@ -126,7 +126,7 @@ function MobileVisitCard({
   onHideIp: (ip: string) => void;
 }) {
   const automationPill = automationLabel(row);
-  const knownVisitor = knownVisitorForIp(row.ip);
+  const knownVisitor = knownVisitorForSession(row);
 
   return (
     <div
@@ -265,7 +265,7 @@ function CompactVisitRow({
   onHideIp: (ip: string) => void;
 }) {
   const automationPill = automationLabel(row);
-  const knownVisitor = knownVisitorForIp(row.ip);
+  const knownVisitor = knownVisitorForSession(row);
 
   return (
     <div
