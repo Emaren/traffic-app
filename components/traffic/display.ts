@@ -65,6 +65,11 @@ const KNOWN_VISITORS_BY_IP: Record<string, KnownVisitor> = {
     detail: "likely family",
     tone: "known_player",
   },
+  "68.131.37.96": {
+    label: "Jim",
+    detail: "known player",
+    tone: "known_player",
+  },
 };
 
 export function knownVisitorForIp(ip?: string | null): KnownVisitor | null {
