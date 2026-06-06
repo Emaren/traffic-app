@@ -887,6 +887,9 @@ export default function VisitsHistoryTable() {
                             Hide IP
                           </button>
                         </div>
+                        <div className="mt-2 max-w-[260px]">
+                          <KnownIdentityActions session={row} compact />
+                        </div>
                         <div className="mt-1 text-xs text-white/45">
                           {formatVisitorLocation(row)}
                         </div>
