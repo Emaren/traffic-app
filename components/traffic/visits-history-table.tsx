@@ -184,6 +184,9 @@ function MobileVisitCard({
           >
             Hide IP
           </button>
+          <div className="mt-2">
+            <KnownIdentityActions session={row} compact />
+          </div>
         </div>
         <div className="mt-1 text-xs text-white/45">
           {formatVisitorLocation(row)}
