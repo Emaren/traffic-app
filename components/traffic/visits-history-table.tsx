@@ -7,7 +7,7 @@ import {
   fetchVisibilityRules,
   fetchVisitsHistory,
 } from "@/components/traffic/api";
-import { formatVisitorLocation, withFlag } from "@/components/traffic/display";
+import { formatVisitorLocation, knownVisitorChipClassName, knownVisitorChipLabel, knownVisitorForIp, withFlag } from "@/components/traffic/display";
 import type {
   HistoryRangeKey,
   ProjectFilterOption,
@@ -126,6 +126,7 @@ function MobileVisitCard({
   onHideIp: (ip: string) => void;
 }) {
   const automationPill = automationLabel(row);
+  const knownVisitor = knownVisitorForIp(row.ip);
 
   return (
     <div
@@ -146,6 +147,11 @@ function MobileVisitCard({
         >
           {row.verdict_label}
         </span>
+        {knownVisitor ? (
+          <span className={knownVisitorChipClassName(knownVisitor)}>
+            {knownVisitorChipLabel(knownVisitor)}
+          </span>
+        ) : null}
         {automationPill ? (
           <span
             className={`rounded-full border px-2.5 py-1 font-medium ${automationClass(row)}`}
@@ -259,6 +265,7 @@ function CompactVisitRow({
   onHideIp: (ip: string) => void;
 }) {
   const automationPill = automationLabel(row);
+  const knownVisitor = knownVisitorForIp(row.ip);
 
   return (
     <div
@@ -284,7 +291,12 @@ function CompactVisitRow({
             >
               {row.verdict_label}
             </span>
-            {automationPill ? (
+            {knownVisitor ? (
+          <span className={knownVisitorChipClassName(knownVisitor)}>
+            {knownVisitorChipLabel(knownVisitor)}
+          </span>
+        ) : null}
+        {automationPill ? (
               <span
                 className={`rounded-full border px-2.5 py-1 font-medium ${automationClass(row)}`}
               >

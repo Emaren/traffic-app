@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { formatVisitorLocation, withFlag } from "@/components/traffic/display";
+import { formatVisitorLocation, knownVisitorChipClassName, knownVisitorChipLabel, knownVisitorForIp, withFlag } from "@/components/traffic/display";
 import type { LiveProjectCount, SessionRecord } from "@/components/traffic/types";
 
 type Props = {
@@ -65,6 +65,7 @@ function attentionClass(label: string) {
 
 export default function LiveVisitorTile({ session, projectCount }: Props) {
   const projectLiveNow = projectCount?.active_now ?? 0;
+  const knownVisitor = knownVisitorForIp(session.ip);
 
   return (
     <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-xl shadow-black/20">
@@ -81,6 +82,11 @@ export default function LiveVisitorTile({ session, projectCount }: Props) {
             >
               {session.verdict_label}
             </span>
+            {knownVisitor ? (
+              <span className={knownVisitorChipClassName(knownVisitor)}>
+                {knownVisitorChipLabel(knownVisitor)}
+              </span>
+            ) : null}
             {session.active_now ? (
               <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-200">
                 Active now

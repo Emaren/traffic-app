@@ -6,7 +6,7 @@ import {
   buildVisitorProfileStreamUrl,
   fetchVisitorProfile,
 } from "@/components/traffic/api";
-import { formatVisitorLocation, withFlag } from "@/components/traffic/display";
+import { formatVisitorLocation, knownVisitorChipClassName, knownVisitorChipLabel, knownVisitorForIp, withFlag } from "@/components/traffic/display";
 import VisitorActivityReel from "@/components/traffic/visitor-activity-reel";
 import VisitorSessionCard from "@/components/traffic/visitor-session-card";
 import VisibilityRulePanel from "@/components/traffic/visibility-rule-panel";
@@ -443,6 +443,7 @@ function VisitorProfileScreenInner({
   const leadSession = useMemo(() => profile.sessions[0] ?? null, [profile.sessions]);
   const leadBadge = useMemo(() => automationBadge(leadSession), [leadSession]);
   const transport = useMemo(() => transportBadge(transportMode, pollMs), [pollMs, transportMode]);
+  const knownVisitor = knownVisitorForIp(profile.visitor.ip);
   const sessionCoverageLabel =
     profile.range_key === "all" ? "stored history" : `${profile.range_label.toLowerCase()} view`;
   const sessionSummary =
@@ -477,6 +478,11 @@ function VisitorProfileScreenInner({
                 <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 font-mono text-xs text-white/75">
                   IP {profile.visitor.ip}
                 </span>
+                {knownVisitor ? (
+                  <span className={knownVisitorChipClassName(knownVisitor)}>
+                    {knownVisitorChipLabel(knownVisitor)}
+                  </span>
+                ) : null}
                 <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/75">
                   {formatVisitorLocation(profile.visitor)}
                 </span>

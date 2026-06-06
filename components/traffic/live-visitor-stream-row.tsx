@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { formatVisitorLocation, withFlag } from "@/components/traffic/display";
+import { formatVisitorLocation, knownVisitorChipClassName, knownVisitorChipLabel, knownVisitorForIp, withFlag } from "@/components/traffic/display";
 import VisitorTechIcons from "@/components/traffic/visitor-tech-icons";
 import type { SessionRecord } from "@/components/traffic/types";
 
@@ -102,6 +102,7 @@ export default function LiveVisitorStreamRow({
   const actionPath = session.current_page || session.exit_page || session.entry_page;
 
   const visitorLabel = withFlag(session.country_code, session.visitor_alias);
+  const knownVisitor = knownVisitorForIp(session.ip);
   const metaLine = formatVisitorLocation(session);
   const automationPill = automationLabel(session);
   const primaryTimestamp =
@@ -146,6 +147,11 @@ export default function LiveVisitorStreamRow({
               >
                 {session.verdict_label}
               </span>
+              {knownVisitor ? (
+                <span className={knownVisitorChipClassName(knownVisitor)}>
+                  {knownVisitorChipLabel(knownVisitor)}
+                </span>
+              ) : null}
               {automationPill ? (
                 <span
                   className={`rounded-full border px-2.5 py-1 font-medium ${automationClass(session)}`}
