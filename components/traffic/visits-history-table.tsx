@@ -8,6 +8,7 @@ import {
   fetchVisitsHistory,
 } from "@/components/traffic/api";
 import { formatVisitorLocation, knownVisitorChipClassName, knownVisitorChipLabel, knownVisitorForSession, withFlag } from "@/components/traffic/display";
+import KnownIdentityActions from "@/components/traffic/known-identity-actions";
 import type {
   HistoryRangeKey,
   ProjectFilterOption,
@@ -340,6 +341,7 @@ function CompactVisitRow({
         >
           Hide IP
         </button>
+        <KnownIdentityActions session={row} compact />
       </div>
     </div>
   );
