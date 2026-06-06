@@ -225,6 +225,11 @@ export default function LiveVisitorStreamRow({
                 >
                   {session.verdict_label}
                 </span>
+                {knownVisitor ? (
+                  <span className={knownVisitorChipClassName(knownVisitor)}>
+                    {knownVisitorChipLabel(knownVisitor)}
+                  </span>
+                ) : null}
                 {automationPill ? (
                   <span
                     className={`rounded-full border px-2.5 py-1 font-medium ${automationClass(session)}`}
