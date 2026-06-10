@@ -503,6 +503,77 @@ function LiveVisitorScreenInner({
 
   const olderHumanHasMore = olderHumanOffset < olderHumanTotal;
 
+  const operatorTruthStats = useMemo(() => {
+    const raw = (data ?? {}) as Record<string, unknown>;
+    const numberFrom = (key: string, fallback = 0) => {
+      const value = raw[key];
+      return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+    };
+    const arrayLengthFrom = (key: string) => {
+      const value = raw[key];
+      return Array.isArray(value) ? value.length : 0;
+    };
+
+    const projectCounts = data?.project_counts ?? [];
+    const confirmedHumans = projectCounts.reduce(
+      (total, project) => total + (project.human_confirmed ?? 0),
+      0,
+    );
+    const likelyHumans = projectCounts.reduce(
+      (total, project) => total + (project.likely_human ?? 0),
+      0,
+    );
+    const unclearHumans = projectCounts.reduce(
+      (total, project) => total + (project.candidate ?? 0),
+      0,
+    );
+
+    return [
+      {
+        label: "Audience history",
+        value: olderHumanTotal,
+        detail: "clean 24h humans",
+        className: "border-emerald-400/25 bg-emerald-400/10 text-emerald-100",
+      },
+      {
+        label: "Confirmed",
+        value: confirmedHumans,
+        detail: "high confidence",
+        className: "border-cyan-400/25 bg-cyan-400/10 text-cyan-100",
+      },
+      {
+        label: "Likely",
+        value: likelyHumans,
+        detail: "audience-grade",
+        className: "border-sky-400/25 bg-sky-400/10 text-sky-100",
+      },
+      {
+        label: "Unclear",
+        value: unclearHumans,
+        detail: "kept separate",
+        className: "border-white/10 bg-white/5 text-white/70",
+      },
+      {
+        label: "App activity",
+        value: numberFrom("app_activity_count", arrayLengthFrom("app_activity_preview")),
+        detail: "user-facing API",
+        className: "border-violet-400/25 bg-violet-400/10 text-violet-100",
+      },
+      {
+        label: "Chain signals",
+        value: numberFrom("chain_signal_count", arrayLengthFrom("chain_signal_preview")),
+        detail: "not audience",
+        className: "border-amber-400/25 bg-amber-400/10 text-amber-100",
+      },
+      {
+        label: "Security",
+        value: numberFrom("security_count", arrayLengthFrom("security_preview")),
+        detail: "probe/watch",
+        className: "border-rose-400/25 bg-rose-400/10 text-rose-100",
+      },
+    ];
+  }, [data, olderHumanTotal]);
+
   const recentPageReviewItems = useMemo(() => {
     if (showOnlyGreenHumans) {
       return [];
@@ -892,6 +963,41 @@ function LiveVisitorScreenInner({
           </Link>
         </div>
       </div>
+
+      {!heroMode ? (
+        <div className="mb-4 rounded-3xl border border-white/10 bg-black/25 p-4">
+          <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <p className="text-xs uppercase tracking-[0.24em] text-cyan-300/70">
+                Operator Truth
+              </p>
+              <h3 className="text-lg font-semibold text-white">
+                Raw traffic is separated from audience traffic
+              </h3>
+            </div>
+            <p className="max-w-xl text-xs text-white/50">
+              Live stays light. Older human traffic lazy-loads below. Chain, automation, and security noise stay visible without pretending to be people.
+            </p>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-7">
+            {operatorTruthStats.map((stat) => (
+              <div
+                key={stat.label}
+                className={`rounded-2xl border px-3 py-3 ${stat.className}`}
+              >
+                <div className="text-2xl font-semibold leading-none">
+                  {stat.value.toLocaleString()}
+                </div>
+                <div className="mt-1 text-xs font-medium uppercase tracking-[0.16em] opacity-85">
+                  {stat.label}
+                </div>
+                <div className="mt-1 text-xs opacity-60">{stat.detail}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {transportNotice ? (
         <div className="mb-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-200">
