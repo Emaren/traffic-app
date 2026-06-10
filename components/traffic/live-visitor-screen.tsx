@@ -61,6 +61,7 @@ const STREAM_HISTORY_LIMIT = 0;
 const STREAM_WINDOW_HOURS = 24;
 const STREAM_RETRY_MIN_MS = 30000;
 const OLDER_HUMAN_PAGE_SIZE = 25;
+const OLDER_HUMAN_RANGE_KEY = "all";
 const DEFAULT_FOCUS_PROJECT_SLUG = "aoe2war";
 
 function parseTimestamp(value: string): number {
@@ -419,7 +420,7 @@ function LiveVisitorScreenInner({
         const next = await fetchVisitsHistory({
           limit: OLDER_HUMAN_PAGE_SIZE,
           offset: nextOffset,
-          rangeKey: "24h",
+          rangeKey: OLDER_HUMAN_RANGE_KEY,
           classification: "human_visible",
           projects: olderHumanProjectFilter.length > 0 ? olderHumanProjectFilter : undefined,
         });
@@ -1260,7 +1261,7 @@ function LiveVisitorScreenInner({
                     <div>
                       <h3 className="text-base font-semibold text-white">Older Human Traffic</h3>
                       <p className="text-xs text-white/50">
-                        Lazy-loaded audience-grade visits from the 24h history. Live rows stay fast; older people load on demand.
+                        Lazy-loaded AoE2 War audience-grade visits from all stored history. Live rows stay fast; older people load on demand.
                       </p>
                     </div>
                     <div className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs text-cyan-200">
@@ -1300,8 +1301,8 @@ function LiveVisitorScreenInner({
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 p-4">
                   <p className="text-sm text-white/55">
                     {olderHumanHasMore
-                      ? "Load the next older batch without increasing the live stream payload."
-                      : "No more audience-grade human visits in this 24h window."}
+                      ? "Load the next older AoE2 War batch without increasing the live stream payload."
+                      : "No more audience-grade human visits in stored AoE2 War history."}
                   </p>
                   <button
                     type="button"
