@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { startTransition, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   buildLiveVisitorsStreamUrl,
   fetchLiveVisitors,
+  fetchVisitsHistory,
 } from "@/components/traffic/api";
 import LiveVisitorStreamRow from "@/components/traffic/live-visitor-stream-row";
 import VisibilityRulePanel from "@/components/traffic/visibility-rule-panel";
@@ -59,6 +60,7 @@ const STREAM_LIMIT = 24;
 const STREAM_HISTORY_LIMIT = 0;
 const STREAM_WINDOW_HOURS = 24;
 const STREAM_RETRY_MIN_MS = 30000;
+const OLDER_HUMAN_PAGE_SIZE = 25;
 
 function parseTimestamp(value: string): number {
   const parsed = Date.parse(value);
@@ -131,6 +133,11 @@ function LiveVisitorScreenInner({
   const [showOnlyGreenHumans, setShowOnlyGreenHumans] = useState(false);
   const [density, setDensity] = useState<"full" | "compact">("full");
   const [recentReviewQuery, setRecentReviewQuery] = useState("");
+  const [olderHumanItems, setOlderHumanItems] = useState<SessionRecord[]>([]);
+  const [olderHumanOffset, setOlderHumanOffset] = useState(0);
+  const [olderHumanTotal, setOlderHumanTotal] = useState(0);
+  const [olderHumanLoading, setOlderHumanLoading] = useState(false);
+  const [olderHumanError, setOlderHumanError] = useState("");
   const [followFeaturedProject, setFollowFeaturedProject] = useState(Boolean(focusedProjectSlug));
   const {
     supportsSharedRules,
@@ -370,6 +377,70 @@ function LiveVisitorScreenInner({
     availableProjectSlugs.length > 0 &&
     effectiveSelectedProjects.length === availableProjectSlugs.length;
 
+  const olderHumanProjectFilter = useMemo(() => {
+    if (allProjectsSelected) return [];
+    return effectiveSelectedProjects;
+  }, [allProjectsSelected, effectiveSelectedProjects]);
+
+  const olderHumanProjectSignature = olderHumanProjectFilter.join("|");
+
+  const loadOlderHumanTraffic = useCallback(
+    async (reset = false) => {
+      if (olderHumanLoading) return;
+
+      const nextOffset = reset ? 0 : olderHumanOffset;
+      setOlderHumanLoading(true);
+      setOlderHumanError("");
+
+      try {
+        const next = await fetchVisitsHistory({
+          limit: OLDER_HUMAN_PAGE_SIZE,
+          offset: nextOffset,
+          rangeKey: "24h",
+          classification: "human_visible",
+          projects: olderHumanProjectFilter.length > 0 ? olderHumanProjectFilter : undefined,
+        });
+
+        startTransition(() => {
+          setOlderHumanItems((current) => {
+            const merged = reset ? [] : [...current];
+            const seen = new Set(merged.map((session) => session.session_id));
+
+            for (const session of next.items) {
+              if (!seen.has(session.session_id)) {
+                merged.push(session);
+                seen.add(session.session_id);
+              }
+            }
+
+            return merged;
+          });
+          setOlderHumanOffset(nextOffset + next.items.length);
+          setOlderHumanTotal(next.total);
+        });
+      } catch (err) {
+        setOlderHumanError(
+          err instanceof Error ? err.message : "Failed to load older human traffic",
+        );
+      } finally {
+        setOlderHumanLoading(false);
+      }
+    },
+    [olderHumanLoading, olderHumanOffset, olderHumanProjectFilter],
+  );
+
+  useEffect(() => {
+    if (heroMode) return;
+
+    setOlderHumanItems([]);
+    setOlderHumanOffset(0);
+    setOlderHumanTotal(0);
+    setOlderHumanError("");
+    void loadOlderHumanTraffic(true);
+    // The project signature intentionally resets history when the operator changes filters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [heroMode, olderHumanProjectSignature]);
+
   const streamItems = useMemo(() => {
     const sourceItems = data?.stream_items ?? [];
     const selectedProjectSet = new Set(effectiveSelectedProjects);
@@ -400,6 +471,37 @@ function LiveVisitorScreenInner({
     showOnlyGreenHumans,
   ]);
 
+
+  const olderHumanVisibleItems = useMemo(() => {
+    const streamSessionIds = new Set(streamItems.map((session) => session.session_id));
+
+    return olderHumanItems.filter((session) => {
+      if (streamSessionIds.has(session.session_id)) {
+        return false;
+      }
+      if (
+        sessionHiddenByVisibilityRules(
+          session,
+          activeVisibilityRules,
+          effectiveHiddenIps,
+        )
+      ) {
+        return false;
+      }
+      if (showOnlyGreenHumans && session.classification_state !== "human_confirmed") {
+        return false;
+      }
+      return true;
+    });
+  }, [
+    activeVisibilityRules,
+    effectiveHiddenIps,
+    olderHumanItems,
+    showOnlyGreenHumans,
+    streamItems,
+  ]);
+
+  const olderHumanHasMore = olderHumanOffset < olderHumanTotal;
 
   const recentPageReviewItems = useMemo(() => {
     if (showOnlyGreenHumans) {
@@ -650,7 +752,10 @@ function LiveVisitorScreenInner({
   }, [appActivityItems, automationItems, browserScriptItems, chainSignalItems, securityItems]);
 
   const hasVisibleContent =
-    streamItems.length > 0 || (!heroMode && auxiliarySections.length > 0);
+    streamItems.length > 0 ||
+    olderHumanVisibleItems.length > 0 ||
+    olderHumanLoading ||
+    (!heroMode && auxiliarySections.length > 0);
 
   const streamHeadSignature = useMemo(
     () =>
@@ -1008,6 +1113,71 @@ function LiveVisitorScreenInner({
                 </div>
               </div>
             ))}
+
+            {(olderHumanVisibleItems.length > 0 ||
+              olderHumanLoading ||
+              olderHumanError ||
+              olderHumanTotal > 0) ? (
+              <div>
+                <div className="sticky top-0 z-10 mb-3 rounded-2xl border border-white/10 bg-[#090b11]/90 px-4 py-3 backdrop-blur">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-base font-semibold text-white">Older Human Traffic</h3>
+                      <p className="text-xs text-white/50">
+                        Lazy-loaded audience-grade visits from the 24h history. Live rows stay fast; older people load on demand.
+                      </p>
+                    </div>
+                    <div className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs text-cyan-200">
+                      {olderHumanVisibleItems.length} visible / {olderHumanTotal} total
+                    </div>
+                  </div>
+                </div>
+
+                {olderHumanError ? (
+                  <div className="mb-3 rounded-2xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-200">
+                    {olderHumanError}
+                  </div>
+                ) : null}
+
+                <div className="space-y-3">
+                  <AnimatePresence initial={false}>
+                    {olderHumanVisibleItems.map((session) => (
+                      <motion.div
+                        key={`older-human-${session.session_id}`}
+                        initial={{ opacity: 0, y: -18 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 12 }}
+                        transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+                      >
+                        <LiveVisitorStreamRow
+                          session={session}
+                          density={density}
+                          onHideIp={hideIp}
+                          onHidePath={supportsSharedRules ? hidePath : undefined}
+                          onHideProject={supportsSharedRules ? hideProject : undefined}
+                        />
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <p className="text-sm text-white/55">
+                    {olderHumanHasMore
+                      ? "Load the next older batch without increasing the live stream payload."
+                      : "No more audience-grade human visits in this 24h window."}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void loadOlderHumanTraffic(false)}
+                    disabled={olderHumanLoading || !olderHumanHasMore}
+                    className="cursor-pointer rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/15 disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    {olderHumanLoading ? "Loading older humans…" : "Load older human traffic"}
+                  </button>
+                </div>
+              </div>
+            ) : null}
 
             {auxiliarySections.map((section) => (
               <div key={section.key}>
