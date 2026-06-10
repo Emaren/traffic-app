@@ -100,7 +100,7 @@ export default function BuilderTopDeck({
             <ProjectHumanGraphs
               key={`stacked-${historyRangeKey}`}
               layout="stacked"
-              pollMs={45000}
+              pollMs={180000}
               uniqueLivePeople={uniqueLivePeople}
               initialRangeKey={historyRangeKey}
               selectedProjectSlug={featuredProjectSlug}
@@ -108,7 +108,7 @@ export default function BuilderTopDeck({
             />
 
             <LiveVisitorScreen
-              pollMs={20000}
+              pollMs={120000}
               mode="default"
               focusedProjectSlug={featuredProjectSlug}
             />
@@ -117,7 +117,7 @@ export default function BuilderTopDeck({
           <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr] xl:items-start">
             <ProjectHumanGraphs
               key={`combined-${historyRangeKey}`}
-              pollMs={45000}
+              pollMs={180000}
               uniqueLivePeople={uniqueLivePeople}
               initialRangeKey={historyRangeKey}
               selectedProjectSlug={featuredProjectSlug}
@@ -126,7 +126,7 @@ export default function BuilderTopDeck({
 
             <div className="xl:sticky xl:top-6">
               <LiveVisitorScreen
-                pollMs={20000}
+                pollMs={120000}
                 mode="hero"
                 focusedProjectSlug={featuredProjectSlug}
               />
