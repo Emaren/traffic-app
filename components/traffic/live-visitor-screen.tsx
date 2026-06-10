@@ -61,7 +61,8 @@ const STREAM_HISTORY_LIMIT = 0;
 const STREAM_WINDOW_HOURS = 24;
 const STREAM_RETRY_MIN_MS = 30000;
 const OLDER_HUMAN_PAGE_SIZE = 25;
-const OLDER_HUMAN_RANGE_KEY = "all";
+const OLDER_HUMAN_INITIAL_RANGE_KEY = "24h";
+const OLDER_HUMAN_ARCHIVE_RANGE_KEY = "all";
 const DEFAULT_FOCUS_PROJECT_SLUG = "aoe2hdbets";
 
 function parseTimestamp(value: string): number {
@@ -155,6 +156,7 @@ function LiveVisitorScreenInner({
   const [olderHumanTotal, setOlderHumanTotal] = useState(0);
   const [olderHumanLoading, setOlderHumanLoading] = useState(false);
   const [olderHumanError, setOlderHumanError] = useState("");
+  const [olderHumanArchiveMode, setOlderHumanArchiveMode] = useState(false);
   const [followFeaturedProject, setFollowFeaturedProject] = useState(true);
   const {
     supportsSharedRules,
@@ -429,7 +431,9 @@ function LiveVisitorScreenInner({
         const next = await fetchVisitsHistory({
           limit: OLDER_HUMAN_PAGE_SIZE,
           offset: nextOffset,
-          rangeKey: OLDER_HUMAN_RANGE_KEY,
+          rangeKey: olderHumanArchiveMode
+            ? OLDER_HUMAN_ARCHIVE_RANGE_KEY
+            : OLDER_HUMAN_INITIAL_RANGE_KEY,
           classification: "human_visible",
           projects: olderHumanProjectFilter.length > 0 ? olderHumanProjectFilter : undefined,
         });
@@ -459,7 +463,7 @@ function LiveVisitorScreenInner({
         setOlderHumanLoading(false);
       }
     },
-    [olderHumanLoading, olderHumanOffset, olderHumanProjectFilter],
+    [olderHumanArchiveMode, olderHumanLoading, olderHumanOffset, olderHumanProjectFilter],
   );
 
   useEffect(() => {
@@ -469,6 +473,7 @@ function LiveVisitorScreenInner({
     setOlderHumanOffset(0);
     setOlderHumanTotal(0);
     setOlderHumanError("");
+    setOlderHumanArchiveMode(false);
     void loadOlderHumanTraffic(true);
     // The project signature intentionally resets history when the operator changes filters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -507,6 +512,15 @@ function LiveVisitorScreenInner({
     showOnlyGreenHumans,
   ]);
 
+
+  const unlockOlderHumanArchive = useCallback(() => {
+    setOlderHumanArchiveMode(true);
+    setOlderHumanItems([]);
+    setOlderHumanOffset(0);
+    setOlderHumanTotal(0);
+    setOlderHumanError("");
+    void loadOlderHumanTraffic(true);
+  }, [loadOlderHumanTraffic]);
 
   const olderHumanVisibleItems = useMemo(() => {
     const streamSessionIds = new Set(streamItems.map((session) => session.session_id));
@@ -1270,7 +1284,9 @@ function LiveVisitorScreenInner({
                     <div>
                       <h3 className="text-base font-semibold text-white">Older Human Traffic</h3>
                       <p className="text-xs text-white/50">
-                        Lazy-loaded AoE2 War audience-grade visits from all stored history. Live rows stay fast; older people load on demand.
+                        {olderHumanArchiveMode
+                          ? "Lazy-loaded AoE2 War audience-grade visits from all stored history. Live rows stay fast; older people load on demand."
+                          : "Showing recent AoE2 War audience-grade visits first. Open the archive to scroll back through stored history."}
                       </p>
                     </div>
                     <div className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs text-cyan-200">
@@ -1309,17 +1325,27 @@ function LiveVisitorScreenInner({
 
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 p-4">
                   <p className="text-sm text-white/55">
-                    {olderHumanHasMore
-                      ? "Load the next older AoE2 War batch without increasing the live stream payload."
-                      : "No more audience-grade human visits in stored AoE2 War history."}
+                    {olderHumanArchiveMode
+                      ? olderHumanHasMore
+                        ? "Load the next older AoE2 War archive batch without increasing the live stream payload."
+                        : "No more audience-grade human visits in stored AoE2 War history."
+                      : "Open the full AoE2 War archive when you want to scroll beyond the recent 24h window."}
                   </p>
                   <button
                     type="button"
-                    onClick={() => void loadOlderHumanTraffic(false)}
-                    disabled={olderHumanLoading || !olderHumanHasMore}
+                    onClick={() =>
+                      olderHumanArchiveMode
+                        ? void loadOlderHumanTraffic(false)
+                        : unlockOlderHumanArchive()
+                    }
+                    disabled={olderHumanLoading || (olderHumanArchiveMode && !olderHumanHasMore)}
                     className="cursor-pointer rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/15 disabled:cursor-not-allowed disabled:opacity-45"
                   >
-                    {olderHumanLoading ? "Loading older humans…" : "Load older human traffic"}
+                    {olderHumanLoading
+                      ? "Loading older humans…"
+                      : olderHumanArchiveMode
+                        ? "Load older human traffic"
+                        : "Open full AoE2 War archive"}
                   </button>
                 </div>
               </div>
