@@ -32,7 +32,7 @@ import {
 } from "@/components/traffic/view-preferences";
 
 const PAGE_SIZE = 25;
-const POLL_MS = 30000;
+const POLL_MS = 60000;
 const RANGE_OPTIONS: Array<{ key: HistoryRangeKey; label: string }> = [
   { key: "24h", label: "24 Hours" },
   { key: "7d", label: "1 Week" },

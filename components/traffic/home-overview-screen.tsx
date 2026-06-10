@@ -45,7 +45,7 @@ function pageIsHidden() {
 
 export default function HomeOverviewScreen({
   initialOverview,
-  pollMs = 30000,
+  pollMs = 120000,
 }: {
   initialOverview: OverviewResponse | null;
   pollMs?: number;

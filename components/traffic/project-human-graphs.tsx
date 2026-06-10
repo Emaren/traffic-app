@@ -194,7 +194,7 @@ function activityEmptyLabel(project: ActivityProject) {
 }
 
 export default function ProjectHumanGraphs({
-  pollMs = 30000,
+  pollMs = 180000,
   uniqueLivePeople,
   initialRangeKey = DEFAULT_RANGE_KEY,
   selectedProjectSlug,
