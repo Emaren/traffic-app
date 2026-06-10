@@ -47,7 +47,7 @@ type StreamSection = {
 };
 
 type AuxiliarySection = {
-  key: "recent_page_review" | "browser_scripts" | "automation" | "security";
+  key: "recent_page_review" | "app_activity" | "chain_signal" | "browser_scripts" | "automation" | "security";
   title: string;
   description: string;
   badgeClass: string;
@@ -55,8 +55,8 @@ type AuxiliarySection = {
 };
 
 const RECENT_WINDOW_MINUTES = 60;
-const STREAM_LIMIT = 100;
-const STREAM_HISTORY_LIMIT = 500;
+const STREAM_LIMIT = 24;
+const STREAM_HISTORY_LIMIT = 0;
 const STREAM_WINDOW_HOURS = 24;
 const STREAM_RETRY_MIN_MS = 30000;
 

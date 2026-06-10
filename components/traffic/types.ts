@@ -269,6 +269,10 @@ export type LiveVisitorsResponse = {
   history_count: number;
   stream_total: number;
   stream_items: SessionRecord[];
+  app_activity_count?: number;
+  app_activity_preview?: SessionRecord[];
+  chain_signal_count?: number;
+  chain_signal_preview?: SessionRecord[];
   browser_script_count?: number;
   browser_script_preview?: SessionRecord[];
   automation_count: number;
