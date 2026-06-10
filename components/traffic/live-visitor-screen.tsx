@@ -62,7 +62,7 @@ const STREAM_WINDOW_HOURS = 24;
 const STREAM_RETRY_MIN_MS = 30000;
 const OLDER_HUMAN_PAGE_SIZE = 25;
 const OLDER_HUMAN_RANGE_KEY = "all";
-const DEFAULT_FOCUS_PROJECT_SLUG = "aoe2war";
+const DEFAULT_FOCUS_PROJECT_SLUG = "aoe2hdbets";
 
 function parseTimestamp(value: string): number {
   const parsed = Date.parse(value);
@@ -78,6 +78,10 @@ function sessionProjectToken(session: SessionRecord): string {
   return normalizeProjectToken(
     raw.project_slug ?? raw.projectSlug ?? raw.project_key ?? raw.project ?? raw.project_name,
   );
+}
+
+function canonicalProjectSlug(value: string): string {
+  return normalizeProjectToken(value) === "aoe2war" ? "aoe2hdbets" : value;
 }
 
 function transportBadge(mode: LiveTransportMode, pollMs: number) {
@@ -392,21 +396,26 @@ function LiveVisitorScreenInner({
 
   const olderHumanProjectFilter = useMemo(() => {
     if (followFeaturedProject) {
-      return [focusedProjectSlug || DEFAULT_FOCUS_PROJECT_SLUG];
+      return [canonicalProjectSlug(focusedProjectSlug || DEFAULT_FOCUS_PROJECT_SLUG)];
     }
 
     if (allProjectsSelected) return [];
 
     return effectiveSelectedProjects.length > 0
-      ? effectiveSelectedProjects
+      ? effectiveSelectedProjects.map(canonicalProjectSlug)
       : [DEFAULT_FOCUS_PROJECT_SLUG];
   }, [allProjectsSelected, effectiveSelectedProjects, focusedProjectSlug, followFeaturedProject]);
 
   const olderHumanProjectSignature = olderHumanProjectFilter.join("|");
-  const olderHumanProjectTokens = useMemo(
-    () => new Set(olderHumanProjectFilter.map(normalizeProjectToken)),
-    [olderHumanProjectFilter],
-  );
+  const olderHumanProjectTokens = useMemo(() => {
+    const tokens = new Set(olderHumanProjectFilter.map(normalizeProjectToken));
+
+    // AoE2 War is the public brand; aoe2hdbets is the legacy canonical Traffic slug.
+    if (tokens.has("aoe2hdbets")) tokens.add("aoe2war");
+    if (tokens.has("aoe2war")) tokens.add("aoe2hdbets");
+
+    return tokens;
+  }, [olderHumanProjectFilter]);
 
   const loadOlderHumanTraffic = useCallback(
     async (reset = false) => {
