@@ -356,7 +356,7 @@ export default function VisitsHistoryTable() {
   const [offset, setOffset] = useState(0);
   const [rangeKey, setRangeKey] = useState<HistoryRangeKey>("24h");
   const [classification, setClassification] = useState(() =>
-    loadStoredString(TRAFFIC_HISTORY_CLASSIFICATION_KEY),
+    loadStoredString(TRAFFIC_HISTORY_CLASSIFICATION_KEY) || "human_visible",
   );
   const [showOnlyGreenHumans, setShowOnlyGreenHumans] = useState(() =>
     loadStoredBoolean(TRAFFIC_HISTORY_GREEN_ONLY_KEY),
@@ -650,8 +650,9 @@ export default function VisitsHistoryTable() {
                 className="w-full cursor-pointer rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none sm:w-auto"
               >
                 <option value="">All</option>
-                <option value="human_confirmed">Likely human</option>
-                <option value="likely_human">Probably human</option>
+                <option value="human_visible">Audience-grade humans</option>
+                <option value="human_confirmed">Confirmed human</option>
+                <option value="likely_human">Likely human</option>
                 <option value="candidate">Unclear</option>
                 <option value="known_automation">Known automation</option>
                 <option value="other_bot">Other bot</option>
