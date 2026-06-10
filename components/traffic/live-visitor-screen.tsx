@@ -61,10 +61,22 @@ const STREAM_HISTORY_LIMIT = 0;
 const STREAM_WINDOW_HOURS = 24;
 const STREAM_RETRY_MIN_MS = 30000;
 const OLDER_HUMAN_PAGE_SIZE = 25;
+const DEFAULT_FOCUS_PROJECT_SLUG = "aoe2war";
 
 function parseTimestamp(value: string): number {
   const parsed = Date.parse(value);
   return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function normalizeProjectToken(value: unknown): string {
+  return String(value ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function sessionProjectToken(session: SessionRecord): string {
+  const raw = session as unknown as Record<string, unknown>;
+  return normalizeProjectToken(
+    raw.project_slug ?? raw.projectSlug ?? raw.project_key ?? raw.project ?? raw.project_name,
+  );
 }
 
 function transportBadge(mode: LiveTransportMode, pollMs: number) {
@@ -138,7 +150,7 @@ function LiveVisitorScreenInner({
   const [olderHumanTotal, setOlderHumanTotal] = useState(0);
   const [olderHumanLoading, setOlderHumanLoading] = useState(false);
   const [olderHumanError, setOlderHumanError] = useState("");
-  const [followFeaturedProject, setFollowFeaturedProject] = useState(Boolean(focusedProjectSlug));
+  const [followFeaturedProject, setFollowFeaturedProject] = useState(true);
   const {
     supportsSharedRules,
     activeVisibilityRules,
@@ -378,11 +390,22 @@ function LiveVisitorScreenInner({
     effectiveSelectedProjects.length === availableProjectSlugs.length;
 
   const olderHumanProjectFilter = useMemo(() => {
+    if (followFeaturedProject) {
+      return [focusedProjectSlug || DEFAULT_FOCUS_PROJECT_SLUG];
+    }
+
     if (allProjectsSelected) return [];
-    return effectiveSelectedProjects;
-  }, [allProjectsSelected, effectiveSelectedProjects]);
+
+    return effectiveSelectedProjects.length > 0
+      ? effectiveSelectedProjects
+      : [DEFAULT_FOCUS_PROJECT_SLUG];
+  }, [allProjectsSelected, effectiveSelectedProjects, focusedProjectSlug, followFeaturedProject]);
 
   const olderHumanProjectSignature = olderHumanProjectFilter.join("|");
+  const olderHumanProjectTokens = useMemo(
+    () => new Set(olderHumanProjectFilter.map(normalizeProjectToken)),
+    [olderHumanProjectFilter],
+  );
 
   const loadOlderHumanTraffic = useCallback(
     async (reset = false) => {
@@ -458,6 +481,9 @@ function LiveVisitorScreenInner({
       ) {
         return false;
       }
+      if (olderHumanProjectTokens.size > 0 && !olderHumanProjectTokens.has(sessionProjectToken(session))) {
+        return false;
+      }
       if (showOnlyGreenHumans && session.classification_state !== "human_confirmed") {
         return false;
       }
@@ -488,6 +514,9 @@ function LiveVisitorScreenInner({
       ) {
         return false;
       }
+      if (olderHumanProjectTokens.size > 0 && !olderHumanProjectTokens.has(sessionProjectToken(session))) {
+        return false;
+      }
       if (showOnlyGreenHumans && session.classification_state !== "human_confirmed") {
         return false;
       }
@@ -497,6 +526,7 @@ function LiveVisitorScreenInner({
     activeVisibilityRules,
     effectiveHiddenIps,
     olderHumanItems,
+    olderHumanProjectTokens,
     showOnlyGreenHumans,
     streamItems,
   ]);
@@ -531,8 +561,8 @@ function LiveVisitorScreenInner({
     return [
       {
         label: "Audience history",
-        value: olderHumanTotal,
-        detail: "clean 24h humans",
+        value: olderHumanProjectTokens.size > 0 ? olderHumanVisibleItems.length : olderHumanTotal,
+        detail: olderHumanProjectTokens.size > 0 ? "visible focused humans" : "clean 24h humans",
         className: "border-emerald-400/25 bg-emerald-400/10 text-emerald-100",
       },
       {
@@ -572,7 +602,7 @@ function LiveVisitorScreenInner({
         className: "border-rose-400/25 bg-rose-400/10 text-rose-100",
       },
     ];
-  }, [data, olderHumanTotal]);
+  }, [data, olderHumanProjectTokens.size, olderHumanTotal, olderHumanVisibleItems.length]);
 
   const recentPageReviewItems = useMemo(() => {
     if (showOnlyGreenHumans) {
