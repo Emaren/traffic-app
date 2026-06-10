@@ -449,53 +449,6 @@ function LiveVisitorScreenInner({
       return [];
     }
 
-    const appActivityItems = useMemo(() => {
-      if (showOnlyGreenHumans) {
-        return [];
-      }
-
-      const selectedProjectSet = new Set(effectiveSelectedProjects);
-      const streamSessionIds = new Set(streamItems.map((session) => session.session_id));
-
-      return (data?.app_activity_preview ?? []).filter((session) => {
-        if (streamSessionIds.has(session.session_id)) {
-          return false;
-        }
-        if (selectedProjectSet.size > 0 && !selectedProjectSet.has(session.project_slug)) {
-          return false;
-        }
-        return !sessionHiddenByVisibilityRules(session, activeVisibilityRules, effectiveHiddenIps);
-      });
-    }, [
-      activeVisibilityRules,
-      data?.app_activity_preview,
-      effectiveHiddenIps,
-      effectiveSelectedProjects,
-      showOnlyGreenHumans,
-      streamItems,
-    ]);
-
-    const chainSignalItems = useMemo(() => {
-      if (showOnlyGreenHumans) {
-        return [];
-      }
-
-      const selectedProjectSet = new Set(effectiveSelectedProjects);
-
-      return (data?.chain_signal_preview ?? []).filter((session) => {
-        if (selectedProjectSet.size > 0 && !selectedProjectSet.has(session.project_slug)) {
-          return false;
-        }
-        return !sessionHiddenByVisibilityRules(session, activeVisibilityRules, effectiveHiddenIps);
-      });
-    }, [
-      activeVisibilityRules,
-      data?.chain_signal_preview,
-      effectiveHiddenIps,
-      effectiveSelectedProjects,
-      showOnlyGreenHumans,
-    ]);
-
     const selectedProjectSet = new Set(effectiveSelectedProjects);
     return (data?.browser_script_preview ?? []).filter((session) => {
       if (selectedProjectSet.size > 0 && !selectedProjectSet.has(session.project_slug)) {
@@ -727,16 +680,6 @@ function LiveVisitorScreenInner({
 
         <div className="flex flex-wrap items-center gap-2">
           <div className={`rounded-full border px-3 py-1 text-xs ${transport.className}`}>
-            {!showOnlyGreenHumans && !heroMode && appActivityItems.length > 0 ? (
-              <div className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-200">
-                App activity {appActivityItems.length}
-              </div>
-            ) : null}
-            {!showOnlyGreenHumans && !heroMode && chainSignalItems.length > 0 ? (
-              <div className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-200">
-                Chain signals {chainSignalItems.length}
-              </div>
-            ) : null}
             {transport.label}
           </div>
           <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
