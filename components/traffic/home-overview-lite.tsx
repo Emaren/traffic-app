@@ -121,7 +121,7 @@ export default function HomeOverviewLite() {
           {overview ? (
             <div className="mt-4 flex flex-wrap gap-2 text-xs">
               <div className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 font-medium text-emerald-200">
-                {overview.coverage_mode === "durable_store" ? "Durable history" : "Live log fallback"}
+                {overview.coverage_mode === "session_archive" ? "Session archive" : coverage_mode === "durable_store" ? "Durable history" : "Live log fallback"}
               </div>
 
               {overview.coverage_started_alberta ? (

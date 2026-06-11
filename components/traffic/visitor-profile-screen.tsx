@@ -493,7 +493,7 @@ function VisitorProfileScreenInner({
                   {transport.label}
                 </span>
                 <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-200">
-                  {profile.coverage_mode === "durable_store" ? "Durable history" : "Live log fallback"}
+                  {profile.coverage_mode === "session_archive" ? "Session archive" : coverage_mode === "durable_store" ? "Durable history" : "Live log fallback"}
                 </span>
                 {profile.coverage_started_alberta ? (
                   <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/75">
