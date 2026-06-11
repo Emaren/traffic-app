@@ -388,9 +388,11 @@ export default function ProjectHumanGraphs({
             <div className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 font-medium text-emerald-300">
               {!data
                 ? "Loading history"
-                : data.coverage_mode === "durable_store"
-                  ? "Durable history"
-                  : "Live log fallback"}
+                : data.coverage_mode === "session_archive"
+                  ? "Session archive"
+                  : data.coverage_mode === "durable_store"
+                    ? "Durable history"
+                    : "Live log fallback"}
             </div>
             <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
               {data?.range_label ?? fallbackRangeLabel}
@@ -683,9 +685,11 @@ export default function ProjectHumanGraphs({
         <div className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 font-medium text-emerald-300">
           {!data
             ? "Loading history"
-            : data.coverage_mode === "durable_store"
-              ? "Durable history"
-              : "Live log fallback"}
+            : data.coverage_mode === "session_archive"
+              ? "Session archive"
+              : data.coverage_mode === "durable_store"
+                ? "Durable history"
+                : "Live log fallback"}
         </div>
         <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
           {data?.range_label ?? fallbackRangeLabel}

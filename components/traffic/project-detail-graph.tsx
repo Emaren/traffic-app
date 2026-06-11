@@ -112,7 +112,7 @@ export default function ProjectDetailGraph({
 
       <div className="mt-4 flex flex-wrap gap-2 text-xs">
         <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 font-medium text-emerald-200">
-          {graph.coverage_mode === "session_archive" ? "Session archive" : coverage_mode === "durable_store" ? "Durable history" : "Live log fallback"}
+          {graph.coverage_mode === "session_archive" ? "Session archive" : graph.coverage_mode === "durable_store" ? "Durable history" : "Live log fallback"}
         </span>
         <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
           {formatBucketSize(graph.bucket_minutes)}
