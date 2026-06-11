@@ -30,6 +30,7 @@ import {
   storeStringArray,
   TRAFFIC_LIVE_DENSITY_KEY,
   TRAFFIC_LIVE_GREEN_ONLY_KEY,
+  TRAFFIC_LIVE_WINDOW_HOURS_KEY,
   TRAFFIC_SHARED_PROJECT_FILTER_KEY,
 } from "@/components/traffic/view-preferences";
 
@@ -58,8 +59,18 @@ type AuxiliarySection = {
 const RECENT_WINDOW_MINUTES = 60;
 const STREAM_LIMIT = 24;
 const STREAM_HISTORY_LIMIT = 0;
-const STREAM_WINDOW_HOURS = 24;
+type StreamWindowHours = 1 | 24;
+
+const DEFAULT_STREAM_WINDOW_HOURS: StreamWindowHours = 24;
 const STREAM_RETRY_MIN_MS = 30000;
+const STREAM_WINDOW_OPTIONS: Array<{ value: StreamWindowHours; label: string; detail: string }> = [
+  { value: 1, label: "1h", detail: "burst watch" },
+  { value: 24, label: "24h", detail: "full day" },
+];
+
+function normalizeStreamWindowHours(value: string): StreamWindowHours {
+  return value === "1" ? 1 : 24;
+}
 const OLDER_HUMAN_PAGE_SIZE = 25;
 const OLDER_HUMAN_INITIAL_RANGE_KEY = "24h";
 const OLDER_HUMAN_ARCHIVE_RANGE_KEY = "all";
@@ -150,6 +161,7 @@ function LiveVisitorScreenInner({
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [showOnlyGreenHumans, setShowOnlyGreenHumans] = useState(false);
   const [density, setDensity] = useState<"full" | "compact">("full");
+  const [streamWindowHours, setStreamWindowHours] = useState<StreamWindowHours>(DEFAULT_STREAM_WINDOW_HOURS);
   const [recentReviewQuery, setRecentReviewQuery] = useState("");
   const [olderHumanItems, setOlderHumanItems] = useState<SessionRecord[]>([]);
   const [olderHumanOffset, setOlderHumanOffset] = useState(0);
@@ -175,6 +187,7 @@ function LiveVisitorScreenInner({
       setSelectedProjects(loadStoredStringArray(TRAFFIC_SHARED_PROJECT_FILTER_KEY));
       setShowOnlyGreenHumans(loadStoredBoolean(TRAFFIC_LIVE_GREEN_ONLY_KEY));
       setDensity(loadStoredString(TRAFFIC_LIVE_DENSITY_KEY) === "compact" ? "compact" : "full");
+      setStreamWindowHours(normalizeStreamWindowHours(loadStoredString(TRAFFIC_LIVE_WINDOW_HOURS_KEY)));
       setFollowFeaturedProject(Boolean(focusedProjectSlug));
     });
 
@@ -212,7 +225,7 @@ function LiveVisitorScreenInner({
       if (pageIsHidden()) return;
 
       try {
-        const next = await fetchLiveVisitors(STREAM_LIMIT, STREAM_HISTORY_LIMIT, STREAM_WINDOW_HOURS);
+        const next = await fetchLiveVisitors(STREAM_LIMIT, STREAM_HISTORY_LIMIT, streamWindowHours);
         if (!mounted) return;
 
         startTransition(() => {
@@ -247,7 +260,7 @@ function LiveVisitorScreenInner({
           buildLiveVisitorsStreamUrl({
             limit: STREAM_LIMIT,
             historyLimit: STREAM_HISTORY_LIMIT,
-            windowHours: STREAM_WINDOW_HOURS,
+            windowHours: streamWindowHours,
           }),
         );
 
@@ -342,7 +355,7 @@ function LiveVisitorScreenInner({
       clearReconnect();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [pollMs]);
+  }, [pollMs, streamWindowHours]);
 
   const availableProjects = useMemo<ProjectFilterOption[]>(
     () => data?.available_projects ?? [],
@@ -390,6 +403,10 @@ function LiveVisitorScreenInner({
   useEffect(() => {
     storeString(TRAFFIC_LIVE_DENSITY_KEY, density);
   }, [density]);
+
+  useEffect(() => {
+    storeString(TRAFFIC_LIVE_WINDOW_HOURS_KEY, String(streamWindowHours));
+  }, [streamWindowHours]);
 
   const allProjectsSelected =
     !followFeaturedProject &&
@@ -1066,7 +1083,7 @@ function LiveVisitorScreenInner({
               {heroMode ? "Hero Feed Controls" : "Feed Controls"}
             </div>
             <div className="mt-1 text-sm text-white/65">
-              {effectiveSelectedProjects.length || availableProjectSlugs.length} of {availableProjectSlugs.length || 0} projects visible
+              {streamWindowHours}h window • {effectiveSelectedProjects.length || availableProjectSlugs.length} of {availableProjectSlugs.length || 0} projects visible
               {showOnlyGreenHumans ? " • confirmed humans only" : " • mixed-confidence people feed"}
               {!showOnlyGreenHumans && !heroMode && recentPageReviewItems.length > 0
                 ? ` • ${recentPageReviewItems.length} recently seen review`
@@ -1087,6 +1104,21 @@ function LiveVisitorScreenInner({
           </div>
 
           <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] px-1 py-1">
+              {STREAM_WINDOW_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setStreamWindowHours(option.value)}
+                  className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition ${pillClass(
+                    streamWindowHours === option.value,
+                  )}`}
+                  title={option.detail}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
             {focusedProject ? (
               <button
                 type="button"
