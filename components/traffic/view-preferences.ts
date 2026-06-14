@@ -3,9 +3,12 @@
 export const TRAFFIC_SHARED_PROJECT_FILTER_KEY = "traffic.filters.projects";
 export const TRAFFIC_HIDDEN_IPS_KEY = "traffic.filters.hidden-ips";
 export const TRAFFIC_HOME_VIEW_KEY = "traffic.home.view";
+export const TRAFFIC_HOME_CHROME_OPEN_KEY = "traffic.home.chrome-open";
 export const TRAFFIC_LIVE_DENSITY_KEY = "traffic.live.density";
 export const TRAFFIC_LIVE_GREEN_ONLY_KEY = "traffic.live.green-only";
+export const TRAFFIC_LIVE_SETUP_OPEN_KEY = "traffic.live.setup-open";
 export const TRAFFIC_LIVE_WINDOW_HOURS_KEY = "traffic.live.window-hours";
+export const TRAFFIC_ADMIN_BEHAVIOR_FULL_KEY = "traffic.admin.behavior-full";
 export const TRAFFIC_HISTORY_DENSITY_KEY = "traffic.history.density";
 export const TRAFFIC_HISTORY_CLASSIFICATION_KEY = "traffic.history.classification";
 export const TRAFFIC_HISTORY_GREEN_ONLY_KEY = "traffic.history.green-only";

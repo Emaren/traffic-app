@@ -30,6 +30,7 @@ import {
   storeStringArray,
   TRAFFIC_LIVE_DENSITY_KEY,
   TRAFFIC_LIVE_GREEN_ONLY_KEY,
+  TRAFFIC_LIVE_SETUP_OPEN_KEY,
   TRAFFIC_LIVE_WINDOW_HOURS_KEY,
   TRAFFIC_SHARED_PROJECT_FILTER_KEY,
 } from "@/components/traffic/view-preferences";
@@ -162,6 +163,7 @@ function LiveVisitorScreenInner({
   const [showOnlyGreenHumans, setShowOnlyGreenHumans] = useState(false);
   const [density, setDensity] = useState<"full" | "compact">("full");
   const [streamWindowHours, setStreamWindowHours] = useState<StreamWindowHours>(DEFAULT_STREAM_WINDOW_HOURS);
+  const [showFeedSetup, setShowFeedSetup] = useState(false);
   const [recentReviewQuery, setRecentReviewQuery] = useState("");
   const [olderHumanItems, setOlderHumanItems] = useState<SessionRecord[]>([]);
   const [olderHumanOffset, setOlderHumanOffset] = useState(0);
@@ -188,6 +190,7 @@ function LiveVisitorScreenInner({
       setShowOnlyGreenHumans(loadStoredBoolean(TRAFFIC_LIVE_GREEN_ONLY_KEY));
       setDensity(loadStoredString(TRAFFIC_LIVE_DENSITY_KEY) === "compact" ? "compact" : "full");
       setStreamWindowHours(normalizeStreamWindowHours(loadStoredString(TRAFFIC_LIVE_WINDOW_HOURS_KEY)));
+      setShowFeedSetup(loadStoredBoolean(TRAFFIC_LIVE_SETUP_OPEN_KEY, false));
       setFollowFeaturedProject(Boolean(focusedProjectSlug));
     });
 
@@ -407,6 +410,10 @@ function LiveVisitorScreenInner({
   useEffect(() => {
     storeString(TRAFFIC_LIVE_WINDOW_HOURS_KEY, String(streamWindowHours));
   }, [streamWindowHours]);
+
+  useEffect(() => {
+    storeBoolean(TRAFFIC_LIVE_SETUP_OPEN_KEY, showFeedSetup);
+  }, [showFeedSetup]);
 
   const allProjectsSelected =
     !followFeaturedProject &&
@@ -1017,6 +1024,15 @@ function LiveVisitorScreenInner({
           ) : null}
           <button
             type="button"
+            onClick={() => setShowFeedSetup((current) => !current)}
+            className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition ${pillClass(
+              showFeedSetup,
+            )}`}
+          >
+            {showFeedSetup ? "Hide setup" : "Show setup"}
+          </button>
+          <button
+            type="button"
             onClick={jumpToNewest}
             className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition ${
               pinnedToTop
@@ -1035,7 +1051,7 @@ function LiveVisitorScreenInner({
         </div>
       </div>
 
-      {!heroMode ? (
+      {showFeedSetup && !heroMode ? (
         <div className="mb-4 rounded-3xl border border-white/10 bg-black/25 p-4">
           <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
             <div>
@@ -1076,6 +1092,7 @@ function LiveVisitorScreenInner({
         </div>
       ) : null}
 
+      {showFeedSetup ? (
       <div className={`mb-3 rounded-2xl border border-white/10 bg-black/20 ${heroMode ? "p-3" : "p-4"}`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -1219,6 +1236,8 @@ function LiveVisitorScreenInner({
         ) : null}
       </div>
 
+      ) : null}
+
       {error ? (
         <div className="rounded-2xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-200">
           {error}
@@ -1265,7 +1284,7 @@ function LiveVisitorScreenInner({
         <div
           ref={containerRef}
           onScroll={handleScroll}
-          className="max-h-[1100px] overflow-y-auto pr-2"
+          className="max-h-[calc(100vh-16rem)] min-h-[28rem] overflow-y-auto pr-2"
         >
           <div className="space-y-6 pb-3">
             {sections.map((section) => (
