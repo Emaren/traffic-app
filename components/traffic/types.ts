@@ -648,3 +648,45 @@ export type VisitorProfileResponse = {
   }>;
   sessions: SessionRecord[];
 };
+
+export type BrowserEventRecord = {
+  id: number;
+  received_at: string;
+  occurred_at: string;
+  host: string;
+  project_slug: string;
+  project_name: string;
+  path: string;
+  title: string;
+  referrer: string;
+  visitor_id: string;
+  session_id: string;
+  page_view_id: string;
+  event_type: string;
+  viewport_width?: number | null;
+  viewport_height?: number | null;
+  document_height?: number | null;
+  scroll_y?: number | null;
+  scroll_depth_pct?: number | null;
+  max_scroll_depth_pct?: number | null;
+  click_x?: number | null;
+  click_y?: number | null;
+  click_text: string;
+  click_label: string;
+  click_href: string;
+  click_selector: string;
+  element_role: string;
+  element_tag: string;
+  visible_ms?: number | null;
+  dwell_ms?: number | null;
+  user_agent: string;
+  ip: string;
+  payload_json: string;
+};
+
+export type BrowserEventsResponse = {
+  ok: boolean;
+  generated_at: string;
+  events: BrowserEventRecord[];
+};
+

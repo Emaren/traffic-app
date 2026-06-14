@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { startTransition, useEffect, useEffectEvent, useMemo, useState } from "react";
 import AdminWebPushCard from "@/components/traffic/admin-web-push-card";
+import AdminBrowserEventsCard from "@/components/traffic/admin-browser-events-card";
 import { withFlag } from "@/components/traffic/display";
 import PwaInstallCard from "@/components/traffic/pwa-install-card";
 import type {
@@ -914,6 +915,8 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
         </header>
 
         <PwaInstallCard className="mt-6" />
+
+        <AdminBrowserEventsCard />
 
         <section
           className="mt-6 grid gap-6 xl:grid-cols-[1.05fr_0.95fr]"
