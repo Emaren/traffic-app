@@ -685,6 +685,9 @@ export type BrowserEventRecord = {
   country?: string;
   area?: string;
   city?: string;
+  known_visitor_label?: string;
+  known_visitor_detail?: string;
+  known_visitor_kind?: string;
   payload_json: string;
 };
 
