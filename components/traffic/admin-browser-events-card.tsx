@@ -14,6 +14,20 @@ function formatTimestamp(value: string): string {
   return date.toLocaleString();
 }
 
+function countryFlag(countryCode?: string): string {
+  const code = (countryCode || "").trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(code)) return "";
+  return String.fromCodePoint(...code.split("").map((char) => 127397 + char.charCodeAt(0)));
+}
+
+function locationLine(event: BrowserEventRecord): string {
+  return [event.city, event.area, event.country].filter(Boolean).join(", ");
+}
+
+function shortIp(ip: string): string {
+  return ip || "unknown IP";
+}
+
 function formatMs(value: number | null | undefined): string {
   if (!value) return "—";
   if (value < 1000) return `${value}ms`;
@@ -183,6 +197,9 @@ export default function AdminBrowserEventsCard() {
                     <span className={`rounded-full border px-2.5 py-1 text-[10px] font-medium ${eventTone(event.event_type)}`}>
                       {event.event_type}
                     </span>
+                    <span className="rounded-full border border-sky-300/20 bg-sky-300/10 px-2.5 py-1 text-[10px] font-semibold text-sky-100">
+                      {(countryFlag(event.country_code) ? `${countryFlag(event.country_code)} ` : "") + shortIp(event.ip)}
+                    </span>
                     <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] text-white/65">
                       scroll {event.max_scroll_depth_pct ?? event.scroll_depth_pct ?? 0}%
                     </span>
@@ -199,10 +216,16 @@ export default function AdminBrowserEventsCard() {
                   <p className="mt-1 break-all font-mono text-xs text-slate-400">
                     {event.path}
                   </p>
+                  {locationLine(event) ? (
+                    <p className="mt-1 text-xs text-slate-500">
+                      {locationLine(event)}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="shrink-0 text-left text-[10px] leading-4 text-slate-500 xl:text-right">
                   <p>{formatTimestamp(event.received_at)}</p>
+                  <p>{(countryFlag(event.country_code) ? `${countryFlag(event.country_code)} ` : "")}{event.country_code || "—"} · {shortIp(event.ip)}</p>
                   <p>session {event.session_id.slice(0, 14) || "—"}</p>
                   <p>{event.viewport_width || 0}×{event.viewport_height || 0}</p>
                 </div>

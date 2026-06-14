@@ -681,6 +681,10 @@ export type BrowserEventRecord = {
   dwell_ms?: number | null;
   user_agent: string;
   ip: string;
+  country_code?: string;
+  country?: string;
+  area?: string;
+  city?: string;
   payload_json: string;
 };
 
