@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { startTransition, useEffect, useEffectEvent, useMemo, useState } from "react";
+import { startTransition, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import AdminWebPushCard from "@/components/traffic/admin-web-push-card";
+import AdminThemeToggle from "@/components/traffic/admin-theme-toggle";
 import AdminBrowserEventsCard from "@/components/traffic/admin-browser-events-card";
 import { withFlag } from "@/components/traffic/display";
 import PwaInstallCard from "@/components/traffic/pwa-install-card";
@@ -208,15 +209,26 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
   const [muteDraft, setMuteDraft] = useState<MuteDraft>(defaultMuteDraft());
   const [busy, setBusy] = useState<string | null>(null);
   const [showOnlyHumanEvents, setShowOnlyHumanEvents] = useState(false);
+  const [deliveryEvents, setDeliveryEvents] = useState<NotificationEventRecord[]>(
+    initialData?.recent_events ?? [],
+  );
+  const [deliveryNextBefore, setDeliveryNextBefore] = useState<string | null>(
+    initialData?.recent_events?.at(-1)?.event_timestamp ?? null,
+  );
+  const [deliveryHasMore, setDeliveryHasMore] = useState(
+    (initialData?.recent_events?.length ?? 0) >= 120,
+  );
+  const [deliveryLoadingMore, setDeliveryLoadingMore] = useState(false);
+  const deliverySentinelRef = useRef<HTMLDivElement | null>(null);
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(
     null,
   );
   const visibleRecentEvents = useMemo(
     () =>
-      (data?.recent_events ?? []).filter((event) =>
+      deliveryEvents.filter((event) =>
         showOnlyHumanEvents ? isGreenHumanEvent(event) : true,
       ),
-    [data?.recent_events, showOnlyHumanEvents],
+    [deliveryEvents, showOnlyHumanEvents],
   );
   const visibleRecentEventGroups = useMemo(
     () => buildNotificationEventBurstGroups(visibleRecentEvents),
@@ -226,6 +238,9 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
   useEffect(() => {
     setData(initialData);
     setSettings(initialData?.settings ? cloneSettings(initialData.settings) : null);
+    setDeliveryEvents(initialData?.recent_events ?? []);
+    setDeliveryNextBefore(initialData?.recent_events?.at(-1)?.event_timestamp ?? null);
+    setDeliveryHasMore((initialData?.recent_events?.length ?? 0) >= 120);
     setHasLocalEdits(false);
   }, [initialData]);
 
@@ -243,6 +258,20 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
 
       startTransition(() => {
         setData(next);
+        setDeliveryEvents((current) => {
+          const merged = options?.quiet ? [...current, ...next.recent_events] : next.recent_events;
+          const byId = new Map<number, NotificationEventRecord>();
+          for (const event of merged) {
+            byId.set(event.id, event);
+          }
+          return Array.from(byId.values()).sort(
+            (left, right) =>
+              Date.parse(right.event_timestamp) - Date.parse(left.event_timestamp) ||
+              right.id - left.id,
+          );
+        });
+        setDeliveryNextBefore((current) => current || next.recent_events.at(-1)?.event_timestamp || null);
+        setDeliveryHasMore((next.recent_events?.length ?? 0) >= 120 || deliveryHasMore);
         setSettings((current) => (preserveLocalEdits ? current : cloneSettings(next.settings)));
       });
 
@@ -269,6 +298,77 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
       await refreshDashboard(options);
     },
   );
+
+  async function loadMoreDeliveryVisits() {
+    if (!deliveryNextBefore || deliveryLoadingMore) return;
+
+    setDeliveryLoadingMore(true);
+    try {
+      const search = new URLSearchParams({
+        limit: "120",
+        since_hours: "24",
+        before_event_timestamp: deliveryNextBefore,
+      });
+
+      const response = await fetch(`/admin-api/notifications/events?${search.toString()}`, {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.detail || "Could not load older delivery visits.");
+      }
+
+      const payload = (await response.json()) as {
+        events: NotificationEventRecord[];
+        has_more?: boolean;
+        next_before_event_timestamp?: string | null;
+      };
+
+      setDeliveryNextBefore(payload.next_before_event_timestamp ?? null);
+      setDeliveryHasMore(Boolean(payload.has_more));
+
+      setDeliveryEvents((current) => {
+        const byId = new Map<number, NotificationEventRecord>();
+        for (const event of [...current, ...payload.events]) {
+          byId.set(event.id, event);
+        }
+        return Array.from(byId.values()).sort(
+          (left, right) =>
+            Date.parse(right.event_timestamp) - Date.parse(left.event_timestamp) ||
+            right.id - left.id,
+        );
+      });
+    } catch (err) {
+      setMessage({
+        tone: "error",
+        text: err instanceof Error ? err.message : "Could not load older delivery visits.",
+      });
+    } finally {
+      setDeliveryLoadingMore(false);
+    }
+  }
+
+  useEffect(() => {
+    const sentinel = deliverySentinelRef.current;
+    if (!sentinel || !deliveryHasMore || deliveryLoadingMore || !deliveryNextBefore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          void loadMoreDeliveryVisits();
+        }
+      },
+      {
+        root: null,
+        rootMargin: "900px 0px",
+        threshold: 0.01,
+      },
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [deliveryHasMore, deliveryLoadingMore, deliveryNextBefore]);
 
   useEffect(() => {
     let mounted = true;
@@ -847,6 +947,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
 
   return (
     <main className="min-h-screen overflow-x-clip bg-[#06070a] text-slate-100">
+      <AdminThemeToggle />
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
         <header className="overflow-hidden rounded-[32px] border border-cyan-400/20 bg-[linear-gradient(180deg,rgba(34,211,238,0.08),rgba(255,255,255,0.03))] p-5 shadow-[0_25px_80px_rgba(0,0,0,0.45)] sm:p-6">
           <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
@@ -1670,7 +1771,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                   {showOnlyHumanEvents ? "Showing buzzed humans" : "Only visitors that buzzed"}
                 </button>
                 <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
-                  {visibleRecentEventGroups.length} visits • {visibleRecentEvents.length} raw events
+                  {visibleRecentEventGroups.length} visits • {visibleRecentEvents.length} raw events • 24h window
                   {hiddenRecentEventCount > 0 ? ` • ${hiddenRecentEventCount} hidden` : ""}
                 </div>
               </div>
@@ -1686,6 +1787,24 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
               ) : (
                 visibleRecentEventGroups.map((group) => renderStackedDeliveryGroup(group))
               )}
+
+              <div ref={deliverySentinelRef} className="h-8 rounded-full border border-white/5 bg-white/[0.02]" />
+
+              <div className="flex flex-col gap-2 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-slate-400">
+                  {deliveryHasMore
+                    ? "Scroll down to auto-load older visitor delivery visits from the previous 24 hours."
+                    : "Delivery log is caught up for the loaded 24-hour window."}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void loadMoreDeliveryVisits()}
+                  disabled={!deliveryHasMore || deliveryLoadingMore}
+                  className="w-full cursor-pointer rounded-full border border-cyan-300/30 bg-cyan-300/10 px-5 py-2.5 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-300/15 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-white/35 sm:w-auto"
+                >
+                  {deliveryLoadingMore ? "Loading visits..." : deliveryHasMore ? "Load more visits" : "No more visits"}
+                </button>
+              </div>
             </div>
           </div>
         </section>
