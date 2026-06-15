@@ -219,6 +219,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
     (initialData?.recent_events?.length ?? 0) >= 120,
   );
   const [deliveryLoadingMore, setDeliveryLoadingMore] = useState(false);
+  const deliveryScrollRef = useRef<HTMLDivElement | null>(null);
   const deliverySentinelRef = useRef<HTMLDivElement | null>(null);
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(
     null,
@@ -350,8 +351,9 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
   }
 
   useEffect(() => {
+    const root = deliveryScrollRef.current;
     const sentinel = deliverySentinelRef.current;
-    if (!sentinel || !deliveryHasMore || deliveryLoadingMore || !deliveryNextBefore) return;
+    if (!root || !sentinel || !deliveryHasMore || deliveryLoadingMore || !deliveryNextBefore) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -360,7 +362,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
         }
       },
       {
-        root: null,
+        root,
         rootMargin: "900px 0px",
         threshold: 0.01,
       },
@@ -1032,8 +1034,8 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
           className="mt-6 grid gap-6 xl:grid-cols-[1.05fr_0.95fr]"
           onChangeCapture={() => setHasLocalEdits(true)}
         >
-          <div className="min-w-0 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <div className="flex max-h-[calc(100vh-7rem)] min-h-[34rem] min-w-0 flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+            <div className="shrink-0 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Provider</p>
                 <h2 className="mt-2 text-2xl font-semibold text-white">Delivery lane</h2>
@@ -1752,8 +1754,8 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
             </div>
           </div>
 
-          <div className="min-w-0 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <div className="flex max-h-[calc(100vh-7rem)] min-h-[34rem] min-w-0 flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+            <div className="shrink-0 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Visitor delivery log</p>
                 <h2 className="mt-2 text-2xl font-semibold text-white">Who Traffic notified you about</h2>
@@ -1777,7 +1779,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
               </div>
             </div>
 
-            <div className="mt-5 space-y-4">
+            <div ref={deliveryScrollRef} className="mt-5 min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain pr-1">
               {visibleRecentEventGroups.length === 0 ? (
                 <div className="rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-white/60">
                   {showOnlyHumanEvents
@@ -1790,7 +1792,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
 
               <div ref={deliverySentinelRef} className="h-8 rounded-full border border-white/5 bg-white/[0.02]" />
 
-              <div className="flex flex-col gap-2 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="shrink-0 flex flex-col gap-2 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-slate-400">
                   {deliveryHasMore
                     ? "Scroll down to auto-load older visitor delivery visits from the previous 24 hours."
