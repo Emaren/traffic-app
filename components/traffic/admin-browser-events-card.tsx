@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { BrowserEventRecord, BrowserEventsResponse } from "@/components/traffic/types";
 import {
   TRAFFIC_ADMIN_BEHAVIOR_FULL_KEY,
@@ -195,6 +195,8 @@ export default function AdminBrowserEventsCard() {
   const [events, setEvents] = useState<BrowserEventRecord[]>([]);
   const [nextBefore, setNextBefore] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
+  const scrollHostRef = useRef<HTMLDivElement | null>(null);
+  const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -231,11 +233,31 @@ export default function AdminBrowserEventsCard() {
       }
 
       const payload = (await response.json()) as BrowserEventsResponse;
-      setNextBefore(payload.next_before_received_at ?? null);
-      setHasMore(Boolean(payload.has_more));
+      const payloadNextBefore = payload.next_before_received_at ?? null;
+
+      setNextBefore((current) => {
+        if (append) return payloadNextBefore;
+        if (!options?.quiet) return payloadNextBefore;
+        if (!current) return payloadNextBefore;
+        if (!payloadNextBefore) return current;
+
+        const currentTime = new Date(current).getTime();
+        const payloadTime = new Date(payloadNextBefore).getTime();
+
+        if (Number.isNaN(currentTime) || Number.isNaN(payloadTime)) {
+          return current;
+        }
+
+        // Quiet refreshes pull the newest page. Keep the older cursor so scroll-back
+        // pagination does not jump forward and forget already loaded older stories.
+        return payloadTime < currentTime ? payloadNextBefore : current;
+      });
+
+      setHasMore(Boolean(payload.has_more || nextBefore));
 
       setEvents((current) => {
-        const merged = append ? [...current, ...payload.events] : payload.events;
+        const preserveExisting = append || Boolean(options?.quiet);
+        const merged = preserveExisting ? [...current, ...payload.events] : payload.events;
         const byId = new Map<number, BrowserEventRecord>();
         for (const event of merged) {
           byId.set(event.id, event);
@@ -286,6 +308,33 @@ export default function AdminBrowserEventsCard() {
   useEffect(() => {
     storeBoolean(TRAFFIC_ADMIN_BEHAVIOR_FULL_KEY, showFull);
   }, [showFull]);
+
+  useEffect(() => {
+    const root = scrollHostRef.current;
+    const sentinel = loadMoreSentinelRef.current;
+
+    if (!root || !sentinel || !hasMore || loadingMore || busy || !nextBefore) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const shouldLoad = entries.some((entry) => entry.isIntersecting);
+        if (shouldLoad && !loadingMore && !busy && nextBefore) {
+          void loadEvents({ append: true, before: nextBefore });
+        }
+      },
+      {
+        root,
+        rootMargin: "900px 0px",
+        threshold: 0.01,
+      },
+    );
+
+    observer.observe(sentinel);
+
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, busy, nextBefore]);
 
   const storyEvents = useMemo(
     () => events.filter((event) => !shouldHideFromStories(event)),
@@ -406,7 +455,7 @@ export default function AdminBrowserEventsCard() {
         </div>
       ) : null}
 
-      <div className="mt-5 min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+      <div ref={scrollHostRef} className="mt-5 min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
         {visibleJourneys.length === 0 ? (
           <div className="rounded-3xl border border-white/10 bg-black/20 p-6 text-base text-slate-300">
             No visitor stories match this filter right now.
@@ -550,12 +599,14 @@ export default function AdminBrowserEventsCard() {
             );
           })
         )}
+
+        <div ref={loadMoreSentinelRef} className="h-8 rounded-full border border-white/5 bg-white/[0.02]" />
       </div>
 
       <div className="mt-4 flex shrink-0 flex-col gap-2 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-slate-400">
           {hasMore
-            ? "More AoE2WAR visitor stories are available inside the previous 24 hours."
+            ? "Scroll to the bottom to auto-load older AoE2WAR visitor stories from the previous 24 hours."
             : "You are caught up for the loaded 24-hour behavior window."}
         </p>
         <button
