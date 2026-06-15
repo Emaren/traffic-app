@@ -40,8 +40,6 @@ type NotificationEventBurstGroup = {
   suppressionReasons: string[];
 };
 
-const NOTIFICATION_BURST_WINDOW_MS = 75_000;
-
 function formatTimestamp(value: string | null | undefined): string {
   if (!value) return "Never";
   const date = new Date(value);
@@ -124,71 +122,64 @@ function visibilityRuleLabel(rule: VisibilityRule): string {
   }
 }
 
-function burstGroupKey(event: NotificationEventRecord): string {
-  return `${event.visitor_profile_id}:${event.session_id}:${event.project_slug}`;
+function deliveryVisitorGroupKey(event: NotificationEventRecord): string {
+  // Delivery log groups by visit, not by action.
+  // Browser-event sessions already use browser:<session_id>; access-log sessions use their own session ids.
+  return `${event.visitor_profile_id || event.person_key}:${event.session_id}:${event.project_slug}`;
+}
+
+function meaningfulDeliveryEvent(events: NotificationEventRecord[]): NotificationEventRecord {
+  return (
+    events.find((event) => event.status === "delivered") ??
+    events.find((event) => event.status === "error") ??
+    events.find((event) => event.status === "suppressed" && event.suppression_reason !== "browser_backfill_ignored") ??
+    events[0]
+  );
 }
 
 function buildNotificationEventBurstGroups(
   events: NotificationEventRecord[],
 ): NotificationEventBurstGroup[] {
-  const groups: Array<{
-    key: string;
-    newestTimestamp: number;
-    events: NotificationEventRecord[];
-  }> = [];
+  const groups = new Map<string, NotificationEventRecord[]>();
 
   for (const event of events) {
-    const key = burstGroupKey(event);
-    const eventTimestamp = parseEventTimestamp(event.event_timestamp);
-    const matchingGroup = groups.find(
-      (group) =>
-        group.key === key &&
-        group.newestTimestamp >= eventTimestamp &&
-        group.newestTimestamp - eventTimestamp <= NOTIFICATION_BURST_WINDOW_MS,
-    );
-
-    if (matchingGroup) {
-      matchingGroup.events.push(event);
-      continue;
-    }
-
-    groups.push({
-      key,
-      newestTimestamp: eventTimestamp,
-      events: [event],
-    });
+    const key = deliveryVisitorGroupKey(event);
+    const existing = groups.get(key) ?? [];
+    existing.push(event);
+    groups.set(key, existing);
   }
 
-  return groups
-    .map((group) => {
-      const orderedEvents = [...group.events].sort((left, right) => {
+  return Array.from(groups.entries())
+    .map(([key, groupEvents]) => {
+      const orderedEvents = [...groupEvents].sort((left, right) => {
         const timeDelta =
           parseEventTimestamp(right.event_timestamp) - parseEventTimestamp(left.event_timestamp);
         if (timeDelta !== 0) return timeDelta;
         return right.id - left.id;
       });
+
       const latestEvent = orderedEvents[0];
-      const primaryEvent =
-        orderedEvents.find((event) => event.status === "delivered") ??
-        orderedEvents.find((event) => event.status === "error") ??
-        latestEvent;
+      const primaryEvent = meaningfulDeliveryEvent(orderedEvents);
       const deliveredCount = orderedEvents.filter((event) => event.status === "delivered").length;
       const suppressedCount = orderedEvents.filter((event) => event.status === "suppressed").length;
       const errorCount = orderedEvents.filter((event) => event.status === "error").length;
       const dominantStatus: NotificationEventBurstGroup["dominantStatus"] =
         deliveredCount > 0 ? "delivered" : errorCount > 0 ? "error" : "suppressed";
+
       const uniquePaths = [...new Set(orderedEvents.map((event) => event.path).filter(Boolean))];
+
       const suppressionReasons = [
         ...new Set(
           orderedEvents
             .map((event) => event.suppression_reason)
             .filter(Boolean)
+            .filter((value) => value !== "browser_backfill_ignored")
             .map((value) => humanizeReason(value)),
         ),
       ];
 
       return {
-        key: `${group.key}:${latestEvent.id}`,
+        key,
         latestEvent,
         primaryEvent,
         dominantStatus,
@@ -596,14 +587,14 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
     );
   }
 
-  function renderBurstBadge(group: NotificationEventBurstGroup) {
+  function renderVisitSignalBadge(group: NotificationEventBurstGroup) {
     if (group.stackCount <= 1) {
       return null;
     }
 
     return (
       <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-medium text-white/75">
-        Stack x{group.stackCount}
+        {group.stackCount} signals
       </span>
     );
   }
@@ -614,7 +605,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
     const toneClass = eventTone(group.dominantStatus);
     const pathSummary =
       group.uniquePaths.length > 1
-        ? `${event.path} • +${group.uniquePaths.length - 1} more paths`
+        ? `${event.path} • ${group.uniquePaths.length} paths this visit`
         : event.path;
     const suppressionSummary =
       group.suppressionReasons.length === 0
@@ -652,7 +643,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
               <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
                 {event.verdict_label}
               </span>
-              {renderBurstBadge(group)}
+              {renderVisitSignalBadge(group)}
               {group.deliveredCount > 0 && group.stackCount > 1 ? (
                 <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-100">
                   {group.deliveredCount} delivered
@@ -680,20 +671,38 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
               {event.total_project_visits}
             </p>
             {suppressionSummary ? (
-              <p className="mt-2 text-sm text-white/80">Burst reasons: {suppressionSummary}</p>
+              <p className="mt-2 text-sm text-white/80">Visit reasons: {suppressionSummary}</p>
             ) : null}
           </div>
         </summary>
 
         <div className="relative z-10 mt-4 border-t border-white/10 pt-4">
           <div className="rounded-2xl border border-white/10 bg-black/20 p-3 text-sm text-white/80">
-            <p className="font-medium text-white">{actionEvent.notification_title}</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Visitor summary</p>
+            <p className="mt-2 font-medium text-white">{actionEvent.notification_title}</p>
             <p className="mt-2 whitespace-pre-line break-words text-slate-300">
               {actionEvent.notification_body}
             </p>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-white/70">
+                {group.stackCount} raw signal{group.stackCount === 1 ? "" : "s"}
+              </span>
+              <span className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-2.5 py-1 text-emerald-100">
+                {group.deliveredCount} buzzed
+              </span>
+              <span className="rounded-full border border-amber-400/25 bg-amber-400/10 px-2.5 py-1 text-amber-100">
+                {group.suppressedCount} quiet
+              </span>
+              {group.errorCount > 0 ? (
+                <span className="rounded-full border border-rose-400/25 bg-rose-400/10 px-2.5 py-1 text-rose-100">
+                  {group.errorCount} failed
+                </span>
+              ) : null}
+            </div>
           </div>
 
-          <div className="mt-4 space-y-2">
+          <p className="mt-4 text-xs uppercase tracking-[0.2em] text-slate-500">Raw signals inside this visit</p>
+          <div className="mt-3 space-y-2">
             {group.events.map((burstEvent) => (
               <div
                 key={`${group.key}-${burstEvent.id}`}
@@ -1645,8 +1654,8 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
           <div className="min-w-0 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <div className="min-w-0">
-                <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Delivery log</p>
-                <h2 className="mt-2 text-2xl font-semibold text-white">What Traffic just did</h2>
+                <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Visitor delivery log</p>
+                <h2 className="mt-2 text-2xl font-semibold text-white">Who Traffic notified you about</h2>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button
@@ -1658,10 +1667,10 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
                       : "border-white/10 bg-black/20 text-white/70 hover:border-white/20 hover:text-white"
                   }`}
                 >
-                  {showOnlyHumanEvents ? "Showing only green humans" : "Only show green humans"}
+                  {showOnlyHumanEvents ? "Showing buzzed humans" : "Only visitors that buzzed"}
                 </button>
                 <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
-                  {visibleRecentEventGroups.length} tiles • {visibleRecentEvents.length} events
+                  {visibleRecentEventGroups.length} visits • {visibleRecentEvents.length} raw events
                   {hiddenRecentEventCount > 0 ? ` • ${hiddenRecentEventCount} hidden` : ""}
                 </div>
               </div>
@@ -1671,15 +1680,11 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
               {visibleRecentEventGroups.length === 0 ? (
                 <div className="rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-white/60">
                   {showOnlyHumanEvents
-                    ? "Traffic has not delivered any green human events in this recent window yet."
-                    : "No notifications have been processed yet."}
+                    ? "Traffic has not delivered any human visitor notifications in this recent window yet."
+                    : "No visitor notification visits have been processed yet."}
                 </div>
               ) : (
-                visibleRecentEventGroups.map((group) =>
-                  group.stackCount > 1
-                    ? renderStackedDeliveryGroup(group)
-                    : renderSingleEvent(group.latestEvent),
-                )
+                visibleRecentEventGroups.map((group) => renderStackedDeliveryGroup(group))
               )}
             </div>
           </div>
