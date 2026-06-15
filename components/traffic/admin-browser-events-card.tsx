@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type UIEvent } from "react";
 import type { BrowserEventRecord, BrowserEventsResponse } from "@/components/traffic/types";
 import {
   TRAFFIC_ADMIN_BEHAVIOR_FULL_KEY,
@@ -9,6 +9,9 @@ import {
 } from "@/components/traffic/view-preferences";
 
 type StoryFilter = "all" | "known" | "unknown";
+
+const DEFAULT_TIMELINE_VISIBLE_EVENTS = 6;
+const TIMELINE_LOAD_STEP = 8;
 
 type VisitorJourney = {
   key: string;
@@ -225,6 +228,7 @@ export default function AdminBrowserEventsCard() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [showFull, setShowFull] = useState(false);
   const [storyFilter, setStoryFilter] = useState<StoryFilter>("all");
+  const [timelineDepthByJourney, setTimelineDepthByJourney] = useState<Record<string, number>>({});
 
   async function loadEvents(options?: { quiet?: boolean; append?: boolean; before?: string | null }) {
     const append = Boolean(options?.append);
@@ -305,6 +309,42 @@ export default function AdminBrowserEventsCard() {
   function loadMoreStories() {
     if (!nextBefore || loadingMore) return;
     void loadEvents({ append: true, before: nextBefore });
+  }
+
+  function timelineVisibleCountFor(journeyKey: string): number {
+    return timelineDepthByJourney[journeyKey] ?? DEFAULT_TIMELINE_VISIBLE_EVENTS;
+  }
+
+  function loadMoreJourneyTimeline(journey: VisitorJourney) {
+    setTimelineDepthByJourney((current) => {
+      const currentCount = current[journey.key] ?? DEFAULT_TIMELINE_VISIBLE_EVENTS;
+      return {
+        ...current,
+        [journey.key]: currentCount + TIMELINE_LOAD_STEP,
+      };
+    });
+
+    // If this card has consumed all currently loaded rows for this visitor,
+    // ask the 24h story feed for the next older page too.
+    if (hasMore && !loadingMore && !busy && nextBefore) {
+      void loadEvents({ append: true, before: nextBefore });
+    }
+  }
+
+  function handleJourneyTimelineScroll(
+    event: UIEvent<HTMLDivElement>,
+    journey: VisitorJourney,
+  ) {
+    const node = event.currentTarget;
+    const nearBottom = node.scrollTop + node.clientHeight >= node.scrollHeight - 80;
+    if (!nearBottom) return;
+
+    const visibleCount = timelineVisibleCountFor(journey.key);
+    const localHasMore = visibleCount < journey.events.length;
+
+    if (localHasMore || hasMore) {
+      loadMoreJourneyTimeline(journey);
+    }
   }
 
   useEffect(() => {
@@ -488,6 +528,9 @@ export default function AdminBrowserEventsCard() {
             const latest = journey.latest;
             const chosenAction = mostMeaningfulEvent(journey);
             const location = locationLine(latest);
+            const timelineVisibleCount = timelineVisibleCountFor(journey.key);
+            const timelineEvents = journey.events.slice(0, timelineVisibleCount);
+            const timelineHasMore = timelineVisibleCount < journey.events.length || hasMore;
 
             return (
               <article
@@ -577,18 +620,26 @@ export default function AdminBrowserEventsCard() {
                     </div>
                   </div>
 
-                  <aside className="border-t border-white/10 bg-black/25 p-4 xl:border-l xl:border-t-0">
+                  <aside className="flex max-h-[34rem] flex-col border-t border-white/10 bg-black/25 p-4 xl:border-l xl:border-t-0">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-[11px] uppercase tracking-[0.28em] text-slate-500">
                         Timeline
                       </p>
-                      <p className="text-xs text-slate-500">
-                        {formatTimestamp(latest.received_at)}
-                      </p>
+                      <div className="text-right">
+                        <p className="text-xs text-slate-500">
+                          {formatTimestamp(latest.received_at)}
+                        </p>
+                        <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-slate-600">
+                          {Math.min(timelineVisibleCount, journey.events.length)} / {journey.events.length} shown
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="mt-3 space-y-2">
-                      {journey.events.slice(0, 6).map((event) => (
+                    <div
+                      onScroll={(event) => handleJourneyTimelineScroll(event, journey)}
+                      className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1"
+                    >
+                      {timelineEvents.map((event) => (
                         <div
                           key={event.id}
                           className="rounded-2xl border border-white/10 bg-white/[0.035] p-3"
@@ -609,9 +660,24 @@ export default function AdminBrowserEventsCard() {
                           </p>
                         </div>
                       ))}
+
+                      {timelineHasMore ? (
+                        <button
+                          type="button"
+                          onClick={() => loadMoreJourneyTimeline(journey)}
+                          disabled={loadingMore}
+                          className="w-full rounded-2xl border border-cyan-300/25 bg-cyan-300/10 px-3 py-2 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-300/15 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {loadingMore ? "Loading older signals..." : "Load more of this journey"}
+                        </button>
+                      ) : (
+                        <div className="rounded-2xl border border-white/5 bg-white/[0.02] px-3 py-2 text-center text-xs text-slate-500">
+                          Full loaded journey shown
+                        </div>
+                      )}
                     </div>
 
-                    <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.035] p-3 text-sm leading-6 text-slate-400">
+                    <div className="mt-3 shrink-0 rounded-2xl border border-white/10 bg-white/[0.035] p-3 text-sm leading-6 text-slate-400">
                       <p className="text-white/85">{displayIp(latest.ip)}</p>
                       <p>session {shortSession(latest.session_id)}</p>
                       <p>{latest.viewport_width || 0}×{latest.viewport_height || 0}</p>
