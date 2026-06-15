@@ -124,12 +124,35 @@ function actionSentence(event: BrowserEventRecord): string {
 
 function shouldHideFromStories(event: BrowserEventRecord): boolean {
   const ip = (event.ip || "").trim();
+  const host = (event.host || "").trim().toLowerCase();
   const path = (event.path || "").trim().toLowerCase();
 
   if (!ip) return true;
 
   // obvious Google crawler/browser traffic
   if (ip.startsWith("66.249.")) return true;
+
+  // chain/API endpoint traffic is useful data, but not a human AoE2WAR story
+  if (host.startsWith("rpc-") || host.startsWith("rest-")) return true;
+  if (
+    path === "/rpc" ||
+    path.startsWith("/rpc/") ||
+    path.startsWith("/rpc-mainnet") ||
+    path.startsWith("/rpc-testnet") ||
+    path.startsWith("/rest-mainnet") ||
+    path.startsWith("/rest-testnet") ||
+    path.startsWith("/cosmos/") ||
+    path.startsWith("/ibc/") ||
+    path.startsWith("/abci_") ||
+    path.startsWith("/blockchain") ||
+    path.startsWith("/blocks") ||
+    path.startsWith("/status") ||
+    path.startsWith("/validators") ||
+    path.startsWith("/tx_search") ||
+    path.startsWith("/broadcast_tx")
+  ) {
+    return true;
+  }
 
   // keep raw beacon noise out of hero stories
   if (path.startsWith("/_next/") || path.startsWith("/api/")) return true;
@@ -216,7 +239,7 @@ export default function AdminBrowserEventsCard() {
       const search = new URLSearchParams({
         project_slug: "aoe2hdbets",
         since_hours: "24",
-        limit: "80",
+        limit: "200",
       });
 
       if (options?.before) {
@@ -388,7 +411,7 @@ export default function AdminBrowserEventsCard() {
 
         <div className="flex flex-wrap gap-2">
           <span className="rounded-full border border-white/10 bg-black/25 px-4 py-2 text-sm font-medium text-white/70">
-            {events.length} signals loaded • 24h window
+            {events.length} signals loaded • chain endpoints hidden • 24h window
           </span>
 
           <button
