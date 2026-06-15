@@ -157,29 +157,75 @@ function bestAction(journey: VisitorJourney): BrowserEventRecord {
 
 export default function AdminBrowserEventsCard() {
   const [data, setData] = useState<BrowserEventsResponse | null>(null);
+  const [events, setEvents] = useState<BrowserEventRecord[]>([]);
+  const [nextBefore, setNextBefore] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [showFull, setShowFull] = useState(false);
 
-  async function loadEvents(options?: { quiet?: boolean }) {
-    if (!options?.quiet) setBusy(true);
+  async function loadEvents(options?: { quiet?: boolean; append?: boolean; before?: string | null }) {
+    const append = Boolean(options?.append);
+    if (append) {
+      setLoadingMore(true);
+    } else if (!options?.quiet) {
+      setBusy(true);
+    }
     setError("");
 
     try {
+      const search = new URLSearchParams({
+        project_slug: "aoe2hdbets",
+        since_hours: "24",
+        limit: "80",
+      });
+
+      if (options?.before) {
+        search.set("before_received_at", options.before);
+      }
+
       const response = await fetch(
-        "/admin-api/browser-events/recent?project_slug=aoe2hdbets&limit=120",
+        `/admin-api/browser-events/recent?${search.toString()}`,
         { cache: "no-store" },
       );
+
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
         throw new Error(payload?.detail || "Could not load browser behavior events.");
       }
-      setData((await response.json()) as BrowserEventsResponse);
+
+      const payload = (await response.json()) as BrowserEventsResponse;
+      setData(payload);
+      setNextBefore(payload.next_before_received_at ?? null);
+      setHasMore(Boolean(payload.has_more));
+
+      setEvents((current) => {
+        const merged = append ? [...current, ...payload.events] : payload.events;
+        const byId = new Map<number, BrowserEventRecord>();
+        for (const event of merged) {
+          byId.set(event.id, event);
+        }
+        return Array.from(byId.values()).sort(
+          (left, right) =>
+            new Date(right.received_at).getTime() - new Date(left.received_at).getTime() ||
+            right.id - left.id,
+        );
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load browser behavior events.");
     } finally {
-      if (!options?.quiet) setBusy(false);
+      if (append) {
+        setLoadingMore(false);
+      } else if (!options?.quiet) {
+        setBusy(false);
+      }
     }
+  }
+
+  function loadMoreStories() {
+    if (!nextBefore || loadingMore) return;
+    void loadEvents({ append: true, before: nextBefore });
   }
 
   useEffect(() => {
@@ -207,7 +253,6 @@ export default function AdminBrowserEventsCard() {
     storeBoolean(TRAFFIC_ADMIN_BEHAVIOR_FULL_KEY, showFull);
   }, [showFull]);
 
-  const events = data?.events ?? [];
   const journeys = useMemo(() => buildJourneys(events), [events]);
   const visibleJourneys = showFull ? journeys.slice(0, 30) : journeys.slice(0, 8);
 
@@ -233,11 +278,14 @@ export default function AdminBrowserEventsCard() {
             Who did what?
           </h2>
           <p className="mt-2 max-w-3xl text-base leading-7 text-slate-300">
-            Big readable cards grouped by visitor session. Flags lead. Names lead. Actions tell the story.
+            Big readable cards grouped by visitor session. Lazy-loads AoE2WAR behavior back through the previous 24 hours.
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <span className="rounded-full border border-white/10 bg-black/25 px-5 py-2.5 text-sm font-medium text-white/70">
+            {events.length} signals loaded · 24h window
+          </span>
           <button
             type="button"
             onClick={() => setShowFull((current) => !current)}
@@ -422,6 +470,22 @@ export default function AdminBrowserEventsCard() {
             );
           })
         )}
+      </div>
+
+      <div className="mt-4 flex shrink-0 flex-col gap-2 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-slate-400">
+          {hasMore
+            ? "More AoE2WAR visitor stories are available inside the previous 24 hours."
+            : "You are caught up for the loaded 24-hour behavior window."}
+        </p>
+        <button
+          type="button"
+          onClick={loadMoreStories}
+          disabled={!hasMore || loadingMore}
+          className="w-full cursor-pointer rounded-full border border-cyan-300/30 bg-cyan-300/10 px-5 py-2.5 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-300/15 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-white/35 sm:w-auto"
+        >
+          {loadingMore ? "Loading stories..." : hasMore ? "Load more stories" : "No more stories"}
+        </button>
       </div>
     </section>
   );

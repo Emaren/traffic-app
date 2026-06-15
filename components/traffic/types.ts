@@ -695,5 +695,8 @@ export type BrowserEventsResponse = {
   ok: boolean;
   generated_at: string;
   events: BrowserEventRecord[];
+  has_more?: boolean;
+  next_before_received_at?: string | null;
+  since_hours?: number;
 };
 
