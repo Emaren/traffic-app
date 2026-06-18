@@ -897,7 +897,9 @@ function LiveVisitorScreenInner({
       },
     ];
 
-    return sectionRows.filter((section) => section.items.length > 0);
+    // Security gets a priority lane near the top so suspicious page-walkers
+    // do not disappear below older human archive rows.
+    return sectionRows.filter((section) => section.items.length > 0 && section.key !== "security");
   }, [appActivityItems, automationItems, browserScriptItems, chainSignalItems, securityItems]);
 
   const hasVisibleContent =
@@ -1287,6 +1289,48 @@ function LiveVisitorScreenInner({
           className="max-h-[calc(100vh-16rem)] min-h-[28rem] overflow-y-auto pr-2"
         >
           <div className="space-y-6 pb-3">
+            {securityItems.length > 0 ? (
+              <div>
+                <div className="sticky top-0 z-20 mb-3 rounded-2xl border border-rose-400/30 bg-rose-950/80 px-4 py-3 backdrop-blur">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-base font-semibold text-rose-100">
+                        Security Watch
+                      </h3>
+                      <p className="text-xs text-rose-100/65">
+                        Suspicious page-walkers, probes, and scripted browser-shaped traffic surfaced first — separated from real people.
+                      </p>
+                    </div>
+                    <div className="rounded-full border border-rose-400/30 bg-rose-400/10 px-3 py-1 text-xs text-rose-100">
+                      {securityItems.length} visible
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <AnimatePresence initial={false}>
+                    {securityItems.map((session) => (
+                      <motion.div
+                        key={`priority-security-${session.session_id}`}
+                        initial={{ opacity: 0, y: -18 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 12 }}
+                        transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+                      >
+                        <LiveVisitorStreamRow
+                          session={session}
+                          density={density}
+                          onHideIp={hideIp}
+                          onHidePath={supportsSharedRules ? hidePath : undefined}
+                          onHideProject={supportsSharedRules ? hideProject : undefined}
+                        />
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              </div>
+            ) : null}
+
             {sections.map((section) => (
               <div key={section.key}>
                 <div className="sticky top-0 z-10 mb-3 rounded-2xl border border-white/10 bg-[#090b11]/90 px-4 py-3 backdrop-blur">
