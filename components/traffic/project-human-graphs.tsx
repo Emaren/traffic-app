@@ -88,6 +88,7 @@ type OverviewProjectStats = {
 };
 
 const RANGE_OPTIONS: Array<{ key: ProjectGraphRangeKey; label: string }> = [
+  { key: "12h", label: "12 Hours" },
   { key: "24h", label: "24 Hours" },
   { key: "7d", label: "1 Week" },
   { key: "30d", label: "1 Month" },
@@ -101,7 +102,7 @@ function formatBucketSize(bucketMinutes: number) {
 }
 
 function rangeLabelFor(rangeKey: ProjectGraphRangeKey) {
-  return RANGE_OPTIONS.find((option) => option.key === rangeKey)?.label ?? "24 Hours";
+  return RANGE_OPTIONS.find((option) => option.key === rangeKey)?.label ?? "12 Hours";
 }
 
 function pageIsHidden() {

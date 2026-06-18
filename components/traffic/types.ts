@@ -295,7 +295,7 @@ export type HumanSeriesPoint = {
   visitors: number;
 };
 
-export type ProjectGraphRangeKey = "24h" | "7d" | "30d" | "all";
+export type ProjectGraphRangeKey = "12h" | "24h" | "7d" | "30d" | "all";
 export type HistoryRangeKey = ProjectGraphRangeKey;
 
 export type ProjectGraphData = {
