@@ -897,9 +897,9 @@ function LiveVisitorScreenInner({
       },
     ];
 
-    // Crawler review gets a priority lane near the top so bot page-walkers
-    // do not disappear below older human archive rows.
-    return sectionRows.filter((section) => section.items.length > 0 && section.key !== "security");
+    // Keep non-human review lanes below the human stream. Crawler review is useful,
+    // but verified bots should not outrank people or likely people.
+    return sectionRows.filter((section) => section.items.length > 0);
   }, [appActivityItems, automationItems, browserScriptItems, chainSignalItems, securityItems]);
 
   const hasVisibleContent =
@@ -1289,30 +1289,6 @@ function LiveVisitorScreenInner({
           className="max-h-[calc(100vh-16rem)] min-h-[28rem] overflow-y-auto pr-2"
         >
           <div className="space-y-6 pb-3">
-            {securityItems.length > 0 ? (
-              <div className="space-y-3">
-                <AnimatePresence initial={false}>
-                  {securityItems.map((session) => (
-                    <motion.div
-                      key={`priority-security-${session.session_id}`}
-                      initial={{ opacity: 0, y: -18 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 12 }}
-                      transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
-                    >
-                      <LiveVisitorStreamRow
-                        session={session}
-                        density={density}
-                        onHideIp={hideIp}
-                        onHidePath={supportsSharedRules ? hidePath : undefined}
-                        onHideProject={supportsSharedRules ? hideProject : undefined}
-                      />
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </div>
-            ) : null}
-
             {sections.map((section) => (
               <div key={section.key}>
                 <div className="sticky top-0 z-10 mb-3 rounded-2xl border border-white/10 bg-[#090b11]/90 px-4 py-3 backdrop-blur">
