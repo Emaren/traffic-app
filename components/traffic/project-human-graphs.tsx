@@ -105,6 +105,18 @@ function rangeLabelFor(rangeKey: ProjectGraphRangeKey) {
   return RANGE_OPTIONS.find((option) => option.key === rangeKey)?.label ?? "12 Hours";
 }
 
+function visibleChartPoints<T>(
+  points: T[],
+  rangeKey: ProjectGraphRangeKey,
+  layout: "combined" | "stacked" | undefined,
+) {
+  // The homepage combined view should always tell the active 12h story.
+  // The stacked/detail view can still honor explicit 24h/7d/30d/all selections.
+  const shouldClampToTwelveHours = layout === "combined" || rangeKey === "12h";
+  if (shouldClampToTwelveHours && points.length > 24) return points.slice(-24);
+  return points;
+}
+
 function pageIsHidden() {
   return typeof document !== "undefined" && document.hidden;
 }
@@ -586,7 +598,7 @@ export default function ProjectHumanGraphs({
               <div className="h-[24rem] min-w-0 overflow-hidden rounded-[28px] border border-white/10 bg-[#05070c]/75 p-4">
                 {featuredProject.points.length > 0 ? (
                   <ResponsiveContainer width="100%" height={384} minWidth={0}>
-                    <LineChart data={featuredProject.points}>
+                    <LineChart data={visibleChartPoints(featuredProject.points, activeRangeKey, layout)}>
                     <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
                     <XAxis
                       dataKey="label"
@@ -866,7 +878,7 @@ export default function ProjectHumanGraphs({
           <div className="mt-4 h-[20rem] min-w-0 overflow-hidden">
             {featuredProject.points.length > 0 ? (
               <ResponsiveContainer width="100%" height={320} minWidth={0}>
-                <LineChart data={featuredProject.points}>
+                <LineChart data={visibleChartPoints(featuredProject.points, activeRangeKey, layout)}>
                 <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
                 <XAxis
                   dataKey="label"
