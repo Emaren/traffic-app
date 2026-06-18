@@ -87,7 +87,7 @@ export async function fetchLiveVisitors(
 }
 
 export async function fetchProjectHumanSeries(
-  rangeKey: ProjectGraphRangeKey = "24h",
+  rangeKey: ProjectGraphRangeKey = "12h",
 ): Promise<ProjectHumanSeriesResponse> {
   return fetchJson<ProjectHumanSeriesResponse>(
     `/api/project-human-series?range_key=${rangeKey}`,
@@ -114,7 +114,7 @@ export async function fetchProjectDetail(
 
 export async function fetchProjectGraph(
   slug: string,
-  rangeKey: ProjectGraphRangeKey = "24h",
+  rangeKey: ProjectGraphRangeKey = "12h",
 ): Promise<ProjectGraphResponse> {
   return fetchJson<ProjectGraphResponse>(`/api/projects/${slug}/graph?range_key=${rangeKey}`);
 }

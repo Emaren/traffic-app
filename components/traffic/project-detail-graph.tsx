@@ -14,6 +14,7 @@ import { fetchProjectGraph } from "@/components/traffic/api";
 import type { ProjectGraphData, ProjectGraphRangeKey } from "@/components/traffic/types";
 
 const RANGE_OPTIONS: Array<{ key: ProjectGraphRangeKey; label: string }> = [
+  { key: "12h", label: "12 Hours" },
   { key: "24h", label: "24 Hours" },
   { key: "7d", label: "1 Week" },
   { key: "30d", label: "1 Month" },

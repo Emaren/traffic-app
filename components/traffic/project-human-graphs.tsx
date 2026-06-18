@@ -29,7 +29,7 @@ type Props = {
   layout?: "combined" | "stacked";
 };
 
-const DEFAULT_RANGE_KEY: ProjectGraphRangeKey = "7d";
+const DEFAULT_RANGE_KEY: ProjectGraphRangeKey = "12h";
 const DEFAULT_FEATURED_PROJECT_SLUG = "aoe2hdbets";
 const PINNED_PROJECT_SLUGS = [
   "aoe2hdbets",
