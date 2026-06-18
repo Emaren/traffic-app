@@ -50,7 +50,7 @@ type StreamSection = {
 };
 
 type AuxiliarySection = {
-  key: "recent_page_review" | "app_activity" | "chain_signal" | "browser_scripts" | "automation" | "security";
+  key: "recent_page_review" | "app_activity" | "watcher_funnel" | "chain_signal" | "browser_scripts" | "automation" | "security";
   title: string;
   description: string;
   badgeClass: string;
@@ -638,6 +638,12 @@ function LiveVisitorScreenInner({
         className: "border-violet-400/25 bg-violet-400/10 text-violet-100",
       },
       {
+        label: "Watcher funnel",
+        value: numberFrom("watcher_funnel_count", arrayLengthFrom("watcher_funnel_preview")),
+        detail: "download/install",
+        className: "border-amber-400/25 bg-amber-400/10 text-amber-100",
+      },
+      {
         label: "Chain signals",
         value: numberFrom("chain_signal_count", arrayLengthFrom("chain_signal_preview")),
         detail: "not audience",
@@ -715,6 +721,32 @@ function LiveVisitorScreenInner({
   }, [
     activeVisibilityRules,
     data?.app_activity_preview,
+    effectiveHiddenIps,
+    effectiveSelectedProjects,
+    showOnlyGreenHumans,
+    streamItems,
+  ]);
+
+  const watcherFunnelItems = useMemo(() => {
+    if (showOnlyGreenHumans) {
+      return [];
+    }
+
+    const selectedProjectSet = new Set(effectiveSelectedProjects);
+    const streamSessionIds = new Set(streamItems.map((session) => session.session_id));
+
+    return (data?.watcher_funnel_preview ?? []).filter((session) => {
+      if (streamSessionIds.has(session.session_id)) {
+        return false;
+      }
+      if (selectedProjectSet.size > 0 && !selectedProjectSet.has(session.project_slug)) {
+        return false;
+      }
+      return !sessionHiddenByVisibilityRules(session, activeVisibilityRules, effectiveHiddenIps);
+    });
+  }, [
+    activeVisibilityRules,
+    data?.watcher_funnel_preview,
     effectiveHiddenIps,
     effectiveSelectedProjects,
     showOnlyGreenHumans,
@@ -864,6 +896,14 @@ function LiveVisitorScreenInner({
         items: appActivityItems,
       },
       {
+        key: "watcher_funnel",
+        title: "Watcher Funnel",
+        description:
+          "Download page views, installer clicks, release artifact fetches, and watcher update checks kept visible for operator follow-through.",
+        badgeClass: "border-amber-400/30 bg-amber-400/10 text-amber-200",
+        items: watcherFunnelItems,
+      },
+      {
         key: "chain_signal",
         title: "Chain Signal Watch",
         description:
@@ -900,7 +940,7 @@ function LiveVisitorScreenInner({
     // Keep non-human review lanes below the human stream. Crawler review is useful,
     // but verified bots should not outrank people or likely people.
     return sectionRows.filter((section) => section.items.length > 0);
-  }, [appActivityItems, automationItems, browserScriptItems, chainSignalItems, securityItems]);
+  }, [appActivityItems, automationItems, browserScriptItems, chainSignalItems, securityItems, watcherFunnelItems]);
 
   const hasVisibleContent =
     streamItems.length > 0 ||
@@ -1009,6 +1049,12 @@ function LiveVisitorScreenInner({
               Recently seen review {recentPageReviewItems.length}
             </div>
           ) : null}
+
+          {!showOnlyGreenHumans && !heroMode && watcherFunnelItems.length > 0 ? (
+            <div className="rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-medium text-amber-200">
+              Watcher funnel {watcherFunnelItems.length}
+            </div>
+          ) : null}
           {!showOnlyGreenHumans && !heroMode && browserScriptItems.length > 0 ? (
             <div className="rounded-full border border-fuchsia-400/30 bg-fuchsia-400/10 px-3 py-1 text-xs font-medium text-fuchsia-200">
               Browser scripts {browserScriptItems.length}
@@ -1069,7 +1115,7 @@ function LiveVisitorScreenInner({
             </p>
           </div>
 
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-7">
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-8">
             {operatorTruthStats.map((stat) => (
               <div
                 key={stat.label}

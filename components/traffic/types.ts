@@ -271,6 +271,8 @@ export type LiveVisitorsResponse = {
   stream_items: SessionRecord[];
   app_activity_count?: number;
   app_activity_preview?: SessionRecord[];
+  watcher_funnel_count?: number;
+  watcher_funnel_preview?: SessionRecord[];
   chain_signal_count?: number;
   chain_signal_preview?: SessionRecord[];
   browser_script_count?: number;
