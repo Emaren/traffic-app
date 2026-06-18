@@ -22,7 +22,7 @@ export default function HomeOverviewLite() {
 
     const load = async () => {
       try {
-        const next = await fetchOverviewRange("24h");
+        const next = await fetchOverviewRange("12h");
         if (!mounted || !next.ok) return;
 
         startTransition(() => {
@@ -43,7 +43,7 @@ export default function HomeOverviewLite() {
   }, []);
 
   const uniqueLivePeople = overview?.totals.live_now ?? 0;
-  const historyRangeKey: HistoryRangeKey = overview?.range_key ?? "24h";
+  const historyRangeKey: HistoryRangeKey = overview?.range_key ?? "12h";
   const featuredProjectKpi = useMemo(() => {
     const featuredProject = overview?.projects.find((project) => project.slug === "aoe2hdbets");
     if (!featuredProject) return null;

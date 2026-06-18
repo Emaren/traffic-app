@@ -71,7 +71,7 @@ export async function fetchOverview(): Promise<OverviewResponse> {
 }
 
 export async function fetchOverviewRange(
-  rangeKey: HistoryRangeKey = "24h",
+  rangeKey: HistoryRangeKey = "12h",
 ): Promise<OverviewResponse> {
   return fetchJson<OverviewResponse>(`/api/overview?range_key=${rangeKey}`);
 }

@@ -53,7 +53,7 @@ export default function HomeOverviewScreen({
   const [overview, setOverview] = useState(initialOverview);
   const [pendingRange, setPendingRange] = useState<HistoryRangeKey | null>(null);
   const [error, setError] = useState("");
-  const activeRangeKey = overview?.range_key ?? "24h";
+  const activeRangeKey = overview?.range_key ?? "12h";
   const hasOverview = Boolean(overview);
   const alerts = overview?.alerts ?? [];
   const notes = overview?.notes ?? [];
@@ -77,7 +77,7 @@ export default function HomeOverviewScreen({
 
       const loadInitial = async () => {
         try {
-          const next = await fetchOverviewRange("24h");
+          const next = await fetchOverviewRange("12h");
           if (!mounted || !next.ok) return;
 
           startTransition(() => {
