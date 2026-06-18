@@ -988,12 +988,12 @@ function LiveVisitorScreenInner({
         <div>
           <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Realtime Visitor Stream</p>
           <h2 className="mt-1 text-xl font-semibold text-white">
-            {heroMode ? "Newest rows stay beside the featured graph" : "Chronological visitor movement"}
+            {heroMode ? "Newest rows stay beside the featured graph" : "Visitor movement"}
           </h2>
           <p className="max-w-3xl text-sm text-white/60">
             {heroMode
               ? "Keep the spike and the top rows in the same viewport without pretending every row is equally trustworthy."
-              : "Chronological, not ranked. Strict humans, likely humans, unclear sessions, browser scripts, and automation are separated so noisy browser traffic does not masquerade as people."}
+              : "Grouped into live lanes. Newest activity appears first within each lane so people, unclear sessions, and noisy traffic stay separated."}
           </p>
         </div>
 
@@ -1290,44 +1290,26 @@ function LiveVisitorScreenInner({
         >
           <div className="space-y-6 pb-3">
             {securityItems.length > 0 ? (
-              <div>
-                <div className="sticky top-0 z-20 mb-3 rounded-2xl border border-rose-400/30 bg-rose-950/80 px-4 py-3 backdrop-blur">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <h3 className="text-base font-semibold text-rose-100">
-                        Security Watch
-                      </h3>
-                      <p className="text-xs text-rose-100/65">
-                        Suspicious page-walkers, probes, and scripted browser-shaped traffic surfaced first — separated from real people.
-                      </p>
-                    </div>
-                    <div className="rounded-full border border-rose-400/30 bg-rose-400/10 px-3 py-1 text-xs text-rose-100">
-                      {securityItems.length} visible
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <AnimatePresence initial={false}>
-                    {securityItems.map((session) => (
-                      <motion.div
-                        key={`priority-security-${session.session_id}`}
-                        initial={{ opacity: 0, y: -18 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 12 }}
-                        transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
-                      >
-                        <LiveVisitorStreamRow
-                          session={session}
-                          density={density}
-                          onHideIp={hideIp}
-                          onHidePath={supportsSharedRules ? hidePath : undefined}
-                          onHideProject={supportsSharedRules ? hideProject : undefined}
-                        />
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                </div>
+              <div className="space-y-3">
+                <AnimatePresence initial={false}>
+                  {securityItems.map((session) => (
+                    <motion.div
+                      key={`priority-security-${session.session_id}`}
+                      initial={{ opacity: 0, y: -18 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 12 }}
+                      transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+                    >
+                      <LiveVisitorStreamRow
+                        session={session}
+                        density={density}
+                        onHideIp={hideIp}
+                        onHidePath={supportsSharedRules ? hidePath : undefined}
+                        onHideProject={supportsSharedRules ? hideProject : undefined}
+                      />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
               </div>
             ) : null}
 
