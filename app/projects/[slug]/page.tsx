@@ -235,10 +235,10 @@ export default async function ProjectPage({
           </div>
 
           <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-            <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Suspicious Watch</p>
+            <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Crawler Review</p>
             <h2 className="mt-2 text-2xl font-semibold text-white">Top suspicious sessions</h2>
             <p className="mt-2 text-sm text-slate-300">
-              Suspicious and probe-like sessions are separated from human highlights so they stay
+              Known bots, crawlers, and probe-like sessions are separated from human highlights so they stay
               visible without polluting the human story.
             </p>
 

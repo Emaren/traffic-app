@@ -72,7 +72,7 @@ function automationLabel(session: SessionRecord): string | null {
     return session.automation_family || "Known automation";
   }
   if (state === "suspicious") {
-    return "Security watch";
+    return "Crawler review";
   }
   if (state === "bot") {
     return "Other bot";

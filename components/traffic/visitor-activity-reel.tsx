@@ -70,7 +70,7 @@ function automationBadge(session: SessionRecord | null): { label: string; classN
   }
   if (session.classification_state === "suspicious") {
     return {
-      label: "Security watch",
+      label: "Crawler review",
       className: "border-rose-400/30 bg-rose-400/10 text-rose-200",
     };
   }

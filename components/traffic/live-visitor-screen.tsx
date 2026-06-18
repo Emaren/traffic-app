@@ -644,7 +644,7 @@ function LiveVisitorScreenInner({
         className: "border-amber-400/25 bg-amber-400/10 text-amber-100",
       },
       {
-        label: "Security",
+        label: "Crawler review",
         value: numberFrom("security_count", arrayLengthFrom("security_preview")),
         detail: "probe/watch",
         className: "border-rose-400/25 bg-rose-400/10 text-rose-100",
@@ -889,15 +889,15 @@ function LiveVisitorScreenInner({
       },
       {
         key: "security",
-        title: "Security Watch",
+        title: "Crawler Review",
         description:
-          "Suspicious traffic worth inspection, clearly separated from known automation.",
+          "Known bots and unverified page-walkers worth inspection, separated from real people.",
         badgeClass: "border-rose-400/30 bg-rose-400/10 text-rose-200",
         items: securityItems,
       },
     ];
 
-    // Security gets a priority lane near the top so suspicious page-walkers
+    // Crawler review gets a priority lane near the top so bot page-walkers
     // do not disappear below older human archive rows.
     return sectionRows.filter((section) => section.items.length > 0 && section.key !== "security");
   }, [appActivityItems, automationItems, browserScriptItems, chainSignalItems, securityItems]);
@@ -1021,7 +1021,7 @@ function LiveVisitorScreenInner({
           ) : null}
           {!showOnlyGreenHumans && !heroMode && securityItems.length > 0 ? (
             <div className="rounded-full border border-rose-400/30 bg-rose-400/10 px-3 py-1 text-xs font-medium text-rose-200">
-              Security {securityItems.length}
+              Crawler review {securityItems.length}
             </div>
           ) : null}
           <button
@@ -1114,7 +1114,7 @@ function LiveVisitorScreenInner({
                 ? ` • ${automationItems.length} known automation separated`
                 : ""}
               {!showOnlyGreenHumans && !heroMode && securityItems.length > 0
-                ? ` • ${securityItems.length} security watch`
+                ? ` • ${securityItems.length} crawler review`
                 : ""}
               {followFeaturedProject && focusedProject ? ` • following ${focusedProject.name}` : ""}
               {effectiveHiddenIps.length > 0 ? ` • ${effectiveHiddenIps.length} hidden IPs` : ""}

@@ -85,7 +85,7 @@ function automationLabel(row: SessionRecord): string | null {
     return row.automation_family || "Known automation";
   }
   if (row.classification_state === "suspicious") {
-    return "Security watch";
+    return "Crawler review";
   }
   if (row.classification_state === "bot") {
     return "Other bot";
@@ -657,7 +657,7 @@ export default function VisitsHistoryTable() {
                 <option value="known_automation">Known automation</option>
                 <option value="other_bot">Other bot</option>
                 <option value="bot">All bots</option>
-                <option value="suspicious">Suspicious</option>
+                <option value="suspicious">Crawler review</option>
               </select>
             </label>
 

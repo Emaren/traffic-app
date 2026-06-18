@@ -74,7 +74,7 @@ export function TrafficSocialCard() {
               "Realtime feed",
               "Visitor history",
               "Project attribution",
-              "Security watch",
+              "Crawler review",
             ].map((label) => (
               <div
                 key={label}
@@ -106,7 +106,7 @@ export function TrafficSocialCard() {
           {[
             ["Humans", "Live, ranked clearly"],
             ["History", "Stored and queryable"],
-            ["Security", "Suspicious traffic separated"],
+            ["Crawler review", "Bot page-walks separated"],
           ].map(([title, detail], index) => (
             <div
               key={title}
