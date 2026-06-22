@@ -1025,17 +1025,15 @@ function LiveVisitorScreenInner({
   return (
     <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 shadow-2xl shadow-black/20">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Realtime Visitor Stream</p>
-          <h2 className="mt-1 text-xl font-semibold text-white">
-            {heroMode ? "Newest rows stay beside the featured graph" : ""}
-          </h2>
-          <p className="max-w-3xl text-sm text-white/60">
-            {heroMode
-              ? "Keep the spike and the top rows in the same viewport without pretending every row is equally trustworthy."
-              : "Grouped into live lanes. Newest activity appears first within each lane so people, unclear sessions, and noisy traffic stay separated."}
-          </p>
-        </div>
+        {heroMode ? (
+          <div>
+            <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Realtime Visitor Stream</p>
+            <h2 className="mt-1 text-xl font-semibold text-white">Newest rows stay beside the featured graph</h2>
+            <p className="max-w-3xl text-sm text-white/60">
+              Keep the spike and the top rows in the same viewport without pretending every row is equally trustworthy.
+            </p>
+          </div>
+        ) : null}
 
         <div className="flex flex-wrap items-center gap-2">
           <div className={`rounded-full border px-3 py-1 text-xs ${transport.className}`}>
