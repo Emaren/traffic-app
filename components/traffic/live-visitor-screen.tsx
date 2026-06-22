@@ -1028,7 +1028,7 @@ function LiveVisitorScreenInner({
         <div>
           <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Realtime Visitor Stream</p>
           <h2 className="mt-1 text-xl font-semibold text-white">
-            {heroMode ? "Newest rows stay beside the featured graph" : "Visitor movement"}
+            {heroMode ? "Newest rows stay beside the featured graph" : ""}
           </h2>
           <p className="max-w-3xl text-sm text-white/60">
             {heroMode
