@@ -121,6 +121,36 @@ export default function LiveVisitorStreamRow({
     session.is_burst_cluster ? "Collapsed burst" : null,
   ].filter(Boolean) as string[];
 
+  const browserMaxScrollPct = Number(session.browser_max_scroll_pct ?? 0);
+  const browserClicks = Number(session.browser_clicks ?? 0);
+  const browserSignalCount = Number(session.browser_signal_count ?? 0);
+  const browserTrail =
+    Array.isArray(session.route_trail) && session.route_trail.length > 0
+      ? session.route_trail
+      : Array.isArray(session.browser_route_trail) && session.browser_route_trail.length > 0
+        ? session.browser_route_trail
+        : session.page_sequence;
+
+  const browserEngagementChips = (
+    <>
+      {browserMaxScrollPct > 0 ? (
+        <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-100">
+          Scrolled {browserMaxScrollPct}%
+        </span>
+      ) : null}
+      {browserClicks > 0 ? (
+        <span className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2.5 py-1 text-[11px] font-semibold text-cyan-100">
+          Clicks {browserClicks}
+        </span>
+      ) : null}
+      {browserSignalCount > 0 ? (
+        <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-white/60">
+          Browser signals {browserSignalCount}
+        </span>
+      ) : null}
+    </>
+  );
+
   return (
     <details className="group rounded-2xl border border-white/10 bg-black/20 transition open:bg-black/30">
       <summary className="cursor-pointer list-none px-4 py-3 [&::-webkit-details-marker]:hidden">
@@ -147,6 +177,7 @@ export default function LiveVisitorStreamRow({
               >
                 {session.verdict_label}
               </span>
+              {browserEngagementChips}
               {knownVisitor ? (
                 <span className={knownVisitorChipClassName(knownVisitor)}>
                   {knownVisitorChipLabel(knownVisitor)}
@@ -387,7 +418,7 @@ export default function LiveVisitorStreamRow({
         <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 p-3">
           <div className="text-[11px] uppercase tracking-wide text-white/45">Full Path</div>
           <div className="mt-3 flex flex-wrap gap-2">
-            {session.page_sequence.map((page, index) => (
+            {browserTrail.map((page, index) => (
               <span
                 key={`${session.session_id}-${page}-${index}`}
                 className="rounded-full border border-white/10 bg-black/20 px-3 py-1 font-mono text-[11px] text-white/70"

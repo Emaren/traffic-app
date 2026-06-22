@@ -177,6 +177,13 @@ export type SessionRecord = {
   exit_page: string;
   next_page: string;
   page_sequence: string[];
+  route_trail?: string[] | null;
+  browser_route_trail?: string[] | null;
+  browser_clicks?: number | null;
+  browser_max_scroll_pct?: number | null;
+  browser_signal_count?: number | null;
+  browser_latest_meaningful_event?: string | null;
+  browser_latest_meaningful_path?: string | null;
   activity_sequence?: SessionActivityItem[];
   page_count: number;
   event_count: number;
