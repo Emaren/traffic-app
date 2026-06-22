@@ -295,6 +295,18 @@ export type HumanSeriesPoint = {
   bucket_start: string;
   label: string;
   visitors: number;
+  confirmed?: number;
+  audience?: number;
+  page_interest?: number;
+  requests?: number;
+};
+
+export type GraphSeriesDefinition = {
+  key: "visitors" | "audience" | "page_interest" | "requests";
+  label: string;
+  tone: "amber" | "blue" | "purple" | "red";
+  default_visible: boolean;
+  axis: "audience" | "requests";
 };
 
 export type ProjectGraphRangeKey = "12h" | "24h" | "7d" | "30d" | "all";
@@ -311,6 +323,7 @@ export type ProjectGraphData = {
   coverage_started_at?: string | null;
   coverage_started_alberta?: string | null;
   note?: string | null;
+  series?: GraphSeriesDefinition[];
   points: HumanSeriesPoint[];
 };
 
@@ -333,6 +346,7 @@ export type ProjectHumanSeriesResponse = {
   coverage_started_alberta?: string | null;
   note?: string | null;
   series_kind: string;
+  series?: GraphSeriesDefinition[];
   projects: HumanSeriesProject[];
 };
 

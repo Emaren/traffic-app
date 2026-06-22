@@ -129,6 +129,69 @@ function peakVisitors(project: HumanSeriesProject): number {
   return project.points.reduce((peak, point) => Math.max(peak, point.visitors), 0);
 }
 
+type TrafficLineKey = "visitors" | "audience" | "page_interest" | "requests";
+
+const TRAFFIC_LINE_OPTIONS: Array<{
+  key: TrafficLineKey;
+  label: string;
+  shortLabel: string;
+  stroke: string;
+  yAxisId: "audience" | "requests";
+  defaultVisible: boolean;
+}> = [
+  {
+    key: "visitors",
+    label: "Confirmed humans",
+    shortLabel: "Confirmed",
+    stroke: "#f59e0b",
+    yAxisId: "audience",
+    defaultVisible: true,
+  },
+  {
+    key: "audience",
+    label: "Audience signal",
+    shortLabel: "Potential",
+    stroke: "#38bdf8",
+    yAxisId: "audience",
+    defaultVisible: true,
+  },
+  {
+    key: "page_interest",
+    label: "Page interest",
+    shortLabel: "Page interest",
+    stroke: "#c084fc",
+    yAxisId: "audience",
+    defaultVisible: false,
+  },
+  {
+    key: "requests",
+    label: "All requests",
+    shortLabel: "Requests",
+    stroke: "#ef4444",
+    yAxisId: "requests",
+    defaultVisible: false,
+  },
+];
+
+const DEFAULT_VISIBLE_TRAFFIC_LINES = TRAFFIC_LINE_OPTIONS.reduce(
+  (memo, option) => ({ ...memo, [option.key]: option.defaultVisible }),
+  {} as Record<TrafficLineKey, boolean>,
+);
+
+function pointLineValue(point: HumanSeriesProject["points"][number], key: TrafficLineKey): number {
+  if (key === "visitors") return point.visitors ?? point.confirmed ?? 0;
+  return Number(point[key] ?? 0);
+}
+
+function peakLine(project: HumanSeriesProject, key: TrafficLineKey): number {
+  return project.points.reduce((peak, point) => Math.max(peak, pointLineValue(point, key)), 0);
+}
+
+function lineHasData(project: HumanSeriesProject | null, key: TrafficLineKey): boolean {
+  if (!project) return false;
+  return project.points.some((point) => pointLineValue(point, key) > 0);
+}
+
 function pinnedIndex(slug: string) {
   const index = PINNED_PROJECT_SLUGS.indexOf(slug as (typeof PINNED_PROJECT_SLUGS)[number]);
   return index === -1 ? Number.POSITIVE_INFINITY : index;
@@ -143,8 +206,9 @@ function buildActivityProject(
   const engaged_sessions_seen = stats?.engaged_sessions ?? 0;
   const human_confirmed_sessions_seen = stats?.human_confirmed_sessions ?? 0;
   const suspicious_sessions_seen = stats?.suspicious ?? 0;
+  const confirmed_points_seen = project.points.some((point) => point.visitors > 0);
   const activity_mode =
-    project.points.length > 0 || human_confirmed_sessions_seen > 0
+    confirmed_points_seen || human_confirmed_sessions_seen > 0
       ? "confirmed_humans"
       : sessions_seen > 0 || engaged_sessions_seen > 0 || requests_seen > 0
         ? "fallback_activity"
@@ -220,6 +284,9 @@ export default function ProjectHumanGraphs({
   const [activeRangeKey, setActiveRangeKey] = useState<ProjectGraphRangeKey>(initialRangeKey);
   const [pendingRange, setPendingRange] = useState<ProjectGraphRangeKey | null>(null);
   const [internalSelectedSlug, setInternalSelectedSlug] = useState(DEFAULT_FEATURED_PROJECT_SLUG);
+  const [visibleLineKeys, setVisibleLineKeys] = useState<Record<TrafficLineKey, boolean>>({
+    ...DEFAULT_VISIBLE_TRAFFIC_LINES,
+  });
 
   useEffect(() => {
     let mounted = true;
@@ -353,6 +420,43 @@ export default function ProjectHumanGraphs({
       setInternalSelectedSlug(slug);
     }
     onSelectProject?.(slug);
+  };
+
+  const toggleLineKey = (key: TrafficLineKey) => {
+    setVisibleLineKeys((current) => ({ ...current, [key]: !current[key] }));
+  };
+
+  const renderLineToggles = () => {
+    if (!featuredProject) return null;
+
+    return (
+      <div className="flex basis-full flex-wrap items-center gap-2 pt-1 text-[11px] text-white/60">
+        <span className="mr-1 uppercase tracking-[0.18em] text-white/35">Lines</span>
+        {TRAFFIC_LINE_OPTIONS.map((option) => {
+          const active = visibleLineKeys[option.key];
+          const disabled = !lineHasData(featuredProject, option.key);
+          const peak = peakLine(featuredProject, option.key);
+
+          return (
+            <button
+              key={option.key}
+              type="button"
+              onClick={() => toggleLineKey(option.key)}
+              disabled={disabled}
+              className="cursor-pointer rounded-full border px-2.5 py-1 font-medium transition disabled:cursor-not-allowed disabled:opacity-35"
+              style={{
+                borderColor: active ? option.stroke : "rgba(255,255,255,0.12)",
+                background: active ? `${option.stroke}22` : "rgba(0,0,0,0.2)",
+                color: active ? option.stroke : "rgba(255,255,255,0.58)",
+              }}
+              title={`${option.label} • peak ${peak}`}
+            >
+              {option.shortLabel}: {peak}
+            </button>
+          );
+        })}
+      </div>
+    );
   };
 
   if (layout === "stacked") {
@@ -569,7 +673,7 @@ export default function ProjectHumanGraphs({
                       Live on project: {featuredProject.live_humans}
                     </div>
                     <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
-                      Peak bucket: {peakVisitors(featuredProject)}
+                      Peak confirmed: {peakVisitors(featuredProject)}
                     </div>
                     <div className={`rounded-full border px-3 py-1 font-medium ${activityTone(featuredProject).className}`}>
                       {activityTone(featuredProject).label}
@@ -585,6 +689,7 @@ export default function ProjectHumanGraphs({
                     >
                       Open project
                     </Link>
+                    {renderLineToggles()}
                   </>
                 ) : (
                   <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
@@ -608,12 +713,14 @@ export default function ProjectHumanGraphs({
                       minTickGap={18}
                     />
                     <YAxis
+                      yAxisId="audience"
                       allowDecimals={false}
                       tick={{ fill: "rgba(255,255,255,0.55)", fontSize: 11 }}
                       tickLine={false}
                       axisLine={false}
                       width={24}
                     />
+                    {visibleLineKeys.requests ? <YAxis yAxisId="requests" orientation="right" hide /> : null}
                     <Tooltip
                       contentStyle={{
                         background: "rgba(10,10,14,0.95)",
@@ -622,15 +729,22 @@ export default function ProjectHumanGraphs({
                         color: "#fff",
                       }}
                     />
-                    <Line
-                      type="monotone"
-                      dataKey="visitors"
-                      stroke="#f59e0b"
-                      strokeWidth={3}
-                      dot={false}
-                      activeDot={{ r: 4 }}
-                      isAnimationActive={false}
-                    />
+                    {TRAFFIC_LINE_OPTIONS.map((option) =>
+                      visibleLineKeys[option.key] && lineHasData(featuredProject, option.key) ? (
+                        <Line
+                          key={option.key}
+                          yAxisId={option.yAxisId}
+                          type="monotone"
+                          dataKey={option.key}
+                          name={option.label}
+                          stroke={option.stroke}
+                          strokeWidth={option.key === "visitors" ? 3 : 2.5}
+                          dot={false}
+                          activeDot={{ r: 4 }}
+                          isAnimationActive={false}
+                        />
+                      ) : null,
+                    )}
                     </LineChart>
                   </ResponsiveContainer>
                 ) : (
@@ -856,7 +970,7 @@ export default function ProjectHumanGraphs({
                 Live on project: {featuredProject.live_humans}
               </div>
               <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/70">
-                Peak bucket: {peakVisitors(featuredProject)}
+                Peak confirmed: {peakVisitors(featuredProject)}
               </div>
               <div className={`rounded-full border px-3 py-1 font-medium ${activityTone(featuredProject).className}`}>
                 {activityTone(featuredProject).label}
@@ -872,6 +986,7 @@ export default function ProjectHumanGraphs({
               >
                 Open project
               </Link>
+              {renderLineToggles()}
             </div>
           </div>
 
@@ -888,12 +1003,14 @@ export default function ProjectHumanGraphs({
                   minTickGap={18}
                 />
                 <YAxis
+                  yAxisId="audience"
                   allowDecimals={false}
                   tick={{ fill: "rgba(255,255,255,0.55)", fontSize: 11 }}
                   tickLine={false}
                   axisLine={false}
                   width={24}
                 />
+                {visibleLineKeys.requests ? <YAxis yAxisId="requests" orientation="right" hide /> : null}
                 <Tooltip
                   contentStyle={{
                     background: "rgba(10,10,14,0.95)",
@@ -902,15 +1019,22 @@ export default function ProjectHumanGraphs({
                     color: "#fff",
                   }}
                 />
-                <Line
-                  type="monotone"
-                  dataKey="visitors"
-                  stroke="#f59e0b"
-                  strokeWidth={3}
-                  dot={false}
-                  activeDot={{ r: 4 }}
-                  isAnimationActive={false}
-                />
+                {TRAFFIC_LINE_OPTIONS.map((option) =>
+                  visibleLineKeys[option.key] && lineHasData(featuredProject, option.key) ? (
+                    <Line
+                      key={option.key}
+                      yAxisId={option.yAxisId}
+                      type="monotone"
+                      dataKey={option.key}
+                      name={option.label}
+                      stroke={option.stroke}
+                      strokeWidth={option.key === "visitors" ? 3 : 2.5}
+                      dot={false}
+                      activeDot={{ r: 4 }}
+                      isAnimationActive={false}
+                    />
+                  ) : null,
+                )}
                 </LineChart>
               </ResponsiveContainer>
             ) : (
