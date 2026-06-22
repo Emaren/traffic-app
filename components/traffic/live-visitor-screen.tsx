@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   buildLiveVisitorsStreamUrl,
@@ -168,6 +169,30 @@ function isPotentialAudienceSignal(item: SessionRecord): boolean {
   if (eventCount >= 4 && !reasons.includes("bounce")) return true;
 
   return false;
+}
+
+
+function PotentialVisitorRow({
+  session,
+  children,
+}: {
+  session: SessionRecord;
+  children: ReactNode;
+}) {
+  if (!isPotentialAudienceSignal(session)) {
+    return <>{children}</>;
+  }
+
+  return (
+    <div className="rounded-[1.35rem] border border-sky-400/25 bg-sky-400/[0.035] p-1 shadow-[0_0_24px_rgba(56,189,248,0.08)]">
+      <div className="mb-1 flex justify-end">
+        <span className="rounded-full border border-sky-400/35 bg-sky-400/10 px-2.5 py-0.5 text-[11px] font-semibold text-sky-200">
+          Potential
+        </span>
+      </div>
+      {children}
+    </div>
+  );
 }
 
 function LiveVisitorScreenInner({
@@ -1334,6 +1359,7 @@ function LiveVisitorScreenInner({
                   exit={{ opacity: 0, y: 12 }}
                   transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
                 >
+                  <PotentialVisitorRow session={session}>
                   <LiveVisitorStreamRow
                     session={session}
                     density={density}
@@ -1341,6 +1367,7 @@ function LiveVisitorScreenInner({
                     onHidePath={supportsSharedRules ? hidePath : undefined}
                     onHideProject={supportsSharedRules ? hideProject : undefined}
                   />
+                  </PotentialVisitorRow>
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -1379,6 +1406,7 @@ function LiveVisitorScreenInner({
                         exit={{ opacity: 0, y: 12 }}
                         transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
                       >
+                        <PotentialVisitorRow session={session}>
                         <LiveVisitorStreamRow
                           session={session}
                           density={density}
@@ -1386,6 +1414,7 @@ function LiveVisitorScreenInner({
                           onHidePath={supportsSharedRules ? hidePath : undefined}
                           onHideProject={supportsSharedRules ? hideProject : undefined}
                         />
+                        </PotentialVisitorRow>
                       </motion.div>
                     ))}
                   </AnimatePresence>
@@ -1430,6 +1459,7 @@ function LiveVisitorScreenInner({
                         exit={{ opacity: 0, y: 12 }}
                         transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
                       >
+                        <PotentialVisitorRow session={session}>
                         <LiveVisitorStreamRow
                           session={session}
                           density={density}
@@ -1437,6 +1467,7 @@ function LiveVisitorScreenInner({
                           onHidePath={supportsSharedRules ? hidePath : undefined}
                           onHideProject={supportsSharedRules ? hideProject : undefined}
                         />
+                        </PotentialVisitorRow>
                       </motion.div>
                     ))}
                   </AnimatePresence>
@@ -1494,6 +1525,7 @@ function LiveVisitorScreenInner({
                         exit={{ opacity: 0, y: 12 }}
                         transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
                       >
+                        <PotentialVisitorRow session={session}>
                         <LiveVisitorStreamRow
                           session={session}
                           density={density}
@@ -1501,6 +1533,7 @@ function LiveVisitorScreenInner({
                           onHidePath={supportsSharedRules ? hidePath : undefined}
                           onHideProject={supportsSharedRules ? hideProject : undefined}
                         />
+                        </PotentialVisitorRow>
                       </motion.div>
                     ))}
                   </AnimatePresence>
