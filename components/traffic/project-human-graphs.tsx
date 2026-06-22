@@ -129,7 +129,7 @@ function peakVisitors(project: HumanSeriesProject): number {
   return project.points.reduce((peak, point) => Math.max(peak, point.visitors), 0);
 }
 
-type TrafficLineKey = "visitors" | "audience" | "page_interest" | "requests";
+type TrafficLineKey = "visitors" | "audience" | "page_interest" | "unique_ips" | "requests";
 
 const TRAFFIC_LINE_OPTIONS: Array<{
   key: TrafficLineKey;
@@ -160,6 +160,14 @@ const TRAFFIC_LINE_OPTIONS: Array<{
     label: "Page interest",
     shortLabel: "Page interest",
     stroke: "#c084fc",
+    yAxisId: "audience",
+    defaultVisible: false,
+  },
+  {
+    key: "unique_ips",
+    label: "Unique IPs",
+    shortLabel: "IPs",
+    stroke: "#94a3b8",
     yAxisId: "audience",
     defaultVisible: false,
   },
