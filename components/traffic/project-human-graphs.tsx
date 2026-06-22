@@ -181,10 +181,19 @@ const TRAFFIC_LINE_OPTIONS: Array<{
   },
 ];
 
+const TRAFFIC_LINE_COLOR_STORAGE_KEY = "traffic:graph-line-colors:v1";
+
 const DEFAULT_VISIBLE_TRAFFIC_LINES = TRAFFIC_LINE_OPTIONS.reduce(
   (memo, option) => ({ ...memo, [option.key]: option.defaultVisible }),
   {} as Record<TrafficLineKey, boolean>,
 );
+
+function defaultTrafficLineColors(): Record<TrafficLineKey, string> {
+  return TRAFFIC_LINE_OPTIONS.reduce(
+    (memo, option) => ({ ...memo, [option.key]: option.stroke }),
+    {} as Record<TrafficLineKey, string>,
+  );
+}
 
 function pointLineValue(point: HumanSeriesProject["points"][number], key: TrafficLineKey): number {
   if (key === "visitors") return point.visitors ?? point.confirmed ?? 0;
@@ -295,6 +304,32 @@ export default function ProjectHumanGraphs({
   const [visibleLineKeys, setVisibleLineKeys] = useState<Record<TrafficLineKey, boolean>>({
     ...DEFAULT_VISIBLE_TRAFFIC_LINES,
   });
+  const [lineColors, setLineColors] = useState<Record<TrafficLineKey, string>>(() => defaultTrafficLineColors());
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(TRAFFIC_LINE_COLOR_STORAGE_KEY);
+      if (!saved) return;
+
+      const parsed = JSON.parse(saved) as Partial<Record<TrafficLineKey, string>>;
+      setLineColors((current) => ({
+        ...current,
+        ...Object.fromEntries(
+          Object.entries(parsed).filter(([, value]) => typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value)),
+        ),
+      }));
+    } catch {
+      // Ignore local color preference failures.
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(TRAFFIC_LINE_COLOR_STORAGE_KEY, JSON.stringify(lineColors));
+    } catch {
+      // Ignore local color preference failures.
+    }
+  }, [lineColors]);
 
   useEffect(() => {
     let mounted = true;
@@ -434,6 +469,10 @@ export default function ProjectHumanGraphs({
     setVisibleLineKeys((current) => ({ ...current, [key]: !current[key] }));
   };
 
+  const updateLineColor = (key: TrafficLineKey, color: string) => {
+    setLineColors((current) => ({ ...current, [key]: color }));
+  };
+
   const renderLineToggles = () => {
     if (!featuredProject) return null;
 
@@ -444,23 +483,36 @@ export default function ProjectHumanGraphs({
           const active = visibleLineKeys[option.key];
           const disabled = !lineHasData(featuredProject, option.key);
           const peak = peakLine(featuredProject, option.key);
+          const color = lineColors[option.key] ?? option.stroke;
 
           return (
-            <button
+            <div
               key={option.key}
-              type="button"
-              onClick={() => toggleLineKey(option.key)}
-              disabled={disabled}
-              className="cursor-pointer rounded-full border px-2.5 py-1 font-medium transition disabled:cursor-not-allowed disabled:opacity-35"
+              className="flex items-center gap-1 rounded-full border px-2 py-1 font-medium transition"
               style={{
-                borderColor: active ? option.stroke : "rgba(255,255,255,0.12)",
-                background: active ? `${option.stroke}22` : "rgba(0,0,0,0.2)",
-                color: active ? option.stroke : "rgba(255,255,255,0.58)",
+                borderColor: active ? color : "rgba(255,255,255,0.12)",
+                background: active ? `${color}22` : "rgba(0,0,0,0.2)",
+                color: active ? color : "rgba(255,255,255,0.58)",
+                opacity: disabled ? 0.35 : 1,
               }}
               title={`${option.label} • peak ${peak}`}
             >
-              {option.shortLabel}: {peak}
-            </button>
+              <input
+                type="color"
+                aria-label={`Choose ${option.label} line color`}
+                value={color}
+                onChange={(event) => updateLineColor(option.key, event.target.value)}
+                className="h-5 w-5 cursor-pointer rounded-full border border-white/15 bg-transparent p-0"
+              />
+              <button
+                type="button"
+                onClick={() => toggleLineKey(option.key)}
+                disabled={disabled}
+                className="cursor-pointer whitespace-nowrap disabled:cursor-not-allowed"
+              >
+                {option.shortLabel}: {peak}
+              </button>
+            </div>
           );
         })}
       </div>
@@ -745,7 +797,7 @@ export default function ProjectHumanGraphs({
                           type="monotone"
                           dataKey={option.key}
                           name={option.label}
-                          stroke={option.stroke}
+                          stroke={lineColors[option.key] ?? option.stroke}
                           strokeWidth={option.key === "visitors" ? 3 : 2.5}
                           dot={false}
                           activeDot={{ r: 4 }}
@@ -1035,7 +1087,7 @@ export default function ProjectHumanGraphs({
                       type="monotone"
                       dataKey={option.key}
                       name={option.label}
-                      stroke={option.stroke}
+                      stroke={lineColors[option.key] ?? option.stroke}
                       strokeWidth={option.key === "visitors" ? 3 : 2.5}
                       dot={false}
                       activeDot={{ r: 4 }}
