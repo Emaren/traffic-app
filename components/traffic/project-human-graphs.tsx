@@ -718,12 +718,6 @@ export default function ProjectHumanGraphs({
                 <h3 className="mt-1 text-3xl font-semibold tracking-tight text-white">
                   {featuredProject ? featuredProject.name : "Project movement"}
                 </h3>
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                  The main analytical surface stays dedicated to one project at a time, so the
-                  spike story is easy to read. When confirmed-human points are absent, the pinned
-                  lane stays visible with broader seen-activity context instead of pretending the
-                  project is dead.
-                </p>
               </div>
 
               <div className="flex flex-wrap gap-2 text-xs">

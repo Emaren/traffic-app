@@ -148,6 +148,28 @@ function sessionSearchText(session: SessionRecord) {
     .toLowerCase();
 }
 
+
+function isPotentialAudienceSignal(item: SessionRecord): boolean {
+  const state = item.classification_state;
+  if (state === "likely_human") return true;
+
+  if (state !== "candidate") return false;
+  if (item.route_kind && item.route_kind !== "page") return false;
+  if ((item.suspicious_score ?? 0) > 0) return false;
+
+  const pageCount = item.page_count ?? 0;
+  const eventCount = item.event_count ?? 0;
+  const engagedSeconds = item.engaged_seconds ?? 0;
+  const totalSeconds = item.total_seconds ?? 0;
+  const reasons = item.classification_reasons ?? [];
+
+  if (pageCount >= 3) return true;
+  if (pageCount >= 2 && (engagedSeconds >= 5 || totalSeconds >= 5)) return true;
+  if (eventCount >= 4 && !reasons.includes("bounce")) return true;
+
+  return false;
+}
+
 function LiveVisitorScreenInner({
   pollMs = 15000,
   mode = "default",
