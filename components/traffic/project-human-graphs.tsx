@@ -78,6 +78,25 @@ type ActivityProject = HumanSeriesProject & {
 };
 
 
+type GraphSpikeSourceItem = {
+  path?: string | null;
+  ip?: string | null;
+  category?: string | null;
+  count?: number | null;
+  share?: number | null;
+};
+
+type GraphSpikeSourceDiagnosis = {
+  summary?: string | null;
+  total?: number | null;
+  source_label?: string | null;
+  top_category?: string | null;
+  categories?: GraphSpikeSourceItem[] | null;
+  top_paths?: GraphSpikeSourceItem[] | null;
+  top_ips?: GraphSpikeSourceItem[] | null;
+  top_ip_paths?: GraphSpikeSourceItem[] | null;
+};
+
 type GraphSpikeDiagnosis = {
   kind?: string | null;
   label?: string | null;
@@ -96,6 +115,7 @@ type GraphSpikeDiagnosis = {
   audience_peak_page_interest?: number | null;
   audience_peak_audience?: number | null;
   audience_peak_visitors?: number | null;
+  source_diagnosis?: GraphSpikeSourceDiagnosis | null;
   signals?: string[] | null;
 };
 
@@ -381,6 +401,13 @@ function SpikeReadCard({ diagnosis }: { diagnosis?: GraphSpikeDiagnosis | null }
   const confirmedValue = audiencePeakDiffers
     ? diagnosis.audience_peak_visitors
     : diagnosis.visitors;
+  const sourceDiagnosis = diagnosis.source_diagnosis;
+  const topSourcePaths = Array.isArray(sourceDiagnosis?.top_paths)
+    ? sourceDiagnosis.top_paths.slice(0, 3)
+    : [];
+  const topSourceIps = Array.isArray(sourceDiagnosis?.top_ips)
+    ? sourceDiagnosis.top_ips.slice(0, 2)
+    : [];
 
   return (
     <div className={`mt-4 rounded-2xl border p-4 ${tone.className}`}>
@@ -409,6 +436,55 @@ function SpikeReadCard({ diagnosis }: { diagnosis?: GraphSpikeDiagnosis | null }
                   {signal}
                 </div>
               ))}
+            </div>
+          ) : null}
+
+          {sourceDiagnosis?.summary ? (
+            <div className="mt-3 rounded-2xl border border-white/10 bg-black/25 p-3 text-xs leading-5 text-white/70">
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45">
+                  Source
+                </span>
+                {sourceDiagnosis.source_label ? (
+                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-white/65">
+                    {sourceDiagnosis.source_label}
+                  </span>
+                ) : null}
+              </div>
+
+              <p className="text-white/75">{sourceDiagnosis.summary}</p>
+
+              {topSourcePaths.length || topSourceIps.length ? (
+                <div className="mt-3 grid gap-2 md:grid-cols-2">
+                  {topSourcePaths.length ? (
+                    <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+                      <div className="mb-1 text-white/40">Top paths</div>
+                      <div className="space-y-1">
+                        {topSourcePaths.map((item) => (
+                          <div key={`${item.path}-${item.count}`} className="flex justify-between gap-3">
+                            <span className="min-w-0 truncate font-mono text-[11px] text-white/65">{item.path}</span>
+                            <span className="shrink-0 text-white/50">{formatSpikeNumber(item.count)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {topSourceIps.length ? (
+                    <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+                      <div className="mb-1 text-white/40">Top IPs</div>
+                      <div className="space-y-1">
+                        {topSourceIps.map((item) => (
+                          <div key={`${item.ip}-${item.count}`} className="flex justify-between gap-3">
+                            <span className="min-w-0 truncate font-mono text-[11px] text-white/65">{item.ip}</span>
+                            <span className="shrink-0 text-white/50">{formatSpikeNumber(item.count)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>
