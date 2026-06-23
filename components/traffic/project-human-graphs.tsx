@@ -89,7 +89,13 @@ type GraphSpikeDiagnosis = {
   audience?: number | null;
   visitors?: number | null;
   requests_per_ip?: number | null;
+  request_peak_label?: string | null;
   audience_peak_label?: string | null;
+  audience_peak_requests?: number | null;
+  audience_peak_first_touches?: number | null;
+  audience_peak_page_interest?: number | null;
+  audience_peak_audience?: number | null;
+  audience_peak_visitors?: number | null;
   signals?: string[] | null;
 };
 
@@ -360,6 +366,21 @@ function SpikeReadCard({ diagnosis }: { diagnosis?: GraphSpikeDiagnosis | null }
   const signals = Array.isArray(diagnosis.signals)
     ? diagnosis.signals.filter(Boolean).slice(0, 4)
     : [];
+  const audiencePeakDiffers = Boolean(
+    diagnosis.audience_peak_label && diagnosis.audience_peak_label !== diagnosis.label,
+  );
+  const firstTouchesValue = audiencePeakDiffers
+    ? diagnosis.audience_peak_first_touches
+    : diagnosis.first_touches;
+  const pageInterestValue = audiencePeakDiffers
+    ? diagnosis.audience_peak_page_interest
+    : diagnosis.page_interest;
+  const audienceValue = audiencePeakDiffers
+    ? diagnosis.audience_peak_audience
+    : diagnosis.audience;
+  const confirmedValue = audiencePeakDiffers
+    ? diagnosis.audience_peak_visitors
+    : diagnosis.visitors;
 
   return (
     <div className={`mt-4 rounded-2xl border p-4 ${tone.className}`}>
@@ -398,20 +419,20 @@ function SpikeReadCard({ diagnosis }: { diagnosis?: GraphSpikeDiagnosis | null }
             <div className="mt-1 font-semibold text-white">{formatSpikeNumber(diagnosis.requests)}</div>
           </div>
           <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
-            <div className="text-white/40">First</div>
-            <div className="mt-1 font-semibold text-white">{formatSpikeNumber(diagnosis.first_touches)}</div>
+            <div className="text-white/40">{audiencePeakDiffers ? "First peak" : "First"}</div>
+            <div className="mt-1 font-semibold text-white">{formatSpikeNumber(firstTouchesValue)}</div>
           </div>
           <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
-            <div className="text-white/40">Interest</div>
-            <div className="mt-1 font-semibold text-white">{formatSpikeNumber(diagnosis.page_interest)}</div>
+            <div className="text-white/40">{audiencePeakDiffers ? "Interest peak" : "Interest"}</div>
+            <div className="mt-1 font-semibold text-white">{formatSpikeNumber(pageInterestValue)}</div>
           </div>
           <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
-            <div className="text-white/40">Audience</div>
-            <div className="mt-1 font-semibold text-white">{formatSpikeNumber(diagnosis.audience)}</div>
+            <div className="text-white/40">{audiencePeakDiffers ? "Audience peak" : "Audience"}</div>
+            <div className="mt-1 font-semibold text-white">{formatSpikeNumber(audienceValue)}</div>
           </div>
           <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
-            <div className="text-white/40">Confirmed</div>
-            <div className="mt-1 font-semibold text-white">{formatSpikeNumber(diagnosis.visitors)}</div>
+            <div className="text-white/40">{audiencePeakDiffers ? "Confirmed peak" : "Confirmed"}</div>
+            <div className="mt-1 font-semibold text-white">{formatSpikeNumber(confirmedValue)}</div>
           </div>
           <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
             <div className="text-white/40">Req/IP</div>
