@@ -435,7 +435,7 @@ export default function AdminBrowserEventsCard() {
   }, [storyEvents, filteredJourneys, allJourneys]);
 
   return (
-    <section className="mt-6 flex max-h-[calc(100vh-6rem)] min-h-[40rem] flex-col overflow-hidden rounded-[34px] border border-cyan-300/20 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.08),transparent_30%),rgba(255,255,255,0.035)] p-5 shadow-[0_30px_90px_rgba(0,0,0,0.42)] sm:p-6">
+    <section className="mt-6 flex lg:max-h-[calc(100vh-6rem)] min-h-[40rem] flex-col lg:overflow-hidden rounded-[34px] border border-cyan-300/20 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.08),transparent_30%),rgba(255,255,255,0.035)] p-5 shadow-[0_30px_90px_rgba(0,0,0,0.42)] sm:p-6">
       <div className="flex shrink-0 flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div className="min-w-0">
           <p className="text-xs uppercase tracking-[0.3em] text-cyan-200/80">
@@ -518,7 +518,7 @@ export default function AdminBrowserEventsCard() {
         </div>
       ) : null}
 
-      <div ref={scrollHostRef} className="mt-5 min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+      <div ref={scrollHostRef} className="mt-5 min-h-0 lg:flex-1 space-y-4 lg:overflow-y-auto pr-1">
         {visibleJourneys.length === 0 ? (
           <div className="rounded-3xl border border-white/10 bg-black/20 p-6 text-base text-slate-300">
             No visitor stories match this filter right now.
@@ -637,7 +637,7 @@ export default function AdminBrowserEventsCard() {
 
                     <div
                       onScroll={(event) => handleJourneyTimelineScroll(event, journey)}
-                      className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1"
+                      className="mt-3 min-h-0 lg:flex-1 space-y-2 lg:overflow-y-auto lg:overscroll-contain pr-1"
                     >
                       {timelineEvents.map((event) => (
                         <div
