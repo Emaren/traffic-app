@@ -1034,7 +1034,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
           className="mt-6 grid gap-6 xl:grid-cols-[1.05fr_0.95fr]"
           onChangeCapture={() => setHasLocalEdits(true)}
         >
-          <div className="flex max-h-[calc(100vh-7rem)] min-h-[34rem] min-w-0 flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+          <div className="flex min-h-0 min-w-0 flex-col rounded-3xl border border-white/10 bg-white/[0.03] p-5 lg:max-h-[calc(100vh-7rem)] lg:min-h-[34rem] lg:overflow-hidden">
             <div className="shrink-0 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Provider</p>
@@ -1754,7 +1754,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
             </div>
           </div>
 
-          <div className="flex max-h-[calc(100vh-7rem)] min-h-[34rem] min-w-0 flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+          <div className="flex min-h-0 min-w-0 flex-col rounded-3xl border border-white/10 bg-white/[0.03] p-5 lg:max-h-[calc(100vh-7rem)] lg:min-h-[34rem] lg:overflow-hidden">
             <div className="shrink-0 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Visitor delivery log</p>
@@ -1779,7 +1779,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
               </div>
             </div>
 
-            <div ref={deliveryScrollRef} className="mt-5 min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain pr-1">
+            <div ref={deliveryScrollRef} className="mt-5 min-h-0 space-y-4 pr-1 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain">
               {visibleRecentEventGroups.length === 0 ? (
                 <div className="rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-white/60">
                   {showOnlyHumanEvents
