@@ -305,14 +305,15 @@ export type HumanSeriesPoint = {
   confirmed?: number;
   audience?: number;
   page_interest?: number;
+  first_touches?: number;
   unique_ips?: number;
   requests?: number;
 };
 
 export type GraphSeriesDefinition = {
-  key: "visitors" | "audience" | "page_interest" | "unique_ips" | "requests";
+  key: "visitors" | "audience" | "page_interest" | "first_touches" | "unique_ips" | "requests";
   label: string;
-  tone: "amber" | "blue" | "purple" | "slate" | "red";
+  tone: "amber" | "blue" | "purple" | "emerald" | "slate" | "red";
   default_visible: boolean;
   axis: "audience" | "requests";
 };
