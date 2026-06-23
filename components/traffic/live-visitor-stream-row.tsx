@@ -328,11 +328,15 @@ export default function LiveVisitorStreamRow({
           <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
             <div className="text-[11px] uppercase tracking-wide text-white/45">Why</div>
             <div className="mt-2 text-sm text-white/80">{session.classification_summary}</div>
-          {hasBrowserEngagement ? (
-            <div className="mt-2 flex flex-wrap gap-2">
-              {browserEngagementChips}
-            </div>
-          ) : null}
+          <div className="mt-2 flex flex-wrap gap-2">
+            {hasBrowserEngagement ? (
+              browserEngagementChips
+            ) : (
+              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-white/45">
+                No browser telemetry
+              </span>
+            )}
+          </div>
             {automationPill ? (
               <div
                 className={`mt-3 inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${automationClass(
