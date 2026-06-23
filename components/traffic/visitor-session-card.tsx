@@ -301,7 +301,7 @@ function VisitorSessionCard({
           </span>
         </summary>
 
-        <div className="mt-4 max-h-[26rem] space-y-2 overflow-y-auto pr-2">
+        <div className="mt-4 lg:max-h-[26rem] space-y-2 lg:overflow-y-auto pr-2">
           {activity.slice(0, rawPreviewCount).map((step) => (
             <div
               key={`${session.session_id}-${step.id}`}

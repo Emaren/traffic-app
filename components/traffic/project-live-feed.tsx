@@ -393,7 +393,7 @@ export default function ProjectLiveFeed({
         />
       </div>
 
-      <div className="mt-5 max-h-[980px] space-y-3 overflow-y-auto pr-2">
+      <div className="mt-5 lg:max-h-[980px] space-y-3 lg:overflow-y-auto pr-2">
         {visibleItems.length > 0 ? (
           <AnimatePresence initial={false}>
             {visibleItems.map((session) => (

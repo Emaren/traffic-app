@@ -1347,7 +1347,7 @@ function LiveVisitorScreenInner({
         <div
           ref={containerRef}
           onScroll={handleScroll}
-          className="max-h-[42rem] overflow-y-auto pr-2"
+          className="lg:max-h-[42rem] lg:overflow-y-auto pr-2"
         >
           <div className="space-y-3 pb-3">
             <AnimatePresence initial={false}>
@@ -1379,7 +1379,7 @@ function LiveVisitorScreenInner({
         <div
           ref={containerRef}
           onScroll={handleScroll}
-          className="max-h-[calc(100vh-16rem)] min-h-[28rem] overflow-y-auto pr-2"
+          className="lg:max-h-[calc(100vh-16rem)] lg:min-h-[28rem] lg:overflow-y-auto pr-2"
         >
           <div className="space-y-6 pb-3">
             {sections.map((section) => (
