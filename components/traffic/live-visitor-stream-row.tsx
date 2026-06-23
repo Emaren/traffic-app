@@ -133,6 +133,26 @@ export default function LiveVisitorStreamRow({
 
   const hasBrowserEngagement = browserMaxScrollPct > 0 || browserClicks > 0 || browserSignalCount > 0;
 
+  const browserEngagementHeaderChips = (
+    <>
+      {browserMaxScrollPct > 0 ? (
+        <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-100">
+          Scrolled {browserMaxScrollPct}%
+        </span>
+      ) : null}
+      {browserClicks > 0 ? (
+        <span className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-semibold text-cyan-100">
+          Clicks {browserClicks}
+        </span>
+      ) : null}
+      {browserSignalCount > 0 ? (
+        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-white/55">
+          Signals {browserSignalCount}
+        </span>
+      ) : null}
+    </>
+  );
+
   const browserEngagementChips = (
     <>
       {browserMaxScrollPct > 0 ? (
@@ -179,6 +199,12 @@ export default function LiveVisitorStreamRow({
               >
                 {session.verdict_label}
               </span>
+              {hasBrowserEngagement ? (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {browserEngagementHeaderChips}
+                </div>
+              ) : null}
+
               {browserEngagementChips}
               {knownVisitor ? (
                 <span className={knownVisitorChipClassName(knownVisitor)}>
