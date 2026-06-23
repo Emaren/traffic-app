@@ -77,6 +77,26 @@ type ActivityProject = HumanSeriesProject & {
   activity_mode: "confirmed_humans" | "fallback_activity" | "no_activity";
 };
 
+
+type GraphSpikeDiagnosis = {
+  kind?: string | null;
+  label?: string | null;
+  summary?: string | null;
+  requests?: number | null;
+  unique_ips?: number | null;
+  first_touches?: number | null;
+  page_interest?: number | null;
+  audience?: number | null;
+  visitors?: number | null;
+  requests_per_ip?: number | null;
+  audience_peak_label?: string | null;
+  signals?: string[] | null;
+};
+
+type ActivityProjectWithSpike = ActivityProject & {
+  spike_diagnosis?: GraphSpikeDiagnosis | null;
+};
+
 type OverviewProjectStats = {
   slug: string;
   name: string;
@@ -293,6 +313,114 @@ function activityEmptyLabel(project: ActivityProject) {
     return `Seen in Traffic • ${project.sessions_seen} sessions • ${project.engaged_sessions_seen} engaged`;
   }
   return "No human points yet";
+}
+
+function projectSpikeDiagnosis(project: ActivityProject | null | undefined): GraphSpikeDiagnosis | null {
+  return ((project as ActivityProjectWithSpike | null | undefined)?.spike_diagnosis ?? null);
+}
+
+function formatSpikeNumber(value?: number | null) {
+  return Number(value || 0).toLocaleString();
+}
+
+function spikeTone(kind?: string | null) {
+  if (kind === "request_wall") {
+    return {
+      label: "Request wall",
+      className: "border-red-400/25 bg-red-400/10 text-red-100",
+    };
+  }
+
+  if (kind === "mixed_spike") {
+    return {
+      label: "Mixed spike",
+      className: "border-amber-400/30 bg-amber-400/10 text-amber-100",
+    };
+  }
+
+  if (kind === "audience_signal") {
+    return {
+      label: "Audience signal",
+      className: "border-emerald-400/30 bg-emerald-400/10 text-emerald-100",
+    };
+  }
+
+  return {
+    label: "Spike read",
+    className: "border-white/10 bg-white/5 text-white/70",
+  };
+}
+
+function SpikeReadCard({ diagnosis }: { diagnosis?: GraphSpikeDiagnosis | null }) {
+  if (!diagnosis?.summary) {
+    return null;
+  }
+
+  const tone = spikeTone(diagnosis.kind);
+  const signals = Array.isArray(diagnosis.signals)
+    ? diagnosis.signals.filter(Boolean).slice(0, 4)
+    : [];
+
+  return (
+    <div className={`mt-4 rounded-2xl border p-4 ${tone.className}`}>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/60">
+              Spike Read
+            </span>
+            <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[11px] font-semibold text-white">
+              {tone.label}
+            </span>
+            {diagnosis.label ? (
+              <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[11px] font-medium text-white/60">
+                Peak {diagnosis.label}
+              </span>
+            ) : null}
+          </div>
+
+          <p className="mt-3 text-sm leading-6 text-white/85">{diagnosis.summary}</p>
+
+          {signals.length ? (
+            <div className="mt-3 grid gap-2 text-xs leading-5 text-white/65 md:grid-cols-2">
+              {signals.map((signal) => (
+                <div key={signal} className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+                  {signal}
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="grid shrink-0 grid-cols-2 gap-2 text-xs sm:grid-cols-3 lg:min-w-[20rem]">
+          <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+            <div className="text-white/40">Requests</div>
+            <div className="mt-1 font-semibold text-white">{formatSpikeNumber(diagnosis.requests)}</div>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+            <div className="text-white/40">First</div>
+            <div className="mt-1 font-semibold text-white">{formatSpikeNumber(diagnosis.first_touches)}</div>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+            <div className="text-white/40">Interest</div>
+            <div className="mt-1 font-semibold text-white">{formatSpikeNumber(diagnosis.page_interest)}</div>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+            <div className="text-white/40">Audience</div>
+            <div className="mt-1 font-semibold text-white">{formatSpikeNumber(diagnosis.audience)}</div>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+            <div className="text-white/40">Confirmed</div>
+            <div className="mt-1 font-semibold text-white">{formatSpikeNumber(diagnosis.visitors)}</div>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+            <div className="text-white/40">Req/IP</div>
+            <div className="mt-1 font-semibold text-white">{formatSpikeNumber(diagnosis.requests_per_ip)}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function ProjectHumanGraphs({
@@ -762,6 +890,13 @@ export default function ProjectHumanGraphs({
             </div>
 
             {featuredProject ? (
+              <SpikeReadCard diagnosis={projectSpikeDiagnosis(featuredProject)} />
+
+
+            ) : null}
+
+
+            {featuredProject ? (
               <div className="h-[24rem] min-w-0 overflow-hidden rounded-[28px] border border-white/10 bg-[#05070c]/75 p-4">
                 {featuredProject.points.length > 0 ? (
                   <ResponsiveContainer width="100%" height={384} minWidth={0}>
@@ -1051,6 +1186,8 @@ export default function ProjectHumanGraphs({
               {renderLineToggles()}
             </div>
           </div>
+
+          <SpikeReadCard diagnosis={projectSpikeDiagnosis(featuredProject)} />
 
           <div className="mt-4 h-[20rem] min-w-0 overflow-hidden">
             {featuredProject.points.length > 0 ? (
