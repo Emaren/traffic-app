@@ -205,7 +205,6 @@ export default function LiveVisitorStreamRow({
                 </div>
               ) : null}
 
-              {browserEngagementChips}
               {knownVisitor ? (
                 <span className={knownVisitorChipClassName(knownVisitor)}>
                   {knownVisitorChipLabel(knownVisitor)}
@@ -284,6 +283,12 @@ export default function LiveVisitorStreamRow({
                 >
                   {session.verdict_label}
                 </span>
+              {hasBrowserEngagement ? (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {browserEngagementHeaderChips}
+                </div>
+              ) : null}
+
                 {knownVisitor ? (
                   <span className={knownVisitorChipClassName(knownVisitor)}>
                     {knownVisitorChipLabel(knownVisitor)}
