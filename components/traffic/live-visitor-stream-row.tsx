@@ -131,6 +131,8 @@ export default function LiveVisitorStreamRow({
         ? session.browser_route_trail
         : session.page_sequence;
 
+  const hasBrowserEngagement = browserMaxScrollPct > 0 || browserClicks > 0 || browserSignalCount > 0;
+
   const browserEngagementChips = (
     <>
       {browserMaxScrollPct > 0 ? (
@@ -326,6 +328,11 @@ export default function LiveVisitorStreamRow({
           <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
             <div className="text-[11px] uppercase tracking-wide text-white/45">Why</div>
             <div className="mt-2 text-sm text-white/80">{session.classification_summary}</div>
+          {hasBrowserEngagement ? (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {browserEngagementChips}
+            </div>
+          ) : null}
             {automationPill ? (
               <div
                 className={`mt-3 inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${automationClass(
