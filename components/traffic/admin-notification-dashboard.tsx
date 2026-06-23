@@ -573,7 +573,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
 
   if (!data || !settings) {
     return (
-      <main className="min-h-screen bg-[#06070a] px-4 py-8 text-slate-100 sm:px-6 sm:py-10">
+      <main className="min-h-[100svh] bg-[#06070a] px-4 py-8 text-slate-100 sm:px-6 sm:py-10">
         <div className="mx-auto max-w-5xl rounded-3xl border border-rose-500/20 bg-rose-500/10 p-6">
           Traffic could not load the notification cockpit yet.
         </div>
@@ -951,7 +951,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
     <main className="min-h-screen overflow-x-clip bg-[#06070a] text-slate-100">
       <AdminThemeToggle />
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-        <header className="overflow-hidden rounded-[32px] border border-cyan-400/20 bg-[linear-gradient(180deg,rgba(34,211,238,0.08),rgba(255,255,255,0.03))] p-5 shadow-[0_25px_80px_rgba(0,0,0,0.45)] sm:p-6">
+        <header className="admin-mobile-scroll-root overflow-y-auto overscroll-y-contain touch-pan-y [-webkit-overflow-scrolling:touch] rounded-[32px] border border-cyan-400/20 bg-[linear-gradient(180deg,rgba(34,211,238,0.08),rgba(255,255,255,0.03))] p-5 shadow-[0_25px_80px_rgba(0,0,0,0.45)] sm:p-6">
           <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
             <div className="min-w-0">
               <p className="text-xs uppercase tracking-[0.28em] text-cyan-200/80">Traffic Admin</p>
