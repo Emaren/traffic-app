@@ -88,3 +88,37 @@ html[data-traffic-theme="sepia"] .traffic-theme-toggle-root,
 html[data-traffic-theme="sepia"] .traffic-theme-toggle-root * {
   filter: none !important;
 }
+
+/* Traffic admin scroll contract */
+html:has(.traffic-admin-scroll-root),
+body:has(.traffic-admin-scroll-root) {
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.traffic-admin-scroll-root {
+  min-height: 100svh;
+  overflow-x: clip;
+  overflow-y: visible;
+}
+
+.traffic-admin-scroll-root .admin-mobile-scroll-root {
+  overflow: visible;
+}
+
+.traffic-admin-scroll-region {
+  max-height: min(72svh, 760px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding-right: 0.25rem;
+}
+
+@media (max-width: 768px) {
+  .traffic-admin-scroll-region {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
+}

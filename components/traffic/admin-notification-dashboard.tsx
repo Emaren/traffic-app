@@ -948,10 +948,10 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
   }
 
   return (
-    <main className="min-h-screen overflow-x-clip bg-[#06070a] text-slate-100">
+    <main className="traffic-admin-scroll-root min-h-screen overflow-x-clip bg-[#06070a] text-slate-100">
       <AdminThemeToggle />
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-        <header className="admin-mobile-scroll-root overflow-y-auto overscroll-y-contain touch-pan-y [-webkit-overflow-scrolling:touch] rounded-[32px] border border-cyan-400/20 bg-[linear-gradient(180deg,rgba(34,211,238,0.08),rgba(255,255,255,0.03))] p-5 shadow-[0_25px_80px_rgba(0,0,0,0.45)] sm:p-6">
+        <header className="admin-mobile-scroll-root rounded-[32px] border border-cyan-400/20 bg-[linear-gradient(180deg,rgba(34,211,238,0.08),rgba(255,255,255,0.03))] p-5 shadow-[0_25px_80px_rgba(0,0,0,0.45)] sm:p-6">
           <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
             <div className="min-w-0">
               <p className="text-xs uppercase tracking-[0.28em] text-cyan-200/80">Traffic Admin</p>
@@ -1034,7 +1034,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
           className="mt-6 grid gap-6 xl:grid-cols-[1.05fr_0.95fr]"
           onChangeCapture={() => setHasLocalEdits(true)}
         >
-          <div className="flex min-h-0 min-w-0 flex-col rounded-3xl border border-white/10 bg-white/[0.03] p-5 lg:max-h-[calc(100vh-7rem)] lg:min-h-[34rem] lg:overflow-hidden">
+          <div className="flex min-h-0 min-w-0 flex-col rounded-3xl border border-white/10 bg-white/[0.03] p-5 lg:min-h-[34rem] lg:overflow-visible">
             <div className="shrink-0 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Provider</p>
@@ -1754,7 +1754,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
             </div>
           </div>
 
-          <div className="flex min-h-0 min-w-0 flex-col rounded-3xl border border-white/10 bg-white/[0.03] p-5 lg:max-h-[calc(100vh-7rem)] lg:min-h-[34rem] lg:overflow-hidden">
+          <div className="flex min-h-0 min-w-0 flex-col rounded-3xl border border-white/10 bg-white/[0.03] p-5 lg:min-h-[34rem] lg:overflow-visible">
             <div className="shrink-0 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Visitor delivery log</p>
@@ -1779,7 +1779,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
               </div>
             </div>
 
-            <div ref={deliveryScrollRef} className="mt-5 min-h-0 space-y-4 pr-1 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain">
+            <div ref={deliveryScrollRef} className="mt-5 min-h-0 space-y-4 pr-1 lg:flex-1 lg:overflow-visible lg:overscroll-contain">
               {visibleRecentEventGroups.length === 0 ? (
                 <div className="rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-white/60">
                   {showOnlyHumanEvents

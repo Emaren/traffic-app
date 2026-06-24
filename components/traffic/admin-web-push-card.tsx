@@ -316,7 +316,7 @@ export default function AdminWebPushCard({ webPush, selected, busy, onRefresh }:
         </div>
       ) : null}
 
-      <div className="mt-5 space-y-3">
+      <div className="traffic-admin-scroll-region mt-5 space-y-3">
         {webPush.subscriptions.length ? (
           webPush.subscriptions.map((subscription) => (
             <div

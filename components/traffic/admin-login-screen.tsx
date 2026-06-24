@@ -33,7 +33,7 @@ export default function AdminLoginScreen({ configured }: { configured: boolean }
   }
 
   return (
-    <main className="min-h-screen bg-[#06070a] px-4 py-10 text-slate-100 sm:px-6 sm:py-12">
+    <main className="traffic-admin-scroll-root min-h-screen bg-[#06070a] px-4 py-10 text-slate-100 sm:px-6 sm:py-12">
       <div className="mx-auto max-w-4xl">
         <section className="rounded-[32px] border border-cyan-400/20 bg-[linear-gradient(180deg,rgba(34,211,238,0.10),rgba(255,255,255,0.03))] p-6 shadow-[0_25px_80px_rgba(0,0,0,0.45)] sm:p-8">
           <div className="max-w-2xl">
