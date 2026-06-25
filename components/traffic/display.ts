@@ -138,3 +138,32 @@ export function knownVisitorChipClassName(visitor: KnownVisitor): string {
 export function knownVisitorChipLabel(visitor: KnownVisitor): string {
   return `${visitor.label} · ${visitor.detail}`;
 }
+
+
+type FreshLiveSignalSource = {
+  active_now?: boolean | null;
+  total_seconds?: number | null;
+  engaged_seconds?: number | null;
+  browser_visible_ms?: number | null;
+  browser_dwell_ms?: number | null;
+};
+
+export function hasFreshLiveSignal(source?: FreshLiveSignalSource | null): boolean {
+  if (!source?.active_now) return false;
+
+  const totalSeconds = Number(source.total_seconds ?? 0);
+  const engagedSeconds = Number(source.engaged_seconds ?? 0);
+  const browserVisibleMs = Number(source.browser_visible_ms ?? 0);
+  const browserDwellMs = Number(source.browser_dwell_ms ?? 0);
+
+  return (
+    totalSeconds < 86399 &&
+    engagedSeconds < 86399 &&
+    browserVisibleMs < 86399000 &&
+    browserDwellMs < 86399000
+  );
+}
+
+export function liveDotClassName(): string {
+  return "inline-flex h-2 w-2 rounded-full bg-emerald-300/80 shadow-[0_0_12px_rgba(110,231,183,0.52)]";
+}

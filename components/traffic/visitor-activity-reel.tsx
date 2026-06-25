@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { hasFreshLiveSignal, liveDotClassName } from "@/components/traffic/display";
 import { AnimatePresence, motion } from "framer-motion";
 import type { LiveTransportMode, SessionRecord } from "@/components/traffic/types";
 
@@ -137,6 +138,8 @@ export default function VisitorActivityReel({
     setPinnedToLatest(isPinned);
   };
 
+  const freshLiveSignal = session ? hasFreshLiveSignal(session) : false;
+
   const jumpToLatest = () => {
     const element = containerRef.current;
     if (!element) return;
@@ -151,7 +154,7 @@ export default function VisitorActivityReel({
         <div>
           <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Live Activity Reel</p>
           <h2 className="mt-2 text-2xl font-semibold text-white">
-            {session?.active_now ? "Watching this visitor move in near realtime" : "Latest known movement trail"}
+            {freshLiveSignal ? "Watching this visitor move in near realtime" : "Latest known movement trail"}
           </h2>
           <p className="mt-2 max-w-3xl text-sm text-slate-300">
             The old 50-step ceiling is gone from the full path below. This live rail stays focused on
@@ -200,9 +203,13 @@ export default function VisitorActivityReel({
                   {sessionBadge.label}
                 </span>
               ) : null}
-              {session.active_now ? (
-                <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 font-medium text-emerald-200">
-                  Active now
+              {freshLiveSignal ? (
+                <span
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-400/8"
+                  aria-label="Fresh live signal"
+                  title="Fresh live signal"
+                >
+                  <span className={liveDotClassName()} />
                 </span>
               ) : null}
             </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { formatVisitorLocation, knownVisitorChipClassName, knownVisitorChipLabel, knownVisitorForSession, withFlag } from "@/components/traffic/display";
+import { formatVisitorLocation, hasFreshLiveSignal, knownVisitorChipClassName, knownVisitorChipLabel, knownVisitorForSession, liveDotClassName, withFlag } from "@/components/traffic/display";
 import VisitorTechIcons from "@/components/traffic/visitor-tech-icons";
 import type { SessionRecord } from "@/components/traffic/types";
 
@@ -103,6 +103,7 @@ export default function LiveVisitorStreamRow({
 
   const visitorLabel = withFlag(session.country_code, session.visitor_alias);
   const knownVisitor = knownVisitorForSession(session);
+  const freshLiveSignal = hasFreshLiveSignal(session);
   const metaLine = formatVisitorLocation(session);
   const automationPill = automationLabel(session);
   const primaryTimestamp =
@@ -217,9 +218,13 @@ export default function LiveVisitorStreamRow({
                   {automationPill}
                 </span>
               ) : null}
-              {session.active_now ? (
-                <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 font-medium text-emerald-200">
-                  Active now
+              {freshLiveSignal ? (
+                <span
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-400/8"
+                  aria-label="Fresh live signal"
+                  title="Fresh live signal"
+                >
+                  <span className={liveDotClassName()} />
                 </span>
               ) : null}
             </div>
@@ -301,9 +306,13 @@ export default function LiveVisitorStreamRow({
                     {automationPill}
                   </span>
                 ) : null}
-                {session.active_now ? (
-                  <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 font-medium text-emerald-200">
-                    Active now
+                {freshLiveSignal ? (
+                  <span
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-400/8"
+                    aria-label="Fresh live signal"
+                    title="Fresh live signal"
+                  >
+                    <span className={liveDotClassName()} />
                   </span>
                 ) : null}
               </div>

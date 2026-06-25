@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { memo, useMemo } from "react";
 import type { ReactNode } from "react";
-import { formatVisitorLocation, knownVisitorChipClassName, knownVisitorChipLabel, knownVisitorForSession } from "@/components/traffic/display";
+import { formatVisitorLocation, knownVisitorChipClassName, knownVisitorChipLabel, knownVisitorForSession, hasFreshLiveSignal, liveDotClassName } from "@/components/traffic/display";
 import KnownIdentityActions from "@/components/traffic/known-identity-actions";
 import type { SessionActivityItem, SessionRecord } from "@/components/traffic/types";
 import VisitorTechIcons from "@/components/traffic/visitor-tech-icons";
@@ -145,6 +145,7 @@ function VisitorSessionCard({
   const activityPreview = groupedActivity.slice(0, activityPreviewCount);
   const rawPreviewCount = density === "compact" ? 30 : 80;
   const knownVisitor = knownVisitorForSession(session);
+  const freshLiveSignal = hasFreshLiveSignal(session);
 
   return (
     <article className="rounded-3xl border border-white/10 bg-black/20 p-4 shadow-[0_20px_50px_rgba(0,0,0,0.18)]">
@@ -172,9 +173,13 @@ function VisitorSessionCard({
             <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-white/60">
               Last move {session.last_seen_alberta}
             </span>
-            {session.active_now ? (
-              <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 font-medium text-emerald-200">
-                Active now
+            {freshLiveSignal ? (
+              <span
+                className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-400/8"
+                aria-label="Fresh live signal"
+                title="Fresh live signal"
+              >
+                <span className={liveDotClassName()} />
               </span>
             ) : null}
           </div>
