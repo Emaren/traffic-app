@@ -195,8 +195,8 @@ const TRAFFIC_LINE_OPTIONS: Array<{
   },
   {
     key: "audience",
-    label: "Audience signal",
-    shortLabel: "Potential",
+    label: "Likely humans",
+    shortLabel: "Likely",
     stroke: "#38bdf8",
     yAxisId: "audience",
     defaultVisible: true,
@@ -204,7 +204,7 @@ const TRAFFIC_LINE_OPTIONS: Array<{
   {
     key: "page_interest",
     label: "Quick checks",
-    shortLabel: "Quick checks",
+    shortLabel: "Quick",
     stroke: "#f59e0b",
     yAxisId: "audience",
     defaultVisible: true,
@@ -213,7 +213,7 @@ const TRAFFIC_LINE_OPTIONS: Array<{
     key: "first_touches",
     label: "First touches",
     shortLabel: "First",
-    stroke: "#22c55e",
+    stroke: "#818cf8",
     yAxisId: "audience",
     defaultVisible: true,
   },
@@ -221,7 +221,7 @@ const TRAFFIC_LINE_OPTIONS: Array<{
     key: "unique_ips",
     label: "Unique IPs",
     shortLabel: "IPs",
-    stroke: "#94a3b8",
+    stroke: "#e2e8f0",
     yAxisId: "audience",
     defaultVisible: false,
   },
@@ -235,7 +235,7 @@ const TRAFFIC_LINE_OPTIONS: Array<{
   },
 ];
 
-const TRAFFIC_LINE_COLOR_STORAGE_KEY = "traffic:graph-line-colors:v2";
+const TRAFFIC_LINE_COLOR_STORAGE_KEY = "traffic:graph-line-colors:v3";
 
 const DEFAULT_VISIBLE_TRAFFIC_LINES = TRAFFIC_LINE_OPTIONS.reduce(
   (memo, option) => ({ ...memo, [option.key]: option.defaultVisible }),
