@@ -129,6 +129,12 @@ export default function BuilderTopDeck({
         ) : null}
       </div>
 
+      <LiveVisitorScreen
+        pollMs={120000}
+        mode="report"
+        focusedProjectSlug={featuredProjectSlug}
+      />
+
       {homepageView === "view-a" ? (
         <div className="space-y-3">
           <ProjectHumanGraphs
@@ -145,6 +151,7 @@ export default function BuilderTopDeck({
             pollMs={120000}
             mode="default"
             focusedProjectSlug={featuredProjectSlug}
+            showRealPeopleReport={false}
           />
         </div>
       ) : (
@@ -163,6 +170,7 @@ export default function BuilderTopDeck({
               pollMs={120000}
               mode="hero"
               focusedProjectSlug={featuredProjectSlug}
+              showRealPeopleReport={false}
             />
           </div>
         </div>
