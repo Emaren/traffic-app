@@ -77,6 +77,7 @@ type Props = {
 
 const LOBBY_PUSH_STORAGE_KEY = "traffic:lobby-push-started-at:v1";
 const LOBBY_PUSH_WINDOW_MS = 60 * 60 * 1000;
+const LOBBY_PUSH_CHANGED_EVENT = "traffic:lobby-push-changed";
 
 function normalize(value: unknown) {
   return String(value ?? "").toLowerCase().trim();
@@ -274,12 +275,14 @@ export default function RealPeopleReport({
   const markLobbyPush = () => {
     const next = new Date().toISOString();
     window.localStorage.setItem(LOBBY_PUSH_STORAGE_KEY, next);
+    window.dispatchEvent(new Event(LOBBY_PUSH_CHANGED_EVENT));
     setLobbyPushStartedAt(next);
     setNowMs(Date.now());
   };
 
   const clearLobbyPush = () => {
     window.localStorage.removeItem(LOBBY_PUSH_STORAGE_KEY);
+    window.dispatchEvent(new Event(LOBBY_PUSH_CHANGED_EVENT));
     setLobbyPushStartedAt("");
     setNowMs(Date.now());
   };

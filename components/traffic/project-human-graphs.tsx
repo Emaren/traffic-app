@@ -6,6 +6,8 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceDot,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -236,6 +238,8 @@ const TRAFFIC_LINE_OPTIONS: Array<{
 ];
 
 const TRAFFIC_LINE_COLOR_STORAGE_KEY = "traffic:graph-line-colors:v3";
+const LOBBY_PUSH_STORAGE_KEY = "traffic:lobby-push-started-at:v1";
+const LOBBY_PUSH_CHANGED_EVENT = "traffic:lobby-push-changed";
 
 const DEFAULT_VISIBLE_TRAFFIC_LINES = TRAFFIC_LINE_OPTIONS.reduce(
   (memo, option) => ({ ...memo, [option.key]: option.defaultVisible }),
@@ -252,6 +256,149 @@ function defaultTrafficLineColors(): Record<TrafficLineKey, string> {
 function pointLineValue(point: HumanSeriesProject["points"][number], key: TrafficLineKey): number {
   if (key === "visitors") return point.visitors ?? point.confirmed ?? 0;
   return Number(point[key] ?? 0);
+}
+
+function labelTimeToMs(label: string, anchorMs: number) {
+  const match = label.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return 0;
+
+  let hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const meridiem = match[3]?.toUpperCase();
+
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return 0;
+  if (meridiem === "PM" && hour !== 12) hour += 12;
+  if (meridiem === "AM" && hour === 12) hour = 0;
+
+  const anchor = new Date(anchorMs);
+  const candidates = [-1, 0, 1].map((dayOffset) => {
+    const candidate = new Date(anchor);
+    candidate.setDate(candidate.getDate() + dayOffset);
+    candidate.setHours(hour, minute, 0, 0);
+    return candidate.getTime();
+  });
+
+  return candidates.reduce((best, candidate) =>
+    Math.abs(candidate - anchorMs) < Math.abs(best - anchorMs) ? candidate : best,
+  );
+}
+
+function pointTimestampMs(point: HumanSeriesProject["points"][number], anchorMs: number) {
+  const record = point as HumanSeriesProject["points"][number] & Record<string, unknown>;
+  const candidates = [
+    record.bucket_start,
+    record.bucket_start_at,
+    record.started_at,
+    record.start_at,
+    record.timestamp,
+    record.time,
+    record.ts,
+    record.date,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "number" && Number.isFinite(candidate)) {
+      return candidate > 10_000_000_000 ? candidate : candidate * 1000;
+    }
+
+    if (typeof candidate === "string" && candidate.trim()) {
+      const parsed = Date.parse(candidate);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+
+  const label = String(record.label ?? "");
+  return labelTimeToMs(label, anchorMs);
+}
+
+function lobbyMarkerForPoints(
+  points: HumanSeriesProject["points"],
+  lobbyPushStartedAt: string,
+  visibleLineKeys: Record<TrafficLineKey, boolean>,
+) {
+  if (!lobbyPushStartedAt || points.length === 0) return null;
+
+  const pushMs = Date.parse(lobbyPushStartedAt);
+  if (!Number.isFinite(pushMs) || pushMs <= 0) return null;
+
+  const timed = points
+    .map((point) => ({
+      label: String((point as HumanSeriesProject["points"][number] & { label?: unknown }).label ?? ""),
+      ms: pointTimestampMs(point, pushMs),
+    }))
+    .filter((item) => item.label && item.ms > 0);
+
+  if (!timed.length) return null;
+
+  const firstMs = timed[0]?.ms ?? 0;
+  const lastMs = timed[timed.length - 1]?.ms ?? 0;
+  const bucketMs =
+    timed.length > 1
+      ? Math.max(60000, Math.abs((lastMs - firstMs) / Math.max(1, timed.length - 1)))
+      : 60 * 60 * 1000;
+
+  if (pushMs < firstMs - bucketMs || pushMs > lastMs + bucketMs) return null;
+
+  const closest = timed.reduce((best, item) =>
+    Math.abs(item.ms - pushMs) < Math.abs(best.ms - pushMs) ? item : best,
+  );
+
+  const audienceKeys = TRAFFIC_LINE_OPTIONS
+    .filter((option) => option.yAxisId === "audience" && visibleLineKeys[option.key])
+    .map((option) => option.key);
+
+  const maxAudience = Math.max(
+    1,
+    ...points.flatMap((point) => audienceKeys.map((key) => pointLineValue(point, key))),
+  );
+
+  return {
+    label: closest.label,
+    y: Math.max(1, Math.ceil(maxAudience / 3)),
+  };
+}
+
+function LobbyPushMarkerLabel(props: Record<string, unknown>) {
+  const viewBox = props.viewBox as { x?: number; y?: number } | undefined;
+  const x =
+    typeof props.x === "number"
+      ? props.x
+      : typeof props.cx === "number"
+        ? props.cx
+        : viewBox?.x;
+  const y =
+    typeof props.y === "number"
+      ? props.y
+      : typeof props.cy === "number"
+        ? props.cy
+        : viewBox?.y;
+
+  if (typeof x !== "number" || typeof y !== "number") return null;
+
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <circle r="4" fill="#f59e0b" stroke="rgba(15,23,42,0.95)" strokeWidth="2" />
+      <g transform="translate(-58, -34)">
+        <rect
+          width="116"
+          height="24"
+          rx="12"
+          fill="rgba(15,23,42,0.92)"
+          stroke="rgba(245,158,11,0.62)"
+        />
+        <text
+          x="58"
+          y="16"
+          textAnchor="middle"
+          fill="#fbbf24"
+          fontSize="11"
+          fontWeight="700"
+        >
+          🏰 Lobby Push
+        </text>
+      </g>
+    </g>
+  );
 }
 
 function peakLine(project: HumanSeriesProject, key: TrafficLineKey): number {
@@ -538,6 +685,27 @@ export default function ProjectHumanGraphs({
     ...DEFAULT_VISIBLE_TRAFFIC_LINES,
   });
   const [lineColors, setLineColors] = useState<Record<TrafficLineKey, string>>(() => defaultTrafficLineColors());
+  const [lobbyPushStartedAt, setLobbyPushStartedAt] = useState("");
+
+  useEffect(() => {
+    const readLobbyPush = () => {
+      try {
+        setLobbyPushStartedAt(window.localStorage.getItem(LOBBY_PUSH_STORAGE_KEY) ?? "");
+      } catch {
+        setLobbyPushStartedAt("");
+      }
+    };
+
+    readLobbyPush();
+
+    window.addEventListener("storage", readLobbyPush);
+    window.addEventListener(LOBBY_PUSH_CHANGED_EVENT, readLobbyPush);
+
+    return () => {
+      window.removeEventListener("storage", readLobbyPush);
+      window.removeEventListener(LOBBY_PUSH_CHANGED_EVENT, readLobbyPush);
+    };
+  }, []);
 
   useEffect(() => {
     try {
@@ -683,6 +851,15 @@ export default function ProjectHumanGraphs({
   const description =
     data?.note ||
     `${data?.range_label ?? fallbackRangeLabel} of human-confirmed visitor flow across Traffic. Pinned lanes fall back to broader seen activity when confirmed-human points are absent.`;
+
+  const featuredLobbyMarkerPoints = featuredProject
+    ? visibleChartPoints(featuredProject.points, activeRangeKey, layout)
+    : [];
+  const featuredLobbyMarker = lobbyMarkerForPoints(
+    featuredLobbyMarkerPoints,
+    lobbyPushStartedAt,
+    visibleLineKeys,
+  );
 
   const loadRange = (rangeKey: ProjectGraphRangeKey) => {
     if (rangeKey === activeRangeKey || pendingRange) return;
@@ -1023,6 +1200,28 @@ export default function ProjectHumanGraphs({
                         color: "#fff",
                       }}
                     />
+
+                    {featuredLobbyMarker ? (
+                      <>
+                        <ReferenceLine
+                          x={featuredLobbyMarker.label}
+                          yAxisId="audience"
+                          stroke="#f59e0b"
+                          strokeOpacity={0.42}
+                          strokeDasharray="4 6"
+                          ifOverflow="extendDomain"
+                        />
+                        <ReferenceDot
+                          x={featuredLobbyMarker.label}
+                          y={featuredLobbyMarker.y}
+                          yAxisId="audience"
+                          r={0}
+                          ifOverflow="extendDomain"
+                          label={<LobbyPushMarkerLabel />}
+                        />
+                      </>
+                    ) : null}
+
                     {TRAFFIC_LINE_OPTIONS.map((option) =>
                       visibleLineKeys[option.key] && lineHasData(featuredProject, option.key) ? (
                         <Line
@@ -1315,6 +1514,28 @@ export default function ProjectHumanGraphs({
                     color: "#fff",
                   }}
                 />
+
+                {featuredLobbyMarker ? (
+                  <>
+                    <ReferenceLine
+                      x={featuredLobbyMarker.label}
+                      yAxisId="audience"
+                      stroke="#f59e0b"
+                      strokeOpacity={0.42}
+                      strokeDasharray="4 6"
+                      ifOverflow="extendDomain"
+                    />
+                    <ReferenceDot
+                      x={featuredLobbyMarker.label}
+                      y={featuredLobbyMarker.y}
+                      yAxisId="audience"
+                      r={0}
+                      ifOverflow="extendDomain"
+                      label={<LobbyPushMarkerLabel />}
+                    />
+                  </>
+                ) : null}
+
                 {TRAFFIC_LINE_OPTIONS.map((option) =>
                   visibleLineKeys[option.key] && lineHasData(featuredProject, option.key) ? (
                     <Line
