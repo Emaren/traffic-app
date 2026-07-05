@@ -199,16 +199,16 @@ export default function RealPeopleReport({
             outsideHumanSessions.length === 1 ? "" : "s"
           } in this focus window. ${outsideConfirmed} confirmed, ${outsideLikely} likely.`
         : knownPersonSessions.length > 0
-          ? "No outside audience-grade humans in this focus window. Known people are present; crawler and page-walker traffic stays separated."
+          ? "No outside audience-grade human signals in the last 24h. Known people are present; crawler and page-walker traffic stays separated."
           : ownerSessions.length > 0
-            ? "No outside audience-grade humans in this focus window. Owner/self activity is present; crawler and page-walker traffic stays separated."
-            : "No defensible real people in this focus window yet. Traffic is seeing candidates, crawlers, page-walkers, or infrastructure signals instead.";
+            ? "No outside audience-grade human signals in the last 24h. Owner/self activity is present; crawler and page-walker traffic stays separated."
+            : "No outside human signals in the last 24h yet. Traffic is seeing candidates, crawlers, page-walkers, or infrastructure signals instead.";
 
     const cards: ReportCard[] = [
       {
-        label: "Outside humans",
+        label: "Outside signals",
         value: outsideHumanSessions.length,
-        detail: "not owner / known people",
+        detail: "confirmed + likely · 24h",
         className: "border-emerald-400/25 bg-emerald-400/10 text-emerald-100",
       },
       {
