@@ -40,6 +40,7 @@ type Props = {
   pollMs?: number;
   mode?: "default" | "hero";
   focusedProjectSlug?: string | null;
+  showRealPeopleReport?: boolean;
 };
 
 type StreamSection = {
@@ -250,6 +251,7 @@ function LiveVisitorScreenInner({
   pollMs = 15000,
   mode = "default",
   focusedProjectSlug = null,
+  showRealPeopleReport = true,
 }: Props) {
   const heroMode = mode === "hero";
   const [data, setData] = useState<LiveVisitorsResponse | null>(null);
@@ -1324,7 +1326,7 @@ function LiveVisitorScreenInner({
       ) : null}
 
 
-      {!heroMode ? (
+      {showRealPeopleReport && !heroMode ? (
         <div className="mb-4 rounded-3xl border border-emerald-400/20 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_34%),rgba(2,6,23,0.72)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.25)] md:p-5">
           <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
             <div>

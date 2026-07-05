@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import ProjectHumanGraphs from "@/components/traffic/project-human-graphs";
+import RealPeopleReport from "@/components/traffic/real-people-report";
 import LiveVisitorScreen from "@/components/traffic/live-visitor-screen";
 import type { ProjectGraphRangeKey } from "@/components/traffic/types";
 import {
@@ -129,6 +130,11 @@ export default function BuilderTopDeck({
         ) : null}
       </div>
 
+      <RealPeopleReport
+        focusedProjectSlug={featuredProjectSlug}
+        pollMs={120000}
+      />
+
       {homepageView === "view-a" ? (
         <div className="space-y-3">
           <ProjectHumanGraphs
@@ -145,6 +151,7 @@ export default function BuilderTopDeck({
             pollMs={120000}
             mode="default"
             focusedProjectSlug={featuredProjectSlug}
+            showRealPeopleReport={false}
           />
         </div>
       ) : (
@@ -163,6 +170,7 @@ export default function BuilderTopDeck({
               pollMs={120000}
               mode="hero"
               focusedProjectSlug={featuredProjectSlug}
+              showRealPeopleReport={false}
             />
           </div>
         </div>
