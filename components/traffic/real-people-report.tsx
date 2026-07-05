@@ -75,6 +75,9 @@ type Props = {
   pollMs?: number;
 };
 
+const LOBBY_PUSH_STORAGE_KEY = "traffic:lobby-push-started-at:v1";
+const LOBBY_PUSH_WINDOW_MS = 60 * 60 * 1000;
+
 function normalize(value: unknown) {
   return String(value ?? "").toLowerCase().trim();
 }
@@ -226,6 +229,27 @@ async function fetchJson<T>(url: string, signal: AbortSignal): Promise<T | null>
   return (await response.json()) as T;
 }
 
+function sessionSeenMs(session: ReportSession) {
+  const raw =
+    session.first_seen_at ||
+    session.last_seen_at ||
+    session.ended_at ||
+    "";
+
+  const parsed = Date.parse(raw);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatShortDuration(ms: number) {
+  const safeMs = Math.max(0, ms);
+  const minutes = Math.ceil(safeMs / 60000);
+
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest ? `${hours}h ${rest}m` : `${hours}h`;
+}
+
 export default function RealPeopleReport({
   focusedProjectSlug = "aoe2hdbets",
   pollMs = 120000,
@@ -234,6 +258,40 @@ export default function RealPeopleReport({
   const [liveData, setLiveData] = useState<LiveVisitorsReportResponse | null>(null);
   const [historyData, setHistoryData] = useState<VisitsHistoryResponse | null>(null);
   const [loadError, setLoadError] = useState("");
+  const [lobbyPushStartedAt, setLobbyPushStartedAt] = useState("");
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  useEffect(() => {
+    setLobbyPushStartedAt(window.localStorage.getItem(LOBBY_PUSH_STORAGE_KEY) ?? "");
+
+    const timer = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 15000);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const markLobbyPush = () => {
+    const next = new Date().toISOString();
+    window.localStorage.setItem(LOBBY_PUSH_STORAGE_KEY, next);
+    setLobbyPushStartedAt(next);
+    setNowMs(Date.now());
+  };
+
+  const clearLobbyPush = () => {
+    window.localStorage.removeItem(LOBBY_PUSH_STORAGE_KEY);
+    setLobbyPushStartedAt("");
+    setNowMs(Date.now());
+  };
+
+  const lobbyPushStartedMs = lobbyPushStartedAt ? Date.parse(lobbyPushStartedAt) : 0;
+  const lobbyPushActive =
+    Number.isFinite(lobbyPushStartedMs) &&
+    lobbyPushStartedMs > 0 &&
+    nowMs - lobbyPushStartedMs <= LOBBY_PUSH_WINDOW_MS;
+  const lobbyPushRemainingText = lobbyPushActive
+    ? formatShortDuration(LOBBY_PUSH_WINDOW_MS - (nowMs - lobbyPushStartedMs))
+    : "";
 
   useEffect(() => {
     let mounted = true;
@@ -300,6 +358,24 @@ export default function RealPeopleReport({
     );
     const quickOutsideSignals = allSurface.filter(isQuickOutsideSignal);
 
+    const lobbySurface =
+      Number.isFinite(lobbyPushStartedMs) && lobbyPushStartedMs > 0
+        ? allSurface.filter((session) => sessionSeenMs(session) >= lobbyPushStartedMs)
+        : [];
+
+    const lobbyConfirmed = lobbySurface.filter(
+      (session) =>
+        isOutsideAudienceSession(session) &&
+        session.classification_state === "human_confirmed",
+    );
+    const lobbyLikely = lobbySurface.filter(
+      (session) =>
+        isOutsideAudienceSession(session) &&
+        session.classification_state === "likely_human",
+    );
+    const lobbyQuick = lobbySurface.filter(isQuickOutsideSignal);
+    const lobbySignalTotal = lobbyConfirmed.length + lobbyLikely.length + lobbyQuick.length;
+
     const ownerSessions = allSurface.filter(isOwnerSession);
     const knownPersonSessions = allSurface.filter(isKnownPersonSession);
 
@@ -362,8 +438,17 @@ export default function RealPeopleReport({
       },
     ];
 
-    return { cards, summary };
-  }, [historyData?.items, liveData]);
+    const lobbySummary =
+      lobbyPushStartedAt && Number.isFinite(lobbyPushStartedMs) && lobbyPushStartedMs > 0
+        ? `Since lobby push: ${lobbySignalTotal} outside signal${
+            lobbySignalTotal === 1 ? "" : "s"
+          } — ${lobbyConfirmed.length} confirmed, ${lobbyLikely.length} likely, ${
+            lobbyQuick.length
+          } quick check${lobbyQuick.length === 1 ? "" : "s"}.`
+        : "Press Mark Lobby Push when you post the URL in the AoE2 lobby. Traffic will keep the next hour of outside signals separate.";
+
+    return { cards, summary, lobbySummary, lobbySignalTotal };
+  }, [historyData?.items, liveData, lobbyPushStartedAt, lobbyPushStartedMs]);
 
   return (
     <div className="mb-3 rounded-3xl border border-emerald-400/20 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_34%),rgba(2,6,23,0.72)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.25)] md:p-5">
@@ -376,10 +461,44 @@ export default function RealPeopleReport({
             What Traffic can actually defend
           </h3>
         </div>
-        <p className="max-w-2xl text-xs leading-5 text-white/55">
-          Confirmed people stay green. Likely humans stay blue. Quick checks stay gold
-          because one-click visitors still matter when the lobby lights the beacon.
-        </p>
+        <div className="flex max-w-2xl flex-col items-start gap-2 text-xs leading-5 text-white/55 sm:items-end">
+          <p className="text-left sm:text-right">
+            Confirmed people stay green. Likely humans stay blue. Quick checks stay gold
+            because one-click visitors still matter when the lobby lights the beacon.
+          </p>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {lobbyPushStartedAt ? (
+              <span className="rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 font-medium text-amber-100">
+                {lobbyPushActive
+                  ? `Lobby push active · ${lobbyPushRemainingText} left`
+                  : "Lobby push marked · window ended"}
+              </span>
+            ) : (
+              <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-white/55">
+                No lobby push marked
+              </span>
+            )}
+
+            <button
+              type="button"
+              onClick={markLobbyPush}
+              className="cursor-pointer rounded-full border border-amber-400/35 bg-amber-400/10 px-3 py-1 font-semibold text-amber-100 transition hover:border-amber-300/60 hover:bg-amber-400/15"
+            >
+              Mark Lobby Push
+            </button>
+
+            {lobbyPushStartedAt ? (
+              <button
+                type="button"
+                onClick={clearLobbyPush}
+                className="cursor-pointer rounded-full border border-white/10 bg-black/20 px-3 py-1 font-medium text-white/55 transition hover:border-white/25 hover:text-white/80"
+              >
+                Clear
+              </button>
+            ) : null}
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
@@ -401,6 +520,10 @@ export default function RealPeopleReport({
 
       <div className="mt-3 rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm leading-6 text-white/72">
         {loadError ? "Traffic report is refreshing. Last known report may be incomplete." : report.summary}
+      </div>
+
+      <div className="mt-2 rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] px-4 py-3 text-sm leading-6 text-amber-100/90">
+        {report.lobbySummary}
       </div>
     </div>
   );
