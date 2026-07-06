@@ -891,7 +891,7 @@ export default function ProjectHumanGraphs({
         <span className="mr-1 uppercase tracking-[0.18em] text-white/35">Lines</span>
         {TRAFFIC_LINE_OPTIONS.map((option) => {
           const active = visibleLineKeys[option.key];
-          const disabled = !lineHasData(featuredProject, option.key);
+          const disabled = featuredProject.points.length === 0;
           const peak = peakLine(featuredProject, option.key);
           const color = lineColors[option.key] ?? option.stroke;
 
@@ -903,7 +903,7 @@ export default function ProjectHumanGraphs({
                 borderColor: active ? color : "rgba(255,255,255,0.12)",
                 background: active ? `${color}22` : "rgba(0,0,0,0.2)",
                 color: active ? color : "rgba(255,255,255,0.58)",
-                opacity: disabled ? 0.35 : 1,
+                opacity: disabled ? 0.35 : peak === 0 ? 0.72 : 1,
               }}
               title={`${option.label} • peak ${peak}`}
             >
@@ -918,7 +918,7 @@ export default function ProjectHumanGraphs({
                 type="button"
                 onClick={() => toggleLineKey(option.key)}
                 disabled={disabled}
-                className="cursor-pointer whitespace-nowrap disabled:cursor-not-allowed"
+                className="cursor-pointer whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {option.shortLabel}: {peak}
               </button>
@@ -1223,7 +1223,7 @@ export default function ProjectHumanGraphs({
                     ) : null}
 
                     {TRAFFIC_LINE_OPTIONS.map((option) =>
-                      visibleLineKeys[option.key] && lineHasData(featuredProject, option.key) ? (
+                      visibleLineKeys[option.key] ? (
                         <Line
                           key={option.key}
                           yAxisId={option.yAxisId}
@@ -1537,7 +1537,7 @@ export default function ProjectHumanGraphs({
                 ) : null}
 
                 {TRAFFIC_LINE_OPTIONS.map((option) =>
-                  visibleLineKeys[option.key] && lineHasData(featuredProject, option.key) ? (
+                  visibleLineKeys[option.key] ? (
                     <Line
                       key={option.key}
                       yAxisId={option.yAxisId}
