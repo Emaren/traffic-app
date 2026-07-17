@@ -22,6 +22,10 @@ type VisitorJourney = {
   clicks: number;
   visibleMs: number;
   known: boolean;
+  isFoldedBurst?: boolean;
+  foldedJourneyCount?: number;
+  foldedIpCount?: number;
+  foldedLocation?: string;
 };
 
 function countryFlag(countryCode?: string): string {
@@ -207,6 +211,128 @@ function buildJourneys(events: BrowserEventRecord[]): VisitorJourney[] {
         new Date(left.latest.received_at).getTime(),
     );
 }
+
+function foldSyntheticServerBursts(journeys: VisitorJourney[]): VisitorJourney[] {
+  const singles: VisitorJourney[] = [];
+  const groups = new Map<string, VisitorJourney[]>();
+
+  for (const journey of journeys) {
+    const sessionId = (journey.latest.session_id || "").trim();
+    const syntheticServerStory = sessionId.startsWith("server:");
+
+    const hasBrowserEngagement =
+      journey.clicks > 0 ||
+      journey.maxScroll > 0 ||
+      journey.visibleMs >= 15_000 ||
+      journey.events.some((event) => event.event_type !== "page_view");
+
+    // Tony rule: never hide a known person or an actually engaged browser journey.
+    if (!syntheticServerStory || journey.known || hasBrowserEngagement) {
+      singles.push(journey);
+      continue;
+    }
+
+    const city = (journey.latest.city || "").trim();
+    const area = (journey.latest.area || "").trim();
+    const country = (journey.latest.country || "").trim();
+    const countryCode = (journey.latest.country_code || "").trim();
+
+    // Without a meaningful geography, keep the visit individually visible.
+    if (!city && !area) {
+      singles.push(journey);
+      continue;
+    }
+
+    const receivedAt = new Date(journey.latest.received_at).getTime();
+
+    if (Number.isNaN(receivedAt)) {
+      singles.push(journey);
+      continue;
+    }
+
+    // Synthetic story IDs already use an hourly server-observation boundary.
+    // Mirror that boundary while allowing different cloud IP ranges to collapse
+    // into one readable location burst.
+    const hourBucket = Math.floor(receivedAt / (60 * 60 * 1000));
+
+    const key = [
+      countryCode || country,
+      area,
+      city,
+      hourBucket,
+    ]
+      .map((value) => String(value || "").trim().toLowerCase())
+      .join("|");
+
+    const existing = groups.get(key) ?? [];
+    existing.push(journey);
+    groups.set(key, existing);
+  }
+
+  const folded: VisitorJourney[] = [];
+
+  for (const [groupKey, group] of groups.entries()) {
+    if (group.length < 2) {
+      singles.push(...group);
+      continue;
+    }
+
+    const orderedJourneys = [...group].sort(
+      (left, right) =>
+        new Date(right.latest.received_at).getTime() -
+        new Date(left.latest.received_at).getTime(),
+    );
+
+    const latestJourney = orderedJourneys[0];
+
+    const events = orderedJourneys
+      .flatMap((journey) => journey.events)
+      .sort(
+        (left, right) =>
+          new Date(right.received_at).getTime() -
+            new Date(left.received_at).getTime() ||
+          right.id - left.id,
+      );
+
+    const uniquePaths = [
+      ...new Set(
+        orderedJourneys.flatMap((journey) => journey.uniquePaths),
+      ),
+    ].slice(0, 8);
+
+    const ips = new Set(
+      orderedJourneys
+        .map((journey) => (journey.latest.ip || "").trim())
+        .filter(Boolean),
+    );
+
+    folded.push({
+      key: `server-burst:${groupKey}`,
+      latest: latestJourney.latest,
+      events,
+      uniquePaths,
+      maxScroll: Math.max(...orderedJourneys.map((journey) => journey.maxScroll), 0),
+      clicks: orderedJourneys.reduce((total, journey) => total + journey.clicks, 0),
+      visibleMs: Math.max(...orderedJourneys.map((journey) => journey.visibleMs), 0),
+      known: false,
+      isFoldedBurst: true,
+      foldedJourneyCount: orderedJourneys.length,
+      foldedIpCount: ips.size,
+      foldedLocation:
+        latestJourney.latest.city ||
+        latestJourney.latest.area ||
+        latestJourney.latest.country ||
+        "Unknown",
+    });
+  }
+
+  return [...singles, ...folded].sort(
+    (left, right) =>
+      new Date(right.latest.received_at).getTime() -
+      new Date(left.latest.received_at).getTime(),
+  );
+}
+
 
 function mostMeaningfulEvent(journey: VisitorJourney): BrowserEventRecord {
   return (
@@ -404,7 +530,10 @@ export default function AdminBrowserEventsCard() {
     [events],
   );
 
-  const allJourneys = useMemo(() => buildJourneys(storyEvents), [storyEvents]);
+  const allJourneys = useMemo(
+    () => foldSyntheticServerBursts(buildJourneys(storyEvents)),
+    [storyEvents],
+  );
 
   const filteredJourneys = useMemo(() => {
     if (storyFilter === "known") {
@@ -563,11 +692,15 @@ export default function AdminBrowserEventsCard() {
                         </div>
 
                         <h3 className="mt-2 break-words text-3xl font-black uppercase tracking-tight text-white sm:text-4xl">
-                          {visitorName(latest)}
+                          {journey.isFoldedBurst
+                            ? `${journey.foldedLocation || "Unknown"} burst`
+                            : visitorName(latest)}
                         </h3>
 
                         <p className="mt-1 break-all font-mono text-sm font-semibold text-cyan-100 sm:text-base">
-                          {identityLine(latest)}
+                          {journey.isFoldedBurst
+                            ? `${journey.foldedJourneyCount || journey.events.length} server-observed visits • ${journey.foldedIpCount || 1} IPs`
+                            : identityLine(latest)}
                         </p>
 
                         {location ? (
@@ -612,9 +745,11 @@ export default function AdminBrowserEventsCard() {
                           Quick read
                         </p>
                         <p className="mt-2 text-sm leading-6 text-slate-300">
-                          {journey.clicks > 0
-                            ? `${visitorName(latest)} clicked ${journey.clicks} time${journey.clicks === 1 ? "" : "s"} and reached ${journey.maxScroll}% scroll depth.`
-                            : `${visitorName(latest)} is browsing with ${journey.events.length} recent signal${journey.events.length === 1 ? "" : "s"}.`}
+                          {journey.isFoldedBurst
+                            ? `${journey.foldedLocation || "This location"} produced ${journey.foldedJourneyCount || journey.events.length} server-observed visits across ${journey.foldedIpCount || 1} IPs and ${journey.uniquePaths.length} route${journey.uniquePaths.length === 1 ? "" : "s"}. Individual hits remain available in the timeline.`
+                            : journey.clicks > 0
+                              ? `${visitorName(latest)} clicked ${journey.clicks} time${journey.clicks === 1 ? "" : "s"} and reached ${journey.maxScroll}% scroll depth.`
+                              : `${visitorName(latest)} is browsing with ${journey.events.length} recent signal${journey.events.length === 1 ? "" : "s"}.`}
                         </p>
                       </div>
                     </div>
