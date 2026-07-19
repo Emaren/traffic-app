@@ -971,6 +971,12 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
               <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
                 Armed {settings.armed_at ? formatTimestamp(settings.armed_at) : "not yet"}
               </div>
+              <Link
+                href="/admin/performance"
+                className="rounded-full border border-amber-300/30 bg-amber-300/10 px-3 py-1 text-xs font-medium text-amber-100 transition hover:bg-amber-300/15"
+              >
+                Performance Command
+              </Link>
               <button
                 type="button"
                 onClick={() => void refreshDashboard()}
