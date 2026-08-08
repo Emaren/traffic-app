@@ -378,7 +378,7 @@ export default function AdminBrowserEventsCard() {
       const search = new URLSearchParams({
         project_slug: "aoe2hdbets",
         since_hours: "24",
-        limit: "200",
+        limit: "80",
       });
 
       if (options?.before) {
