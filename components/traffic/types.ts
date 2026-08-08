@@ -151,6 +151,7 @@ export type SessionRecord = {
   device: string;
   os: string;
   browser: string;
+  user_agent?: string;
   known_automation: boolean;
   automation_family: string;
   known_visitor_label?: string | null;
@@ -184,6 +185,10 @@ export type SessionRecord = {
   browser_signal_count?: number | null;
   browser_latest_meaningful_event?: string | null;
   browser_latest_meaningful_path?: string | null;
+  browser_visitor_id?: string | null;
+  browser_session_id?: string | null;
+  authenticated?: boolean;
+  authenticated_uid?: string | null;
   activity_sequence?: SessionActivityItem[];
   page_count: number;
   event_count: number;
@@ -713,6 +718,10 @@ export type BrowserEventRecord = {
   known_visitor_label?: string;
   known_visitor_detail?: string;
   known_visitor_kind?: string;
+  authenticated?: boolean;
+  authenticated_uid?: string;
+  request_classification?: string;
+  automation_family?: string;
   payload_json: string;
 };
 

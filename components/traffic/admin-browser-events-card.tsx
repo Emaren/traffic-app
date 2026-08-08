@@ -90,6 +90,7 @@ function identityLine(event: BrowserEventRecord): string {
 }
 
 function eventTone(eventType: string): string {
+  if (eventType === "auth_presence") return "border-emerald-300/35 bg-emerald-300/12 text-emerald-100";
   if (eventType.includes("click")) return "border-cyan-300/35 bg-cyan-300/12 text-cyan-100";
   if (eventType === "scroll_milestone") return "border-emerald-300/35 bg-emerald-300/12 text-emerald-100";
   if (eventType === "heartbeat") return "border-violet-300/35 bg-violet-300/12 text-violet-100";
@@ -98,6 +99,7 @@ function eventTone(eventType: string): string {
 }
 
 function prettyEventType(eventType: string): string {
+  if (eventType === "auth_presence") return "Authenticated";
   if (eventType === "page_view") return "Opened";
   if (eventType === "scroll_milestone") return "Scrolled";
   if (eventType === "heartbeat") return "Still active";
@@ -109,6 +111,9 @@ function prettyEventType(eventType: string): string {
 }
 
 function readableEvent(event: BrowserEventRecord): string {
+  if (event.event_type === "auth_presence") {
+    return `Authenticated as ${event.known_visitor_label || "player"}`;
+  }
   if (event.click_label) return event.click_label;
   if (event.event_type === "scroll_milestone") {
     return `Scrolled to ${event.max_scroll_depth_pct ?? event.scroll_depth_pct ?? "?"}%`;
@@ -121,6 +126,7 @@ function readableEvent(event: BrowserEventRecord): string {
 }
 
 function actionSentence(event: BrowserEventRecord): string {
+  if (event.event_type === "auth_presence") return `authenticated as ${event.known_visitor_label || "a player"}`;
   if (event.event_type.includes("click")) return `clicked ${readableEvent(event)}`;
   if (event.event_type === "scroll_milestone") return readableEvent(event).toLowerCase();
   if (event.event_type === "heartbeat") return `is still reading ${event.path}`;
@@ -135,6 +141,9 @@ function shouldHideFromStories(event: BrowserEventRecord): boolean {
   const path = (event.path || "").trim().toLowerCase();
 
   if (!ip) return true;
+  if (!event.authenticated && ["bot", "suspicious"].includes(event.request_classification || "")) {
+    return true;
+  }
 
   // obvious Google crawler/browser traffic
   if (ip.startsWith("66.249.")) return true;

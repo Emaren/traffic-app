@@ -153,6 +153,7 @@ function sessionSearchText(session: SessionRecord) {
 
 function isPotentialAudienceSignal(item: SessionRecord): boolean {
   const state = item.classification_state;
+  if (item.authenticated) return true;
   if (state === "likely_human") return true;
 
   if (state !== "candidate") return false;
@@ -165,6 +166,7 @@ function isPotentialAudienceSignal(item: SessionRecord): boolean {
   const totalSeconds = item.total_seconds ?? 0;
   const reasons = item.classification_reasons ?? [];
 
+  if ((item.browser_signal_count ?? 0) >= 1 && pageCount >= 1) return true;
   if (pageCount >= 3) return true;
   if (pageCount >= 2 && (engagedSeconds >= 5 || totalSeconds >= 5)) return true;
   if (eventCount >= 4 && !reasons.includes("bounce")) return true;
