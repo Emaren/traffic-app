@@ -9,7 +9,7 @@ import {
 } from "@/components/traffic/view-preferences";
 
 type StoryFilter = "all" | "known" | "unknown";
-type StoryActorKind = "person" | "network" | "automation";
+type StoryActorKind = "person" | "review" | "network" | "automation";
 
 const DEFAULT_TIMELINE_VISIBLE_EVENTS = 6;
 const TIMELINE_LOAD_STEP = 8;
@@ -144,12 +144,51 @@ function isSingaporeCloudEvent(event: BrowserEventRecord): boolean {
   return countryCode === "SG" || country.includes("singapore");
 }
 
-function journeyHasMeaningfulHumanEngagement(
+function journeyHasStrongHumanEvidence(
   journey: VisitorJourney,
 ): boolean {
-  if (journey.clicks > 0) return true;
-  if (journey.maxScroll >= 50) return true;
-  if (journey.visibleMs >= 20_000) return true;
+  const explicitClick = journey.clicks > 0;
+  const multiPage = journey.uniquePaths.length >= 2;
+  const longVisible = journey.visibleMs >= 45_000;
+  const veryLongVisible = journey.visibleMs >= 90_000;
+  const deepScroll = journey.maxScroll >= 60;
+
+  const eventTypes = new Set(
+    journey.events.map((event) => event.event_type),
+  );
+
+  const heartbeat = eventTypes.has("heartbeat");
+  const visibility = eventTypes.has("visibility_change");
+  const scrollSignal = eventTypes.has("scroll_milestone");
+
+  // A deliberate click is our strongest anonymous-human signal.
+  if (explicitClick) return true;
+
+  // A coherent multi-page journey with real dwell is also strong.
+  if (multiPage && longVisible) return true;
+
+  // A long single-page read must combine several independent signals.
+  if (
+    veryLongVisible &&
+    deepScroll &&
+    heartbeat &&
+    (visibility || scrollSignal)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+function journeyHasPossibleHumanEvidence(
+  journey: VisitorJourney,
+): boolean {
+  if (journeyHasStrongHumanEvidence(journey)) {
+    return true;
+  }
+
+  if (journey.visibleMs >= 10_000) return true;
+  if (journey.maxScroll >= 25) return true;
   if (journey.uniquePaths.length >= 2) return true;
 
   return journey.events.some((event) =>
@@ -163,6 +202,14 @@ function journeyHasMeaningfulHumanEngagement(
   );
 }
 
+function isServerObservedJourney(
+  journey: VisitorJourney,
+): boolean {
+  return (journey.latest.session_id || "").startsWith(
+    "server:",
+  );
+}
+
 function storyActorForJourney(journey: VisitorJourney): {
   actorKind: StoryActorKind;
   actorLabel: string;
@@ -170,66 +217,89 @@ function storyActorForJourney(journey: VisitorJourney): {
   networkFamily?: string;
 } {
   const latest = journey.latest;
-  const knownKind = (latest.known_visitor_kind || "").trim().toLowerCase();
-  const meaningfulEngagement = journeyHasMeaningfulHumanEngagement(journey);
+
+  const knownKind = (
+    latest.known_visitor_kind || ""
+  )
+    .trim()
+    .toLowerCase();
+
+  const requestClass = (
+    latest.request_classification || ""
+  )
+    .trim()
+    .toLowerCase();
 
   const knownAutomation =
     isKnownAutomationKind(knownKind) ||
     Boolean((latest.automation_family || "").trim()) ||
-    ["bot", "suspicious"].includes(
-      (latest.request_classification || "").trim().toLowerCase(),
-    );
+    ["bot", "suspicious"].includes(requestClass) ||
+    (latest.ip || "").startsWith("66.249.");
 
   const knownHuman =
     Boolean(latest.authenticated) ||
     isKnownHumanKind(knownKind) ||
     (journey.known && !knownAutomation);
 
+  const strongHuman =
+    journeyHasStrongHumanEvidence(journey);
+
+  const possibleHuman =
+    journeyHasPossibleHumanEvidence(journey);
+
+  const singaporeCloud =
+    isSingaporeCloudEvent(latest);
+
+  const serverObserved =
+    isServerObservedJourney(journey);
+
+
+  // ----------------------------------------------------------
+  // Highest authority: authenticated / known identity.
+  // Geography never overrides authenticated truth.
+  // ----------------------------------------------------------
+
   if (knownHuman) {
     return {
       actorKind: "person",
       actorLabel: latest.authenticated
         ? "Confirmed human"
-        : "Known visitor",
+        : "Known human",
       actorSummary: latest.authenticated
-        ? "Authenticated AoE2WAR identity is authoritative."
-        : "Known identity evidence keeps this journey in the people lane.",
+        ? "Authenticated AoE2WAR identity."
+        : "Known identity evidence supports a real person.",
     };
   }
+
+
+  // ----------------------------------------------------------
+  // Strong non-human evidence.
+  // ----------------------------------------------------------
 
   if (knownAutomation) {
     const family =
       (latest.automation_family || "").trim() ||
       latest.known_visitor_label ||
-      "Known automation";
+      (
+        (latest.ip || "").startsWith("66.249.")
+          ? "Google crawler"
+          : "Known automation"
+      );
 
     return {
       actorKind: "automation",
-      actorLabel: "Known automation",
+      actorLabel: "Bot / automation",
       actorSummary:
-        "Automation evidence is stronger than the browser-shaped request.",
+        "Strong automation or suspicious-request evidence. Preserved for forensics, but removed from the human feed.",
       networkFamily: family,
     };
   }
 
-  if (isSingaporeCloudEvent(latest)) {
-    if (meaningfulEngagement) {
-      return {
-        actorKind: "person",
-        actorLabel: "Cloud/VPN · possible human",
-        actorSummary:
-          "Cloud-hosted network, but this session shows enough browser engagement to keep it visible as an uncertain person.",
-      };
-    }
 
-    return {
-      actorKind: "network",
-      actorLabel: "Cloud network · likely automation",
-      actorSummary:
-        "Recurring Singapore cloud-browser infrastructure with a thin journey. It may still be a proxy, VPN, or remote browser, so the raw evidence is preserved.",
-      networkFamily: "Singapore Cloud Browser Fleet",
-    };
-  }
+  // ----------------------------------------------------------
+  // Repeated thin server observations are network evidence,
+  // not separate visitor cards.
+  // ----------------------------------------------------------
 
   if (journey.isFoldedBurst) {
     const location =
@@ -241,49 +311,98 @@ function storyActorForJourney(journey: VisitorJourney): {
 
     return {
       actorKind: "network",
-      actorLabel: "Network burst · unclear",
+      actorLabel: "Network burst",
       actorSummary:
-        "Several thin server-observed visits were clustered together. They are preserved as network evidence rather than promoted as separate people.",
-      networkFamily: `${location} server observations`,
+        "Repeated thin server-observed visits folded together instead of being promoted as separate people.",
+      networkFamily:
+        `${location} server observations`,
     };
   }
 
-  const serverObserved = (latest.session_id || "").startsWith("server:");
 
-  if (serverObserved && !meaningfulEngagement) {
-    const location =
-      latest.city ||
-      latest.area ||
-      latest.country ||
-      "Unknown";
+  // ----------------------------------------------------------
+  // Singapore cloud fleet.
+  //
+  // Thin traffic = likely automation.
+  // Even stronger browser behavior remains REVIEW, not main
+  // people, because cloud infrastructure lowers confidence.
+  // This guarantees we do not lose a possible human.
+  // ----------------------------------------------------------
+
+  if (singaporeCloud) {
+    if (strongHuman || possibleHuman) {
+      return {
+        actorKind: "review",
+        actorLabel: "Possible human · cloud/VPN",
+        actorSummary:
+          "This cloud-hosted session has browser behavior worth reviewing, but it is not trusted enough to occupy the primary human feed.",
+        networkFamily:
+          "Singapore cloud · review",
+      };
+    }
 
     return {
       actorKind: "network",
-      actorLabel: "Server-only · unclear",
+      actorLabel: "Likely automation",
       actorSummary:
-        "Seen in the access log without enough browser engagement to call this a person. Could be a human with blocked telemetry, a proxy, or automation.",
-      networkFamily: `${location} server observations`,
+        "Recurring Singapore cloud-fleet traffic with no strong human journey evidence.",
+      networkFamily:
+        "Singapore Cloud Browser Fleet",
     };
   }
 
-  if (meaningfulEngagement) {
+
+  // ----------------------------------------------------------
+  // Raw access-log observation.
+  //
+  // A single server-only observation COULD still be a person
+  // with blocked JavaScript, so keep it in Review rather than
+  // declaring it a bot.
+  // ----------------------------------------------------------
+
+  if (serverObserved) {
+    return {
+      actorKind: "review",
+      actorLabel: "Possible human · server-only",
+      actorSummary:
+        "Access-log observation without enough browser telemetry to prove a person. Kept for review so a privacy-blocked human is not lost.",
+    };
+  }
+
+
+  // ----------------------------------------------------------
+  // Anonymous browser with genuinely strong behavioral proof.
+  // ----------------------------------------------------------
+
+  if (strongHuman) {
     return {
       actorKind: "person",
       actorLabel: "Likely human",
       actorSummary:
-        "Browser engagement gives this journey enough evidence to keep it in the people lane.",
+        "Multiple independent browser-behavior signals support a real human journey.",
     };
   }
 
+
+  // ----------------------------------------------------------
+  // Everything browser-shaped but not strong enough goes to
+  // REVIEW. Never give weak uncertainty a giant human card.
+  // ----------------------------------------------------------
+
   return {
-    actorKind: "person",
-    actorLabel: "Unclear browser",
-    actorSummary:
-      "Browser-shaped activity, but there is not enough evidence yet to confirm a person.",
+    actorKind: "review",
+    actorLabel: possibleHuman
+      ? "Possible human · review"
+      : "Unclear · review",
+    actorSummary: possibleHuman
+      ? "There is some human-like behavior, but not enough evidence for the primary people feed."
+      : "Browser-shaped activity without enough evidence to call it human. Preserved in review rather than discarded.",
   };
 }
 
-function storyActorTone(journey: VisitorJourney): string {
+function storyActorTone(
+  journey: VisitorJourney,
+): string {
   if (journey.actorKind === "automation") {
     return "border-rose-300/30 bg-rose-300/10 text-rose-100";
   }
@@ -292,18 +411,18 @@ function storyActorTone(journey: VisitorJourney): string {
     return "border-amber-300/30 bg-amber-300/10 text-amber-100";
   }
 
-  if ((journey.actorLabel || "").startsWith("Confirmed")) {
-    return "border-emerald-300/30 bg-emerald-300/10 text-emerald-100";
+  if (journey.actorKind === "review") {
+    return "border-violet-300/30 bg-violet-300/10 text-violet-100";
   }
 
   if (
-    (journey.actorLabel || "").startsWith("Likely") ||
-    (journey.actorLabel || "").startsWith("Cloud/VPN")
+    (journey.actorLabel || "").startsWith("Confirmed") ||
+    (journey.actorLabel || "").startsWith("Known")
   ) {
-    return "border-cyan-300/30 bg-cyan-300/10 text-cyan-100";
+    return "border-emerald-300/30 bg-emerald-300/10 text-emerald-100";
   }
 
-  return "border-white/15 bg-white/5 text-white/70";
+  return "border-cyan-300/30 bg-cyan-300/10 text-cyan-100";
 }
 
 function eventTone(eventType: string): string {
@@ -358,12 +477,10 @@ function shouldHideFromStories(event: BrowserEventRecord): boolean {
   const path = (event.path || "").trim().toLowerCase();
 
   if (!ip) return true;
-  if (!event.authenticated && ["bot", "suspicious"].includes(event.request_classification || "")) {
-    return true;
-  }
 
-  // obvious Google crawler/browser traffic
-  if (ip.startsWith("66.249.")) return true;
+  // Keep bot / crawler / suspicious evidence in the operator feed.
+  // Actor routing below removes it from the people lane and folds it
+  // into clearly labelled noise instead of pretending it never existed.
 
   // chain/API endpoint traffic is useful data, but not a human AoE2WAR story
   if (host.startsWith("rpc-") || host.startsWith("rest-")) return true;
@@ -568,36 +685,57 @@ function classifyAndFoldNetworkActors(
     ...storyActorForJourney(journey),
   }));
 
-  const people = decorated.filter(
-    (journey) => journey.actorKind === "person",
+  const peopleAndReview = decorated.filter(
+    (journey) =>
+      journey.actorKind === "person" ||
+      journey.actorKind === "review",
   );
 
-  const networkGroups = new Map<string, VisitorJourney[]>();
+  const networkGroups =
+    new Map<string, VisitorJourney[]>();
 
   for (const journey of decorated) {
-    if (journey.actorKind === "person") continue;
+    if (
+      journey.actorKind !== "network" &&
+      journey.actorKind !== "automation"
+    ) {
+      continue;
+    }
 
     const family =
       journey.networkFamily ||
       journey.actorLabel ||
       "Network activity";
 
-    const key = family.trim().toLowerCase();
-    const existing = networkGroups.get(key) ?? [];
+    const key =
+      family.trim().toLowerCase();
+
+    const existing =
+      networkGroups.get(key) ?? [];
+
     existing.push(journey);
+
     networkGroups.set(key, existing);
   }
 
   const foldedNetwork: VisitorJourney[] = [];
 
-  for (const [groupKey, group] of networkGroups.entries()) {
+  for (
+    const [groupKey, group]
+    of networkGroups.entries()
+  ) {
     const ordered = [...group].sort(
       (left, right) =>
-        new Date(right.latest.received_at).getTime() -
-        new Date(left.latest.received_at).getTime(),
+        new Date(
+          right.latest.received_at,
+        ).getTime() -
+        new Date(
+          left.latest.received_at,
+        ).getTime(),
     );
 
     const latestJourney = ordered[0];
+
     const networkFamily =
       latestJourney.networkFamily ||
       latestJourney.actorLabel ||
@@ -607,62 +745,117 @@ function classifyAndFoldNetworkActors(
       .flatMap((journey) => journey.events)
       .sort(
         (left, right) =>
-          new Date(right.received_at).getTime() -
-            new Date(left.received_at).getTime() ||
+          new Date(
+            right.received_at,
+          ).getTime() -
+            new Date(
+              left.received_at,
+            ).getTime() ||
           right.id - left.id,
       );
 
     const uniquePaths = [
       ...new Set(
-        ordered.flatMap((journey) => journey.uniquePaths),
+        ordered.flatMap(
+          (journey) => journey.uniquePaths,
+        ),
       ),
     ].slice(0, 12);
 
     const ips = new Set(
       events
-        .map((event) => (event.ip || "").trim())
+        .map(
+          (event) =>
+            (event.ip || "").trim(),
+        )
         .filter(Boolean),
     );
 
-    const rawJourneyCount = ordered.reduce(
-      (total, journey) =>
-        total + (journey.foldedJourneyCount || 1),
-      0,
-    );
+    const rawJourneyCount =
+      ordered.reduce(
+        (total, journey) =>
+          total +
+          (
+            journey.foldedJourneyCount ||
+            1
+          ),
+        0,
+      );
 
-    const automation = ordered.some(
-      (journey) => journey.actorKind === "automation",
-    );
+    const automation =
+      ordered.some(
+        (journey) =>
+          journey.actorKind ===
+          "automation",
+      );
 
     foldedNetwork.push({
       ...latestJourney,
-      key: `network:${groupKey}`,
+
+      key:
+        `network:${groupKey}`,
+
       events,
       uniquePaths,
+
       maxScroll: Math.max(
-        ...ordered.map((journey) => journey.maxScroll),
+        ...ordered.map(
+          (journey) =>
+            journey.maxScroll,
+        ),
         0,
       ),
+
       clicks: ordered.reduce(
-        (total, journey) => total + journey.clicks,
+        (total, journey) =>
+          total + journey.clicks,
         0,
       ),
+
       visibleMs: Math.max(
-        ...ordered.map((journey) => journey.visibleMs),
+        ...ordered.map(
+          (journey) =>
+            journey.visibleMs,
+        ),
         0,
       ),
+
       known: false,
-      actorKind: automation ? "automation" : "network",
-      actorLabel: automation
-        ? "Known automation"
-        : latestJourney.actorLabel || "Network activity",
+
+      actorKind:
+        automation
+          ? "automation"
+          : "network",
+
+      actorLabel:
+        automation
+          ? "Bot / automation"
+          : (
+              latestJourney.actorLabel ||
+              "Network activity"
+            ),
+
       actorSummary:
-        `${latestJourney.actorSummary || "Network evidence preserved separately from people."} ` +
-        `${rawJourneyCount} journey${rawJourneyCount === 1 ? "" : "s"} folded across ${ips.size || 1} IP${ips.size === 1 ? "" : "s"}.`,
+        `${
+          latestJourney.actorSummary ||
+          "Non-human network evidence preserved outside the people feed."
+        } ` +
+        `${rawJourneyCount} journey${
+          rawJourneyCount === 1 ? "" : "s"
+        } folded across ${ips.size || 1} IP${
+          ips.size === 1 ? "" : "s"
+        }.`,
+
       networkFamily,
+
       isNetworkActorCluster: true,
-      foldedJourneyCount: rawJourneyCount,
-      foldedIpCount: ips.size || 1,
+
+      foldedJourneyCount:
+        rawJourneyCount,
+
+      foldedIpCount:
+        ips.size || 1,
+
       foldedLocation:
         latestJourney.foldedLocation ||
         latestJourney.latest.city ||
@@ -672,13 +865,19 @@ function classifyAndFoldNetworkActors(
     });
   }
 
-  return [...people, ...foldedNetwork].sort(
+  return [
+    ...peopleAndReview,
+    ...foldedNetwork,
+  ].sort(
     (left, right) =>
-      new Date(right.latest.received_at).getTime() -
-      new Date(left.latest.received_at).getTime(),
+      new Date(
+        right.latest.received_at,
+      ).getTime() -
+      new Date(
+        left.latest.received_at,
+      ).getTime(),
   );
 }
-
 
 
 function mostMeaningfulEvent(journey: VisitorJourney): BrowserEventRecord {
@@ -701,6 +900,7 @@ export default function AdminBrowserEventsCard() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [showFull, setShowFull] = useState(false);
   const [storyFilter, setStoryFilter] = useState<StoryFilter>("all");
+  const [showReviewQueue, setShowReviewQueue] = useState(false);
   const [showNetworkActivity, setShowNetworkActivity] = useState(false);
   const [timelineDepthByJourney, setTimelineDepthByJourney] = useState<Record<string, number>>({});
 
@@ -891,7 +1091,17 @@ export default function AdminBrowserEventsCard() {
   const peopleJourneys = useMemo(
     () =>
       allJourneys.filter(
-        (journey) => journey.actorKind === "person",
+        (journey) =>
+          journey.actorKind === "person",
+      ),
+    [allJourneys],
+  );
+
+  const reviewJourneys = useMemo(
+    () =>
+      allJourneys.filter(
+        (journey) =>
+          journey.actorKind === "review",
       ),
     [allJourneys],
   );
@@ -899,76 +1109,95 @@ export default function AdminBrowserEventsCard() {
   const networkJourneys = useMemo(
     () =>
       allJourneys.filter(
-        (journey) => journey.actorKind !== "person",
+        (journey) =>
+          journey.actorKind === "network" ||
+          journey.actorKind === "automation",
       ),
     [allJourneys],
   );
 
   const filteredJourneys = useMemo(() => {
     if (storyFilter === "known") {
-      return peopleJourneys.filter((journey) => journey.known);
+      return peopleJourneys.filter(
+        (journey) => journey.known,
+      );
     }
-    if (storyFilter === "unknown") {
-      return peopleJourneys.filter((journey) => !journey.known);
-    }
-    return peopleJourneys;
-  }, [peopleJourneys, storyFilter]);
 
-  const visibleJourneys = showFull
-    ? filteredJourneys.slice(0, 24)
-    : filteredJourneys.slice(0, 10);
+    if (storyFilter === "unknown") {
+      return peopleJourneys.filter(
+        (journey) => !journey.known,
+      );
+    }
+
+    return peopleJourneys;
+  }, [
+    peopleJourneys,
+    storyFilter,
+  ]);
+
+  const visibleJourneys =
+    showFull
+      ? filteredJourneys.slice(0, 24)
+      : filteredJourneys.slice(0, 10);
 
   const stats = useMemo(() => {
-    const peopleEvents = peopleJourneys.flatMap(
-      (journey) => journey.events,
-    );
+    const knownNames =
+      peopleJourneys.filter(
+        (journey) => journey.known,
+      ).length;
 
-    const clicks = peopleEvents.filter(
-      (event) => event.event_type.includes("click"),
-    ).length;
+    const reviewSignals =
+      reviewJourneys.reduce(
+        (total, journey) =>
+          total + journey.events.length,
+        0,
+      );
 
-    const maxScroll = Math.max(
-      0,
-      ...peopleEvents.map((event) =>
-        Number(
-          event.max_scroll_depth_pct ||
-            event.scroll_depth_pct ||
-            0,
+    const networkSignals =
+      networkJourneys.reduce(
+        (total, journey) =>
+          total + journey.events.length,
+        0,
+      );
+
+    const networkIps =
+      new Set(
+        networkJourneys.flatMap(
+          (journey) =>
+            journey.events
+              .map(
+                (event) =>
+                  (event.ip || "").trim(),
+              )
+              .filter(Boolean),
         ),
-      ),
-    );
-
-    const knownNames = peopleJourneys.filter(
-      (journey) => journey.known,
-    ).length;
-
-    const networkSignals = networkJourneys.reduce(
-      (total, journey) => total + journey.events.length,
-      0,
-    );
-
-    const networkIps = new Set(
-      networkJourneys.flatMap((journey) =>
-        journey.events
-          .map((event) => (event.ip || "").trim())
-          .filter(Boolean),
-      ),
-    ).size;
+      ).size;
 
     return {
-      storyCount: filteredJourneys.length,
+      storyCount:
+        filteredJourneys.length,
+
       knownNames,
-      clicks,
-      maxScroll,
-      networkActors: networkJourneys.length,
+
+      reviewCount:
+        reviewJourneys.length,
+
+      reviewSignals,
+
+      networkActors:
+        networkJourneys.length,
+
       networkSignals,
+
       networkIps,
     };
   }, [
     peopleJourneys,
     filteredJourneys,
+    reviewJourneys,
     networkJourneys,
   ]);
+
 
   return (
     <section className="mt-6 flex lg:max-h-[calc(100vh-6rem)] min-h-[40rem] flex-col lg:overflow-hidden rounded-[34px] border border-cyan-300/20 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.08),transparent_30%),rgba(255,255,255,0.035)] p-5 shadow-[0_30px_90px_rgba(0,0,0,0.42)] sm:p-6">
@@ -981,13 +1210,13 @@ export default function AdminBrowserEventsCard() {
             Who did what?
           </h2>
           <p className="mt-2 max-w-3xl text-base leading-7 text-slate-300">
-            People stay prominent. Cloud, server-only and automation-shaped traffic is preserved, labelled, grouped and folded below.
+            Full cards are reserved for confirmed, known, or strongly human-looking journeys. Possible humans stay in Review. Bots and infrastructure fold into Noise.
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <span className="rounded-full border border-white/10 bg-black/25 px-4 py-2 text-sm font-medium text-white/70">
-            {events.length} signals loaded • {stats.networkActors} network groups folded • 24h window
+            {events.length} signals loaded • {stats.reviewCount} review • {stats.networkActors} noise groups folded • 24h window
           </span>
 
           <button
@@ -1015,9 +1244,9 @@ export default function AdminBrowserEventsCard() {
 
       <div className="mt-4 flex shrink-0 flex-wrap gap-2">
         {([
-          ["all", "People"],
-          ["known", "Known people"],
-          ["unknown", "Unclear people"],
+          ["all", "Potential humans"],
+          ["known", "Confirmed / known"],
+          ["unknown", "Likely humans"],
         ] as const).map(([value, label]) => (
           <button
             key={value}
@@ -1036,10 +1265,10 @@ export default function AdminBrowserEventsCard() {
 
       <div className="mt-4 grid shrink-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          ["People stories", stats.storyCount],
-          ["Known names", stats.knownNames],
-          ["Clicks", stats.clicks],
-          ["Max scroll", `${stats.maxScroll}%`],
+          ["Potential humans", stats.storyCount],
+          ["Confirmed / known", stats.knownNames],
+          ["Review queue", stats.reviewCount],
+          ["Folded noise", stats.networkActors],
         ].map(([label, value]) => (
           <div key={label} className="rounded-3xl border border-white/10 bg-black/25 p-4">
             <p className="text-xs uppercase tracking-[0.22em] text-slate-400">{label}</p>
@@ -1057,7 +1286,7 @@ export default function AdminBrowserEventsCard() {
       <div ref={scrollHostRef} className="mt-5 min-h-0 lg:flex-1 space-y-4 lg:overflow-y-auto pr-1">
         {visibleJourneys.length === 0 ? (
           <div className="rounded-3xl border border-white/10 bg-black/20 p-6 text-base text-slate-300">
-            No visitor stories match this filter right now.
+            No potential-human stories match this filter right now.
           </div>
         ) : (
           visibleJourneys.map((journey) => {
@@ -1236,6 +1465,144 @@ export default function AdminBrowserEventsCard() {
           })
         )}
 
+        {reviewJourneys.length > 0 ? (
+          <div className="overflow-hidden rounded-[26px] border border-violet-300/20 bg-[linear-gradient(135deg,rgba(167,139,250,0.07),rgba(255,255,255,0.025))]">
+            <button
+              type="button"
+              onClick={() =>
+                setShowReviewQueue(
+                  (current) => !current,
+                )
+              }
+              aria-expanded={showReviewQueue}
+              className="flex w-full cursor-pointer flex-col gap-3 p-4 text-left transition hover:bg-white/[0.025] sm:flex-row sm:items-center sm:justify-between sm:p-5"
+            >
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-[0.26em] text-violet-200/80">
+                  Possible humans · review queue
+                </p>
+
+                <p className="mt-1 text-xl font-semibold text-white">
+                  {stats.reviewCount} uncertain journey{stats.reviewCount === 1 ? "" : "s"} · {stats.reviewSignals} signals
+                </p>
+
+                <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-400">
+                  Nothing here is discarded. These sessions may be human, but the evidence is not strong enough to compete with the primary people feed.
+                </p>
+              </div>
+
+              <span className="shrink-0 rounded-full border border-violet-300/25 bg-violet-300/10 px-4 py-2 text-sm font-semibold text-violet-100">
+                {showReviewQueue
+                  ? "Hide review"
+                  : "Review possible humans"}
+              </span>
+            </button>
+
+            {showReviewQueue ? (
+              <div className="border-t border-violet-300/15 p-3 sm:p-4">
+                <div className="grid gap-3 xl:grid-cols-2">
+                  {reviewJourneys
+                    .slice(0, 16)
+                    .map((journey) => {
+                      const latest =
+                        journey.latest;
+
+                      const chosenAction =
+                        mostMeaningfulEvent(
+                          journey,
+                        );
+
+                      const location =
+                        locationLine(latest);
+
+                      return (
+                        <div
+                          key={journey.key}
+                          className="rounded-[20px] border border-violet-200/10 bg-black/25 p-4"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span
+                              className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${storyActorTone(journey)}`}
+                            >
+                              {journey.actorLabel ||
+                                "Possible human · review"}
+                            </span>
+
+                            <span className="text-xs text-slate-500">
+                              {formatShortTime(
+                                latest.received_at,
+                              )}
+                            </span>
+                          </div>
+
+                          <div className="mt-2 flex items-start gap-3">
+                            <div className="text-2xl">
+                              {countryFlag(
+                                latest.country_code,
+                              )}
+                            </div>
+
+                            <div className="min-w-0">
+                              <h4 className="text-lg font-semibold text-white">
+                                {visitorName(latest)}
+                              </h4>
+
+                              <p className="break-all font-mono text-[11px] text-cyan-100/75">
+                                {identityLine(latest)}
+                              </p>
+                            </div>
+                          </div>
+
+                          {location ? (
+                            <p className="mt-2 text-xs text-slate-400">
+                              {location}
+                            </p>
+                          ) : null}
+
+                          <p className="mt-3 text-sm leading-6 text-slate-400">
+                            {journey.actorSummary}
+                          </p>
+
+                          <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+                            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-white/65">
+                              {journey.events.length} signals
+                            </span>
+
+                            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-white/65">
+                              scroll {journey.maxScroll}%
+                            </span>
+
+                            {journey.visibleMs ? (
+                              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-white/65">
+                                visible {formatMs(journey.visibleMs)}
+                              </span>
+                            ) : null}
+                          </div>
+
+                          <p className="mt-3 text-sm font-medium text-white/80">
+                            {actionSentence(
+                              chosenAction,
+                            )}
+                          </p>
+
+                          <p className="mt-1 break-all font-mono text-[11px] text-slate-500">
+                            {chosenAction.path}
+                          </p>
+                        </div>
+                      );
+                    })}
+                </div>
+
+                {reviewJourneys.length > 16 ? (
+                  <p className="mt-3 text-center text-xs text-slate-500">
+                    {reviewJourneys.length - 16} additional possible-human journeys remain in the loaded review queue.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
         {networkJourneys.length > 0 ? (
           <div className="overflow-hidden rounded-[26px] border border-amber-300/20 bg-[linear-gradient(135deg,rgba(251,191,36,0.07),rgba(255,255,255,0.025))]">
             <button
@@ -1250,13 +1617,13 @@ export default function AdminBrowserEventsCard() {
             >
               <div className="min-w-0">
                 <p className="text-[11px] uppercase tracking-[0.26em] text-amber-200/75">
-                  Network & automation activity
+                  Known noise · bots · automation
                 </p>
                 <p className="mt-1 text-xl font-semibold text-white">
                   {stats.networkActors} folded actor group{stats.networkActors === 1 ? "" : "s"} · {stats.networkSignals} signals · {stats.networkIps} IP{stats.networkIps === 1 ? "" : "s"}
                 </p>
                 <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-400">
-                  Preserved evidence that is too uncertain, server-only, cloud-hosted or automation-shaped to present as separate people.
+                  Strong non-human or repeated infrastructure evidence. Folded by default so it cannot drown out potential people.
                 </p>
               </div>
 
