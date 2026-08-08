@@ -489,7 +489,7 @@ export default function AdminBrowserEventsCard() {
     const timer = window.setInterval(() => {
       if (document.hidden) return;
       void loadEvents({ quiet: true });
-    }, 15000);
+    }, 60000);
 
     const onVisibility = () => {
       if (!document.hidden) void loadEvents({ quiet: true });

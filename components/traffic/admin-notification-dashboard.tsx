@@ -4,7 +4,7 @@ import Link from "next/link";
 import { startTransition, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import AdminWebPushCard from "@/components/traffic/admin-web-push-card";
 import AdminThemeToggle from "@/components/traffic/admin-theme-toggle";
-import AdminBrowserEventsCard from "@/components/traffic/admin-browser-events-card";
+import AdminBrowserEventsLazy from "@/components/traffic/admin-browser-events-lazy";
 import { withFlag } from "@/components/traffic/display";
 import PwaInstallCard from "@/components/traffic/pwa-install-card";
 import type {
@@ -19,6 +19,8 @@ import type {
 type Props = {
   initialData: NotificationDashboardResponse | null;
 };
+
+const DASHBOARD_RECENT_EVENT_LIMIT = 40;
 
 type MuteDraft = {
   rule_type: NotificationMuteRule["rule_type"];
@@ -216,7 +218,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
     initialData?.recent_events?.at(-1)?.event_timestamp ?? null,
   );
   const [deliveryHasMore, setDeliveryHasMore] = useState(
-    (initialData?.recent_events?.length ?? 0) >= 120,
+    (initialData?.recent_events?.length ?? 0) >= DASHBOARD_RECENT_EVENT_LIMIT,
   );
   const [deliveryLoadingMore, setDeliveryLoadingMore] = useState(false);
   const deliveryScrollRef = useRef<HTMLDivElement | null>(null);
@@ -241,7 +243,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
     setSettings(initialData?.settings ? cloneSettings(initialData.settings) : null);
     setDeliveryEvents(initialData?.recent_events ?? []);
     setDeliveryNextBefore(initialData?.recent_events?.at(-1)?.event_timestamp ?? null);
-    setDeliveryHasMore((initialData?.recent_events?.length ?? 0) >= 120);
+    setDeliveryHasMore((initialData?.recent_events?.length ?? 0) >= DASHBOARD_RECENT_EVENT_LIMIT);
     setHasLocalEdits(false);
   }, [initialData]);
 
@@ -272,7 +274,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
           );
         });
         setDeliveryNextBefore((current) => current || next.recent_events.at(-1)?.event_timestamp || null);
-        setDeliveryHasMore((next.recent_events?.length ?? 0) >= 120 || deliveryHasMore);
+        setDeliveryHasMore((next.recent_events?.length ?? 0) >= DASHBOARD_RECENT_EVENT_LIMIT || deliveryHasMore);
         setSettings((current) => (preserveLocalEdits ? current : cloneSettings(next.settings)));
       });
 
@@ -299,6 +301,11 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
       await refreshDashboard(options);
     },
   );
+
+  useEffect(() => {
+    if (initialData) return;
+    void refreshDashboardInEffect({ mounted: true });
+  }, [initialData]);
 
   async function loadMoreDeliveryVisits() {
     if (!deliveryNextBefore || deliveryLoadingMore) return;
@@ -573,9 +580,39 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
 
   if (!data || !settings) {
     return (
-      <main className="min-h-[100svh] bg-[#06070a] px-4 py-8 text-slate-100 sm:px-6 sm:py-10">
-        <div className="mx-auto max-w-5xl rounded-3xl border border-rose-500/20 bg-rose-500/10 p-6">
-          Traffic could not load the notification cockpit yet.
+      <main className="traffic-admin-scroll-root min-h-screen overflow-x-clip bg-[#06070a] text-slate-100">
+        <AdminThemeToggle />
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+          <header className="rounded-[32px] border border-cyan-400/20 bg-[linear-gradient(180deg,rgba(34,211,238,0.08),rgba(255,255,255,0.03))] p-5 shadow-[0_25px_80px_rgba(0,0,0,0.45)] sm:p-6">
+            <p className="text-xs uppercase tracking-[0.28em] text-cyan-200/80">
+              Traffic Admin
+            </p>
+            <h1 className="mt-3 text-4xl font-semibold tracking-tight text-white">
+              Visitor notification cockpit
+            </h1>
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
+              {message?.tone === "error"
+                ? message.text
+                : "Loading live cockpit data…"}
+            </p>
+
+            <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+              {["Delivered", "Suppressed", "Errors", "Loop checked", "Last delivered"].map(
+                (label) => (
+                  <div
+                    key={label}
+                    className="rounded-3xl border border-white/10 bg-black/20 p-5"
+                  >
+                    <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
+                      {label}
+                    </p>
+                    <div className="mt-3 h-7 w-20 animate-pulse rounded-lg bg-white/10" />
+                    <div className="mt-3 h-3 w-full max-w-36 animate-pulse rounded bg-white/5" />
+                  </div>
+                ),
+              )}
+            </div>
+          </header>
         </div>
       </main>
     );
@@ -1034,7 +1071,7 @@ export default function AdminNotificationDashboard({ initialData }: Props) {
 
         <PwaInstallCard className="mt-6" />
 
-        <AdminBrowserEventsCard />
+        <AdminBrowserEventsLazy />
 
         <section
           className="mt-6 grid gap-6 xl:grid-cols-[1.05fr_0.95fr]"
