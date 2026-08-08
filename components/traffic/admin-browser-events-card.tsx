@@ -9,6 +9,7 @@ import {
 } from "@/components/traffic/view-preferences";
 
 type StoryFilter = "all" | "known" | "unknown";
+type StoryActorKind = "person" | "network" | "automation";
 
 const DEFAULT_TIMELINE_VISIBLE_EVENTS = 6;
 const TIMELINE_LOAD_STEP = 8;
@@ -26,6 +27,11 @@ type VisitorJourney = {
   foldedJourneyCount?: number;
   foldedIpCount?: number;
   foldedLocation?: string;
+  actorKind?: StoryActorKind;
+  actorLabel?: string;
+  actorSummary?: string;
+  networkFamily?: string;
+  isNetworkActorCluster?: boolean;
 };
 
 function countryFlag(countryCode?: string): string {
@@ -87,6 +93,217 @@ function identityLine(event: BrowserEventRecord): string {
   const parts = [displayIp(event.ip)];
   if (event.known_visitor_detail) parts.push(event.known_visitor_detail);
   return parts.join(" • ");
+}
+
+function isKnownHumanKind(kind?: string): boolean {
+  return ["owner", "family", "known_player", "known_human"].includes(
+    (kind || "").trim().toLowerCase(),
+  );
+}
+
+function isKnownAutomationKind(kind?: string): boolean {
+  return ["known_automation", "crawler"].includes(
+    (kind || "").trim().toLowerCase(),
+  );
+}
+
+function ipv4Octets(ip?: string): number[] | null {
+  const parts = (ip || "").trim().split(".");
+  if (parts.length !== 4) return null;
+
+  const values = parts.map((part) => Number(part));
+  if (
+    values.some(
+      (value) =>
+        !Number.isInteger(value) ||
+        value < 0 ||
+        value > 255,
+    )
+  ) {
+    return null;
+  }
+
+  return values;
+}
+
+function isSingaporeCloudEvent(event: BrowserEventRecord): boolean {
+  const octets = ipv4Octets(event.ip);
+  if (!octets) return false;
+
+  const [first, second] = octets;
+
+  const knownCloudRange =
+    (first === 43 && second >= 160 && second <= 175) ||
+    (first === 47 && (second === 79 || second === 82));
+
+  if (!knownCloudRange) return false;
+
+  const countryCode = (event.country_code || "").trim().toUpperCase();
+  const country = (event.country || "").trim().toLowerCase();
+
+  return countryCode === "SG" || country.includes("singapore");
+}
+
+function journeyHasMeaningfulHumanEngagement(
+  journey: VisitorJourney,
+): boolean {
+  if (journey.clicks > 0) return true;
+  if (journey.maxScroll >= 50) return true;
+  if (journey.visibleMs >= 20_000) return true;
+  if (journey.uniquePaths.length >= 2) return true;
+
+  return journey.events.some((event) =>
+    [
+      "heartbeat",
+      "scroll_milestone",
+      "visibility_change",
+      "click",
+      "outbound_click",
+    ].includes(event.event_type),
+  );
+}
+
+function storyActorForJourney(journey: VisitorJourney): {
+  actorKind: StoryActorKind;
+  actorLabel: string;
+  actorSummary: string;
+  networkFamily?: string;
+} {
+  const latest = journey.latest;
+  const knownKind = (latest.known_visitor_kind || "").trim().toLowerCase();
+  const meaningfulEngagement = journeyHasMeaningfulHumanEngagement(journey);
+
+  const knownAutomation =
+    isKnownAutomationKind(knownKind) ||
+    Boolean((latest.automation_family || "").trim()) ||
+    ["bot", "suspicious"].includes(
+      (latest.request_classification || "").trim().toLowerCase(),
+    );
+
+  const knownHuman =
+    Boolean(latest.authenticated) ||
+    isKnownHumanKind(knownKind) ||
+    (journey.known && !knownAutomation);
+
+  if (knownHuman) {
+    return {
+      actorKind: "person",
+      actorLabel: latest.authenticated
+        ? "Confirmed human"
+        : "Known visitor",
+      actorSummary: latest.authenticated
+        ? "Authenticated AoE2WAR identity is authoritative."
+        : "Known identity evidence keeps this journey in the people lane.",
+    };
+  }
+
+  if (knownAutomation) {
+    const family =
+      (latest.automation_family || "").trim() ||
+      latest.known_visitor_label ||
+      "Known automation";
+
+    return {
+      actorKind: "automation",
+      actorLabel: "Known automation",
+      actorSummary:
+        "Automation evidence is stronger than the browser-shaped request.",
+      networkFamily: family,
+    };
+  }
+
+  if (isSingaporeCloudEvent(latest)) {
+    if (meaningfulEngagement) {
+      return {
+        actorKind: "person",
+        actorLabel: "Cloud/VPN · possible human",
+        actorSummary:
+          "Cloud-hosted network, but this session shows enough browser engagement to keep it visible as an uncertain person.",
+      };
+    }
+
+    return {
+      actorKind: "network",
+      actorLabel: "Cloud network · likely automation",
+      actorSummary:
+        "Recurring Singapore cloud-browser infrastructure with a thin journey. It may still be a proxy, VPN, or remote browser, so the raw evidence is preserved.",
+      networkFamily: "Singapore Cloud Browser Fleet",
+    };
+  }
+
+  if (journey.isFoldedBurst) {
+    const location =
+      journey.foldedLocation ||
+      latest.city ||
+      latest.area ||
+      latest.country ||
+      "Unknown";
+
+    return {
+      actorKind: "network",
+      actorLabel: "Network burst · unclear",
+      actorSummary:
+        "Several thin server-observed visits were clustered together. They are preserved as network evidence rather than promoted as separate people.",
+      networkFamily: `${location} server observations`,
+    };
+  }
+
+  const serverObserved = (latest.session_id || "").startsWith("server:");
+
+  if (serverObserved && !meaningfulEngagement) {
+    const location =
+      latest.city ||
+      latest.area ||
+      latest.country ||
+      "Unknown";
+
+    return {
+      actorKind: "network",
+      actorLabel: "Server-only · unclear",
+      actorSummary:
+        "Seen in the access log without enough browser engagement to call this a person. Could be a human with blocked telemetry, a proxy, or automation.",
+      networkFamily: `${location} server observations`,
+    };
+  }
+
+  if (meaningfulEngagement) {
+    return {
+      actorKind: "person",
+      actorLabel: "Likely human",
+      actorSummary:
+        "Browser engagement gives this journey enough evidence to keep it in the people lane.",
+    };
+  }
+
+  return {
+    actorKind: "person",
+    actorLabel: "Unclear browser",
+    actorSummary:
+      "Browser-shaped activity, but there is not enough evidence yet to confirm a person.",
+  };
+}
+
+function storyActorTone(journey: VisitorJourney): string {
+  if (journey.actorKind === "automation") {
+    return "border-rose-300/30 bg-rose-300/10 text-rose-100";
+  }
+
+  if (journey.actorKind === "network") {
+    return "border-amber-300/30 bg-amber-300/10 text-amber-100";
+  }
+
+  if ((journey.actorLabel || "").startsWith("Confirmed")) {
+    return "border-emerald-300/30 bg-emerald-300/10 text-emerald-100";
+  }
+
+  if (
+    (journey.actorLabel || "").startsWith("Likely") ||
+    (journey.actorLabel || "").startsWith("Cloud/VPN")
+  ) {
+    return "border-cyan-300/30 bg-cyan-300/10 text-cyan-100";
+  }
+
+  return "border-white/15 bg-white/5 text-white/70";
 }
 
 function eventTone(eventType: string): string {
@@ -343,6 +560,127 @@ function foldSyntheticServerBursts(journeys: VisitorJourney[]): VisitorJourney[]
 }
 
 
+function classifyAndFoldNetworkActors(
+  journeys: VisitorJourney[],
+): VisitorJourney[] {
+  const decorated = journeys.map((journey) => ({
+    ...journey,
+    ...storyActorForJourney(journey),
+  }));
+
+  const people = decorated.filter(
+    (journey) => journey.actorKind === "person",
+  );
+
+  const networkGroups = new Map<string, VisitorJourney[]>();
+
+  for (const journey of decorated) {
+    if (journey.actorKind === "person") continue;
+
+    const family =
+      journey.networkFamily ||
+      journey.actorLabel ||
+      "Network activity";
+
+    const key = family.trim().toLowerCase();
+    const existing = networkGroups.get(key) ?? [];
+    existing.push(journey);
+    networkGroups.set(key, existing);
+  }
+
+  const foldedNetwork: VisitorJourney[] = [];
+
+  for (const [groupKey, group] of networkGroups.entries()) {
+    const ordered = [...group].sort(
+      (left, right) =>
+        new Date(right.latest.received_at).getTime() -
+        new Date(left.latest.received_at).getTime(),
+    );
+
+    const latestJourney = ordered[0];
+    const networkFamily =
+      latestJourney.networkFamily ||
+      latestJourney.actorLabel ||
+      "Network activity";
+
+    const events = ordered
+      .flatMap((journey) => journey.events)
+      .sort(
+        (left, right) =>
+          new Date(right.received_at).getTime() -
+            new Date(left.received_at).getTime() ||
+          right.id - left.id,
+      );
+
+    const uniquePaths = [
+      ...new Set(
+        ordered.flatMap((journey) => journey.uniquePaths),
+      ),
+    ].slice(0, 12);
+
+    const ips = new Set(
+      events
+        .map((event) => (event.ip || "").trim())
+        .filter(Boolean),
+    );
+
+    const rawJourneyCount = ordered.reduce(
+      (total, journey) =>
+        total + (journey.foldedJourneyCount || 1),
+      0,
+    );
+
+    const automation = ordered.some(
+      (journey) => journey.actorKind === "automation",
+    );
+
+    foldedNetwork.push({
+      ...latestJourney,
+      key: `network:${groupKey}`,
+      events,
+      uniquePaths,
+      maxScroll: Math.max(
+        ...ordered.map((journey) => journey.maxScroll),
+        0,
+      ),
+      clicks: ordered.reduce(
+        (total, journey) => total + journey.clicks,
+        0,
+      ),
+      visibleMs: Math.max(
+        ...ordered.map((journey) => journey.visibleMs),
+        0,
+      ),
+      known: false,
+      actorKind: automation ? "automation" : "network",
+      actorLabel: automation
+        ? "Known automation"
+        : latestJourney.actorLabel || "Network activity",
+      actorSummary:
+        `${latestJourney.actorSummary || "Network evidence preserved separately from people."} ` +
+        `${rawJourneyCount} journey${rawJourneyCount === 1 ? "" : "s"} folded across ${ips.size || 1} IP${ips.size === 1 ? "" : "s"}.`,
+      networkFamily,
+      isNetworkActorCluster: true,
+      foldedJourneyCount: rawJourneyCount,
+      foldedIpCount: ips.size || 1,
+      foldedLocation:
+        latestJourney.foldedLocation ||
+        latestJourney.latest.city ||
+        latestJourney.latest.area ||
+        latestJourney.latest.country ||
+        "Unknown",
+    });
+  }
+
+  return [...people, ...foldedNetwork].sort(
+    (left, right) =>
+      new Date(right.latest.received_at).getTime() -
+      new Date(left.latest.received_at).getTime(),
+  );
+}
+
+
+
 function mostMeaningfulEvent(journey: VisitorJourney): BrowserEventRecord {
   return (
     journey.events.find((event) => event.event_type.includes("click")) ||
@@ -363,6 +701,7 @@ export default function AdminBrowserEventsCard() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [showFull, setShowFull] = useState(false);
   const [storyFilter, setStoryFilter] = useState<StoryFilter>("all");
+  const [showNetworkActivity, setShowNetworkActivity] = useState(false);
   const [timelineDepthByJourney, setTimelineDepthByJourney] = useState<Record<string, number>>({});
 
   async function loadEvents(options?: { quiet?: boolean; append?: boolean; before?: string | null }) {
@@ -540,37 +879,96 @@ export default function AdminBrowserEventsCard() {
   );
 
   const allJourneys = useMemo(
-    () => foldSyntheticServerBursts(buildJourneys(storyEvents)),
+    () =>
+      classifyAndFoldNetworkActors(
+        foldSyntheticServerBursts(
+          buildJourneys(storyEvents),
+        ),
+      ),
     [storyEvents],
+  );
+
+  const peopleJourneys = useMemo(
+    () =>
+      allJourneys.filter(
+        (journey) => journey.actorKind === "person",
+      ),
+    [allJourneys],
+  );
+
+  const networkJourneys = useMemo(
+    () =>
+      allJourneys.filter(
+        (journey) => journey.actorKind !== "person",
+      ),
+    [allJourneys],
   );
 
   const filteredJourneys = useMemo(() => {
     if (storyFilter === "known") {
-      return allJourneys.filter((journey) => journey.known);
+      return peopleJourneys.filter((journey) => journey.known);
     }
     if (storyFilter === "unknown") {
-      return allJourneys.filter((journey) => !journey.known);
+      return peopleJourneys.filter((journey) => !journey.known);
     }
-    return allJourneys;
-  }, [allJourneys, storyFilter]);
+    return peopleJourneys;
+  }, [peopleJourneys, storyFilter]);
 
-  const visibleJourneys = showFull ? filteredJourneys.slice(0, 24) : filteredJourneys.slice(0, 10);
+  const visibleJourneys = showFull
+    ? filteredJourneys.slice(0, 24)
+    : filteredJourneys.slice(0, 10);
 
   const stats = useMemo(() => {
-    const clicks = storyEvents.filter((event) => event.event_type.includes("click")).length;
+    const peopleEvents = peopleJourneys.flatMap(
+      (journey) => journey.events,
+    );
+
+    const clicks = peopleEvents.filter(
+      (event) => event.event_type.includes("click"),
+    ).length;
+
     const maxScroll = Math.max(
       0,
-      ...storyEvents.map((event) => Number(event.max_scroll_depth_pct || event.scroll_depth_pct || 0)),
+      ...peopleEvents.map((event) =>
+        Number(
+          event.max_scroll_depth_pct ||
+            event.scroll_depth_pct ||
+            0,
+        ),
+      ),
     );
-    const knownNames = allJourneys.filter((journey) => journey.known).length;
+
+    const knownNames = peopleJourneys.filter(
+      (journey) => journey.known,
+    ).length;
+
+    const networkSignals = networkJourneys.reduce(
+      (total, journey) => total + journey.events.length,
+      0,
+    );
+
+    const networkIps = new Set(
+      networkJourneys.flatMap((journey) =>
+        journey.events
+          .map((event) => (event.ip || "").trim())
+          .filter(Boolean),
+      ),
+    ).size;
 
     return {
       storyCount: filteredJourneys.length,
       knownNames,
       clicks,
       maxScroll,
+      networkActors: networkJourneys.length,
+      networkSignals,
+      networkIps,
     };
-  }, [storyEvents, filteredJourneys, allJourneys]);
+  }, [
+    peopleJourneys,
+    filteredJourneys,
+    networkJourneys,
+  ]);
 
   return (
     <section className="mt-6 flex lg:max-h-[calc(100vh-6rem)] min-h-[40rem] flex-col lg:overflow-hidden rounded-[34px] border border-cyan-300/20 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.08),transparent_30%),rgba(255,255,255,0.035)] p-5 shadow-[0_30px_90px_rgba(0,0,0,0.42)] sm:p-6">
@@ -583,13 +981,13 @@ export default function AdminBrowserEventsCard() {
             Who did what?
           </h2>
           <p className="mt-2 max-w-3xl text-base leading-7 text-slate-300">
-            Big readable cards grouped by visitor session. Lazy-loads AoE2WAR behavior back through the previous 24 hours.
+            People stay prominent. Cloud, server-only and automation-shaped traffic is preserved, labelled, grouped and folded below.
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <span className="rounded-full border border-white/10 bg-black/25 px-4 py-2 text-sm font-medium text-white/70">
-            {events.length} signals loaded • chain endpoints hidden • 24h window
+            {events.length} signals loaded • {stats.networkActors} network groups folded • 24h window
           </span>
 
           <button
@@ -617,9 +1015,9 @@ export default function AdminBrowserEventsCard() {
 
       <div className="mt-4 flex shrink-0 flex-wrap gap-2">
         {([
-          ["all", "All visitors"],
-          ["known", "Known"],
-          ["unknown", "Unknown"],
+          ["all", "People"],
+          ["known", "Known people"],
+          ["unknown", "Unclear people"],
         ] as const).map(([value, label]) => (
           <button
             key={value}
@@ -638,7 +1036,7 @@ export default function AdminBrowserEventsCard() {
 
       <div className="mt-4 grid shrink-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          ["Visitor stories", stats.storyCount],
+          ["People stories", stats.storyCount],
           ["Known names", stats.knownNames],
           ["Clicks", stats.clicks],
           ["Max scroll", `${stats.maxScroll}%`],
@@ -684,6 +1082,11 @@ export default function AdminBrowserEventsCard() {
 
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${storyActorTone(journey)}`}
+                          >
+                            {journey.actorLabel || "Unclear browser"}
+                          </span>
                           <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold capitalize ${eventTone(chosenAction.event_type)}`}>
                             {prettyEventType(chosenAction.event_type)}
                           </span>
@@ -832,6 +1235,120 @@ export default function AdminBrowserEventsCard() {
             );
           })
         )}
+
+        {networkJourneys.length > 0 ? (
+          <div className="overflow-hidden rounded-[26px] border border-amber-300/20 bg-[linear-gradient(135deg,rgba(251,191,36,0.07),rgba(255,255,255,0.025))]">
+            <button
+              type="button"
+              onClick={() =>
+                setShowNetworkActivity(
+                  (current) => !current,
+                )
+              }
+              aria-expanded={showNetworkActivity}
+              className="flex w-full cursor-pointer flex-col gap-3 p-4 text-left transition hover:bg-white/[0.025] sm:flex-row sm:items-center sm:justify-between sm:p-5"
+            >
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-[0.26em] text-amber-200/75">
+                  Network & automation activity
+                </p>
+                <p className="mt-1 text-xl font-semibold text-white">
+                  {stats.networkActors} folded actor group{stats.networkActors === 1 ? "" : "s"} · {stats.networkSignals} signals · {stats.networkIps} IP{stats.networkIps === 1 ? "" : "s"}
+                </p>
+                <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-400">
+                  Preserved evidence that is too uncertain, server-only, cloud-hosted or automation-shaped to present as separate people.
+                </p>
+              </div>
+
+              <span className="shrink-0 rounded-full border border-amber-300/25 bg-amber-300/10 px-4 py-2 text-sm font-semibold text-amber-100">
+                {showNetworkActivity
+                  ? "Hide activity"
+                  : "Show activity"}
+              </span>
+            </button>
+
+            {showNetworkActivity ? (
+              <div className="border-t border-amber-300/15 p-3 sm:p-4">
+                <div className="grid gap-3 xl:grid-cols-2">
+                  {networkJourneys
+                    .slice(0, 12)
+                    .map((journey) => {
+                      const latest = journey.latest;
+                      const chosenAction =
+                        mostMeaningfulEvent(journey);
+                      const location =
+                        locationLine(latest);
+                      const memberCount =
+                        journey.foldedJourneyCount || 1;
+                      const ipCount =
+                        journey.foldedIpCount || 1;
+
+                      return (
+                        <div
+                          key={journey.key}
+                          className="rounded-[20px] border border-white/10 bg-black/25 p-4"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span
+                              className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${storyActorTone(journey)}`}
+                            >
+                              {journey.actorLabel ||
+                                "Network activity"}
+                            </span>
+
+                            <span className="text-xs text-slate-500">
+                              latest{" "}
+                              {formatShortTime(
+                                latest.received_at,
+                              )}
+                            </span>
+                          </div>
+
+                          <h4 className="mt-2 text-lg font-semibold text-white">
+                            {journey.networkFamily ||
+                              journey.foldedLocation ||
+                              visitorName(latest)}
+                          </h4>
+
+                          <p className="mt-1 text-sm leading-6 text-slate-400">
+                            {journey.actorSummary}
+                          </p>
+
+                          <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+                            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-white/65">
+                              {memberCount} journey{memberCount === 1 ? "" : "s"}
+                            </span>
+                            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-white/65">
+                              {ipCount} IP{ipCount === 1 ? "" : "s"}
+                            </span>
+                            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-white/65">
+                              {journey.events.length} signals
+                            </span>
+                          </div>
+
+                          {location ? (
+                            <p className="mt-3 text-xs text-slate-500">
+                              {location}
+                            </p>
+                          ) : null}
+
+                          <p className="mt-2 break-all font-mono text-[11px] text-slate-500">
+                            {chosenAction.path}
+                          </p>
+                        </div>
+                      );
+                    })}
+                </div>
+
+                {networkJourneys.length > 12 ? (
+                  <p className="mt-3 text-center text-xs text-slate-500">
+                    {networkJourneys.length - 12} additional folded network groups remain outside this compact preview.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         <div ref={loadMoreSentinelRef} className="h-8 rounded-full border border-white/5 bg-white/[0.02]" />
       </div>
