@@ -718,6 +718,7 @@ export type BrowserEventRecord = {
   known_visitor_label?: string;
   known_visitor_detail?: string;
   known_visitor_kind?: string;
+  known_visitor_source?: "authenticated" | "ip_context" | "";
   authenticated?: boolean;
   authenticated_uid?: string;
   request_classification?: string;

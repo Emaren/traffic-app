@@ -89,9 +89,55 @@ function visitorName(event: BrowserEventRecord): string {
   return "Unknown visitor";
 }
 
+function knownIpCandidateName(
+  event: BrowserEventRecord,
+): string {
+  const label =
+    (event.known_visitor_label || "").trim();
+
+  const detail =
+    (event.known_visitor_detail || "").trim();
+
+  const genericDetails = new Set([
+    "owner",
+    "known player",
+    "known human",
+    "likely family",
+    "family",
+  ]);
+
+  if (
+    detail &&
+    !genericDetails.has(
+      detail.toLowerCase(),
+    ) &&
+    detail.toLowerCase() !==
+      label.toLowerCase()
+  ) {
+    return detail;
+  }
+
+  return label || "known visitor";
+}
+
 function identityLine(event: BrowserEventRecord): string {
   const parts = [displayIp(event.ip)];
-  if (event.known_visitor_detail) parts.push(event.known_visitor_detail);
+
+  if (
+    !event.authenticated &&
+    event.known_visitor_source ===
+      "ip_context" &&
+    event.known_visitor_label
+  ) {
+    parts.push(
+      `known-IP context: ${knownIpCandidateName(event)} · not authenticated`,
+    );
+  } else if (event.known_visitor_detail) {
+    parts.push(
+      event.known_visitor_detail,
+    );
+  }
+
   return parts.join(" • ");
 }
 
@@ -105,6 +151,24 @@ function isKnownAutomationKind(kind?: string): boolean {
   return ["known_automation", "crawler"].includes(
     (kind || "").trim().toLowerCase(),
   );
+}
+
+function storyDisplayName(
+  journey: VisitorJourney,
+): string {
+  const event = journey.latest;
+
+  if (
+    !event.authenticated &&
+    isKnownHumanKind(
+      event.known_visitor_kind,
+    ) &&
+    event.known_visitor_label
+  ) {
+    return `${knownIpCandidateName(event)}?`;
+  }
+
+  return visitorName(event);
 }
 
 function ipv4Octets(ip?: string): number[] | null {
@@ -236,10 +300,27 @@ function storyActorForJourney(journey: VisitorJourney): {
     ["bot", "suspicious"].includes(requestClass) ||
     (latest.ip || "").startsWith("66.249.");
 
-  const knownHuman =
-    Boolean(latest.authenticated) ||
-    isKnownHumanKind(knownKind) ||
-    (journey.known && !knownAutomation);
+  const identitySource = (
+    latest.known_visitor_source ||
+    (
+      latest.authenticated
+        ? "authenticated"
+        : latest.known_visitor_label
+          ? "ip_context"
+          : ""
+    )
+  )
+    .trim()
+    .toLowerCase();
+
+  const authenticatedHuman =
+    Boolean(latest.authenticated);
+
+  const knownIpHumanContext =
+    !authenticatedHuman &&
+    identitySource === "ip_context" &&
+    isKnownHumanKind(knownKind) &&
+    !knownAutomation;
 
   const strongHuman =
     journeyHasStrongHumanEvidence(journey);
@@ -259,15 +340,12 @@ function storyActorForJourney(journey: VisitorJourney): {
   // Geography never overrides authenticated truth.
   // ----------------------------------------------------------
 
-  if (knownHuman) {
+  if (authenticatedHuman) {
     return {
       actorKind: "person",
-      actorLabel: latest.authenticated
-        ? "Confirmed human"
-        : "Known human",
-      actorSummary: latest.authenticated
-        ? "Authenticated AoE2WAR identity."
-        : "Known identity evidence supports a real person.",
+      actorLabel: "Confirmed human",
+      actorSummary:
+        "Authenticated AoE2WAR identity. Authentication is authoritative.",
     };
   }
 
@@ -292,6 +370,34 @@ function storyActorForJourney(journey: VisitorJourney): {
       actorSummary:
         "Strong automation or suspicious-request evidence. Preserved for forensics, but removed from the human feed.",
       networkFamily: family,
+    };
+  }
+
+
+  // ----------------------------------------------------------
+  // Historical IP identity is context, never login proof.
+  // ----------------------------------------------------------
+
+  if (knownIpHumanContext) {
+    const candidate =
+      knownIpCandidateName(latest);
+
+    if (strongHuman) {
+      return {
+        actorKind: "person",
+        actorLabel:
+          `Likely human · possible ${candidate}`,
+        actorSummary:
+          `Strong browser behavior came from an IP historically associated with ${candidate}. This is not an authenticated ${candidate} login.`,
+      };
+    }
+
+    return {
+      actorKind: "review",
+      actorLabel:
+        `Possible ${candidate} · known IP`,
+      actorSummary:
+        `This IP is historically associated with ${candidate}, but the current journey is not authenticated and does not have enough independent evidence for the primary human feed.`,
     };
   }
 
@@ -1119,13 +1225,17 @@ export default function AdminBrowserEventsCard() {
   const filteredJourneys = useMemo(() => {
     if (storyFilter === "known") {
       return peopleJourneys.filter(
-        (journey) => journey.known,
+        (journey) =>
+          Boolean(
+            journey.latest.authenticated,
+          ),
       );
     }
 
     if (storyFilter === "unknown") {
       return peopleJourneys.filter(
-        (journey) => !journey.known,
+        (journey) =>
+          !journey.latest.authenticated,
       );
     }
 
@@ -1143,7 +1253,10 @@ export default function AdminBrowserEventsCard() {
   const stats = useMemo(() => {
     const knownNames =
       peopleJourneys.filter(
-        (journey) => journey.known,
+        (journey) =>
+          Boolean(
+            journey.latest.authenticated,
+          ),
       ).length;
 
     const reviewSignals =
@@ -1210,7 +1323,7 @@ export default function AdminBrowserEventsCard() {
             Who did what?
           </h2>
           <p className="mt-2 max-w-3xl text-base leading-7 text-slate-300">
-            Full cards are reserved for confirmed, known, or strongly human-looking journeys. Possible humans stay in Review. Bots and infrastructure fold into Noise.
+            Full cards are reserved for authenticated or strongly human-looking journeys. Historical IP identity is context only. Possible humans stay in Review; bots and infrastructure fold into Noise.
           </p>
         </div>
 
@@ -1245,7 +1358,7 @@ export default function AdminBrowserEventsCard() {
       <div className="mt-4 flex shrink-0 flex-wrap gap-2">
         {([
           ["all", "Potential humans"],
-          ["known", "Confirmed / known"],
+          ["known", "Authenticated"],
           ["unknown", "Likely humans"],
         ] as const).map(([value, label]) => (
           <button
@@ -1266,7 +1379,7 @@ export default function AdminBrowserEventsCard() {
       <div className="mt-4 grid shrink-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
           ["Potential humans", stats.storyCount],
-          ["Confirmed / known", stats.knownNames],
+          ["Authenticated", stats.knownNames],
           ["Review queue", stats.reviewCount],
           ["Folded noise", stats.networkActors],
         ].map(([label, value]) => (
@@ -1335,7 +1448,7 @@ export default function AdminBrowserEventsCard() {
                         <h3 className="mt-2 break-words text-3xl font-black uppercase tracking-tight text-white sm:text-4xl">
                           {journey.isFoldedBurst
                             ? `${journey.foldedLocation || "Unknown"} burst`
-                            : visitorName(latest)}
+                            : storyDisplayName(journey)}
                         </h3>
 
                         <p className="mt-1 break-all font-mono text-sm font-semibold text-cyan-100 sm:text-base">
@@ -1389,8 +1502,8 @@ export default function AdminBrowserEventsCard() {
                           {journey.isFoldedBurst
                             ? `${journey.foldedLocation || "This location"} produced ${journey.foldedJourneyCount || journey.events.length} server-observed visits across ${journey.foldedIpCount || 1} IPs and ${journey.uniquePaths.length} route${journey.uniquePaths.length === 1 ? "" : "s"}. Individual hits remain available in the timeline.`
                             : journey.clicks > 0
-                              ? `${visitorName(latest)} clicked ${journey.clicks} time${journey.clicks === 1 ? "" : "s"} and reached ${journey.maxScroll}% scroll depth.`
-                              : `${visitorName(latest)} is browsing with ${journey.events.length} recent signal${journey.events.length === 1 ? "" : "s"}.`}
+                              ? `${storyDisplayName(journey)} clicked ${journey.clicks} time${journey.clicks === 1 ? "" : "s"} and reached ${journey.maxScroll}% scroll depth.`
+                              : `${storyDisplayName(journey)} is browsing with ${journey.events.length} recent signal${journey.events.length === 1 ? "" : "s"}.`}
                         </p>
                       </div>
                     </div>
@@ -1544,7 +1657,7 @@ export default function AdminBrowserEventsCard() {
 
                             <div className="min-w-0">
                               <h4 className="text-lg font-semibold text-white">
-                                {visitorName(latest)}
+                                {storyDisplayName(journey)}
                               </h4>
 
                               <p className="break-all font-mono text-[11px] text-cyan-100/75">
@@ -1674,7 +1787,7 @@ export default function AdminBrowserEventsCard() {
                           <h4 className="mt-2 text-lg font-semibold text-white">
                             {journey.networkFamily ||
                               journey.foldedLocation ||
-                              visitorName(latest)}
+                              storyDisplayName(journey)}
                           </h4>
 
                           <p className="mt-1 text-sm leading-6 text-slate-400">
