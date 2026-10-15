@@ -10,7 +10,8 @@ import {
   fetchVisitsHistory,
 } from "@/components/traffic/api";
 import LiveVisitorStreamRow from "@/components/traffic/live-visitor-stream-row";
-import NonhumanClusterRow, { isNonhumanCluster } from "@/components/traffic/nonhuman-cluster-row";
+import NonhumanClusterRow from "@/components/traffic/nonhuman-cluster-row";
+import { isNonhumanCluster } from "@/components/traffic/nonhuman-cluster";
 import VisibilityRulePanel from "@/components/traffic/visibility-rule-panel";
 import {
   sessionHiddenByVisibilityRules,
