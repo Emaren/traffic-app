@@ -2,21 +2,12 @@
 
 import type { SessionRecord } from "@/components/traffic/types";
 
+
 type Props = {
   session: SessionRecord;
   density?: "full" | "compact";
 };
 
-export function isNonhumanCluster(session: SessionRecord): boolean {
-  return (
-    (session.is_burst_cluster === true || session.is_network_actor_cluster === true) &&
-    (session.burst_member_count ?? session.network_actor_member_count ?? 0) > 1 &&
-    !session.authenticated &&
-    !session.human_confirmed &&
-    !(session.known_visitor_confirmed && !["known_automation", "crawler"].includes(String(session.known_visitor_kind ?? ""))) &&
-    ["bot", "browser_script", "script_burst", "suspicious"].includes(session.classification_state)
-  );
-}
 
 export default function NonhumanClusterRow({ session, density = "full" }: Props) {
   const members = session.burst_member_count ?? session.network_actor_member_count ?? 0;
