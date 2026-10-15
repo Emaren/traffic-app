@@ -36,10 +36,14 @@ export default function AdminThemeToggle() {
   const [theme, setTheme] = useState<TrafficTheme>("dark");
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(THEME_KEY) as TrafficTheme | null;
-    const next = stored === "white" || stored === "sepia" || stored === "dark" ? stored : "dark";
-    setTheme(next);
-    applyTheme(next);
+    // Read persisted theme after mount without cascading a synchronous effect render.
+    const frame = window.requestAnimationFrame(() => {
+      const stored = window.localStorage.getItem(THEME_KEY) as TrafficTheme | null;
+      const next = stored === "white" || stored === "sepia" || stored === "dark" ? stored : "dark";
+      setTheme(next);
+      applyTheme(next);
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   function choose(next: TrafficTheme) {
