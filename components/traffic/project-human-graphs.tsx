@@ -685,6 +685,7 @@ export default function ProjectHumanGraphs({
     ...DEFAULT_VISIBLE_TRAFFIC_LINES,
   });
   const [lineColors, setLineColors] = useState<Record<TrafficLineKey, string>>(() => defaultTrafficLineColors());
+  const [lineColorsHydrated, setLineColorsHydrated] = useState(false);
   const [lobbyPushStartedAt, setLobbyPushStartedAt] = useState("");
 
   useEffect(() => {
@@ -708,29 +709,36 @@ export default function ProjectHumanGraphs({
   }, []);
 
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(TRAFFIC_LINE_COLOR_STORAGE_KEY);
-      if (!saved) return;
-
-      const parsed = JSON.parse(saved) as Partial<Record<TrafficLineKey, string>>;
-      setLineColors((current) => ({
-        ...current,
-        ...Object.fromEntries(
-          Object.entries(parsed).filter(([, value]) => typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value)),
-        ),
-      }));
-    } catch {
-      // Ignore local color preference failures.
-    }
+    const frame = window.requestAnimationFrame(() => {
+      try {
+        const saved = window.localStorage.getItem(TRAFFIC_LINE_COLOR_STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved) as Partial<Record<TrafficLineKey, string>>;
+          setLineColors((current) => ({
+            ...current,
+            ...Object.fromEntries(
+              Object.entries(parsed).filter(([, value]) => typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value)),
+            ),
+          }));
+        }
+      } catch {
+        // Ignore malformed color preferences, keeping safe defaults.
+      } finally {
+        setLineColorsHydrated(true);
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   useEffect(() => {
+    // Never overwrite stored custom colors with defaults before hydration.
+    if (!lineColorsHydrated) return;
     try {
       window.localStorage.setItem(TRAFFIC_LINE_COLOR_STORAGE_KEY, JSON.stringify(lineColors));
     } catch {
       // Ignore local color preference failures.
     }
-  }, [lineColors]);
+  }, [lineColors, lineColorsHydrated]);
 
   useEffect(() => {
     let mounted = true;
