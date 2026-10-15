@@ -13,7 +13,7 @@ export function isNonhumanCluster(session: SessionRecord): boolean {
     (session.burst_member_count ?? session.network_actor_member_count ?? 0) > 1 &&
     !session.authenticated &&
     !session.human_confirmed &&
-    !session.known_visitor_confirmed &&
+    !(session.known_visitor_confirmed && !["known_automation", "crawler"].includes(String(session.known_visitor_kind ?? ""))) &&
     ["bot", "browser_script", "script_burst", "suspicious"].includes(session.classification_state)
   );
 }
