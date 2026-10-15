@@ -10,6 +10,7 @@ import {
   fetchVisitsHistory,
 } from "@/components/traffic/api";
 import LiveVisitorStreamRow from "@/components/traffic/live-visitor-stream-row";
+import NonhumanClusterRow, { isNonhumanCluster } from "@/components/traffic/nonhuman-cluster-row";
 import VisibilityRulePanel from "@/components/traffic/visibility-rule-panel";
 import {
   sessionHiddenByVisibilityRules,
@@ -344,7 +345,7 @@ function LiveVisitorScreenInner({
     };
 
     const connectStream = (notice = "") => {
-      if (!mounted) return;
+      if (!mounted || pageIsHidden()) return;
 
       if (typeof window === "undefined" || typeof window.EventSource === "undefined") {
         startPollingFallback(
@@ -446,9 +447,14 @@ function LiveVisitorScreenInner({
     connectStream();
 
     const handleVisibilityChange = () => {
-      if (!mounted || pageIsHidden()) return;
-      if (eventSource) return;
-      connectStream("Reconnecting live stream...");
+      if (!mounted) return;
+      if (pageIsHidden()) {
+        closeStream();
+        clearPolling();
+        clearReconnect();
+        return;
+      }
+      if (!eventSource) connectStream("Reconnecting live stream...");
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -1595,15 +1601,19 @@ function LiveVisitorScreenInner({
                         exit={{ opacity: 0, y: 12 }}
                         transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
                       >
-                        <PotentialVisitorRow session={session}>
-                        <LiveVisitorStreamRow
-                          session={session}
-                          density={density}
-                          onHideIp={hideIp}
-                          onHidePath={supportsSharedRules ? hidePath : undefined}
-                          onHideProject={supportsSharedRules ? hideProject : undefined}
-                        />
-                        </PotentialVisitorRow>
+                        {isNonhumanCluster(session) ? (
+                          <NonhumanClusterRow session={session} density={density} />
+                        ) : (
+                          <PotentialVisitorRow session={session}>
+                            <LiveVisitorStreamRow
+                              session={session}
+                              density={density}
+                              onHideIp={hideIp}
+                              onHidePath={supportsSharedRules ? hidePath : undefined}
+                              onHideProject={supportsSharedRules ? hideProject : undefined}
+                            />
+                          </PotentialVisitorRow>
+                        )}
                       </motion.div>
                     ))}
                   </AnimatePresence>
