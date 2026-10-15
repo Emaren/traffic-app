@@ -167,6 +167,11 @@ export type SessionRecord = {
   burst_ip_families?: string[];
   burst_sample_ips?: string[];
   burst_paths?: string[];
+  is_network_actor_cluster?: boolean;
+  network_actor_member_count?: number;
+  network_actor_ip_count?: number;
+  network_actor_sample_ips?: string[];
+  network_actor_paths?: string[];
   network_ua_count?: number;
   network_path_count?: number;
   referrer: string;

@@ -263,13 +263,18 @@ export default function RealPeopleReport({
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
-    setLobbyPushStartedAt(window.localStorage.getItem(LOBBY_PUSH_STORAGE_KEY) ?? "");
+    const frame = window.requestAnimationFrame(() => {
+      setLobbyPushStartedAt(window.localStorage.getItem(LOBBY_PUSH_STORAGE_KEY) ?? "");
+    });
 
     const timer = window.setInterval(() => {
       setNowMs(Date.now());
     }, 15000);
 
-    return () => window.clearInterval(timer);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearInterval(timer);
+    };
   }, []);
 
   const markLobbyPush = () => {
