@@ -742,9 +742,20 @@ export default function ProjectHumanGraphs({
 
   useEffect(() => {
     let mounted = true;
+    let inFlight = false;
+    let retries = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const clearRetry = () => {
+      if (retryTimer !== null) {
+        window.clearTimeout(retryTimer);
+        retryTimer = null;
+      }
+    };
 
     const load = async () => {
-      if (pageIsHidden()) return;
+      if (!mounted || inFlight || pageIsHidden()) return;
+      inFlight = true;
 
       try {
         const nextOverview = await fetchOverviewRange(activeRangeKey as HistoryRangeKey);
@@ -755,34 +766,47 @@ export default function ProjectHumanGraphs({
           setData(nextSeries);
           setOverview(nextOverview);
         });
+        clearRetry();
+        retries = 0;
         setError("");
         setPendingRange(null);
       } catch (err) {
         if (!mounted) return;
-        setError(err instanceof Error ? err.message : "Failed to load project graphs");
-        setPendingRange(null);
+        const detail = err instanceof Error ? err.message : "Failed to load project graphs";
+        if (retries < 1 && !pageIsHidden()) {
+          retries += 1;
+          setError(`${detail}. Retrying shortly…`);
+          clearRetry();
+          retryTimer = window.setTimeout(() => {
+            retryTimer = null;
+            void load();
+          }, 8000);
+        } else {
+          setError(detail);
+          setPendingRange(null);
+        }
+      } finally {
+        inFlight = false;
       }
+    };
+
+    const refresh = () => {
+      if (!mounted || pageIsHidden()) return;
+      retries = 0;
+      clearRetry();
+      void load();
     };
 
     void load();
 
-    const handleVisibilityChange = () => {
-      if (!mounted || pageIsHidden()) return;
-      void load();
-    };
-
-    const timer = window.setInterval(() => {
-      if (!pageIsHidden()) {
-        void load();
-      }
-    }, pollMs);
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
+    const timer = window.setInterval(refresh, pollMs);
+    document.addEventListener("visibilitychange", refresh);
 
     return () => {
       mounted = false;
+      clearRetry();
       window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      document.removeEventListener("visibilitychange", refresh);
     };
   }, [activeRangeKey, pollMs]);
 
