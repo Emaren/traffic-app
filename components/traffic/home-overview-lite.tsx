@@ -16,31 +16,73 @@ function formatTimestamp(value: string) {
 export default function HomeOverviewLite() {
   const [overview, setOverview] = useState<OverviewResponse | null>(null);
   const [error, setError] = useState("");
+  const [retryRequest, setRetryRequest] = useState(0);
 
   useEffect(() => {
     let mounted = true;
+    let loaded = false;
+    let inFlight = false;
+    let retries = 0;
+    let retryTimer: number | null = null;
+
+    const clearRetry = () => {
+      if (retryTimer !== null) {
+        window.clearTimeout(retryTimer);
+        retryTimer = null;
+      }
+    };
 
     const load = async () => {
+      if (!mounted || inFlight || document.hidden) return;
+      inFlight = true;
+
       try {
         const next = await fetchOverviewRange("12h");
-        if (!mounted || !next.ok) return;
+        if (!mounted) return;
+        if (!next.ok) throw new Error("Traffic overview returned an invalid response");
 
+        loaded = true;
+        clearRetry();
         startTransition(() => {
           setOverview(next);
           setError("");
         });
       } catch (err) {
         if (!mounted) return;
-        setError(err instanceof Error ? err.message : "Failed to load Traffic overview seed");
+        const detail = err instanceof Error ? err.message : "Traffic overview unavailable";
+        if (retries < 2 && !document.hidden) {
+          const delay = retries === 0 ? 5000 : 12000;
+          retries += 1;
+          setError(`${detail}. Retrying automatically…`);
+          clearRetry();
+          retryTimer = window.setTimeout(() => {
+            retryTimer = null;
+            void load();
+          }, delay);
+        } else {
+          setError(`${detail}. You can retry without reloading the page.`);
+        }
+      } finally {
+        inFlight = false;
       }
     };
 
+    const resume = () => {
+      if (document.hidden || loaded || inFlight) return;
+      retries = 0;
+      clearRetry();
+      void load();
+    };
+
     void load();
+    document.addEventListener("visibilitychange", resume);
 
     return () => {
       mounted = false;
+      clearRetry();
+      document.removeEventListener("visibilitychange", resume);
     };
-  }, []);
+  }, [retryRequest]);
 
   const uniqueLivePeople = overview?.totals.live_now ?? 0;
   const historyRangeKey: HistoryRangeKey = overview?.range_key ?? "12h";
@@ -149,8 +191,18 @@ export default function HomeOverviewLite() {
           ) : null}
 
           {error ? (
-            <div className="mt-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-100">
-              {error}
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-100" role="status">
+              <span>{error}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setError("");
+                  setRetryRequest((current) => current + 1);
+                }}
+                className="rounded-full border border-rose-300/40 px-3 py-1 text-xs font-medium text-rose-100 transition hover:bg-rose-400/10"
+              >
+                Retry now
+              </button>
             </div>
           ) : null}
         </header>
