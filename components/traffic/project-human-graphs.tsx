@@ -744,7 +744,7 @@ export default function ProjectHumanGraphs({
     let mounted = true;
     let inFlight = false;
     let retries = 0;
-    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let retryTimer: number | null = null;
 
     const clearRetry = () => {
       if (retryTimer !== null) {
