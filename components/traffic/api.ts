@@ -20,15 +20,18 @@ function trimBaseUrl(raw: string | undefined): string {
 }
 
 function getApiBaseUrl(): string {
-  if (typeof window === "undefined") {
-    return trimBaseUrl(
-      process.env.TRAFFIC_API_BASE_URL ||
-        process.env.NEXT_PUBLIC_TRAFFIC_API_BASE_URL ||
-        "http://127.0.0.1:3345",
-    );
+  // Browser requests must stay on this site's origin. A VPS-only loopback URL
+  // embedded via NEXT_PUBLIC_* would refer to each visitor's computer.
+  // Nginx forwards /api/* to the private Traffic API on the VPS.
+  if (typeof window !== "undefined") {
+    return "";
   }
 
-  return trimBaseUrl(process.env.NEXT_PUBLIC_TRAFFIC_API_BASE_URL);
+  return trimBaseUrl(
+    process.env.TRAFFIC_API_BASE_URL ||
+      process.env.NEXT_PUBLIC_TRAFFIC_API_BASE_URL ||
+      "http://127.0.0.1:3345",
+  );
 }
 
 export function buildApiUrl(path: string): string {
