@@ -81,3 +81,14 @@ This is a **manual emergency rollback recipe**, not an instruction to execute du
 - Nginx JSON access logs currently do **not** log `cf_connecting_ip`. The API's trusted-Cloudflare header preference is forward-compatible but does not retroactively improve past IP attribution. Review Nginx provenance separately without casually modifying `real_ip_header`.
 - No WoloChain, betting settlement, DNS, archive persistence or Nginx config changes were part of this frontend activation.
 - Host root-disk pressure and legacy deployment credential/ownership consistency remain separate operational improvements.
+
+
+## Browser-origin incident discovered after server-side smoke
+
+On 2026-10-15, an actual external Chrome browser loaded the homepage shell but showed `Failed to fetch`. DevTools reported a fetch to `http://127.0.0.1:3345/api/overview?range_key=12h` failing with `ERR_CONNECTION_REFUSED`.
+
+**Root cause:** `NEXT_PUBLIC_TRAFFIC_API_BASE_URL` in the web service environment was set to a VPS-only loopback origin. The production webpack build baked that environment value into browser JavaScript. A URL that works on the VPS is not usable by a remote browser: `127.0.0.1` on the client is the client's own computer.
+
+Follow-up fix: `components/traffic/api.ts` now always emits same-origin `/api/*` paths for browser fetch and SSE, while server-side requests retain private API base URL resolution. Regression test `browser-api-origin.test.mts` simulates the hazardous environment and covers overview, live-stream, and project-stream URL construction.
+
+**The earlier HTTP-200 smoke was necessary but insufficient:** it tested route HTML/server rendering, not client-side hydration and browser-origin API networking. Release verification must now include actual external-browser loading of the overview graph, live visitors, visits history, and a live-stream connection, plus the browser network panel showing same-origin `/api/*`. If those fail, do not label the release fully certified. A failed legacy public variable is not a reason to expose port 3345 publicly or alter API bind addresses.
