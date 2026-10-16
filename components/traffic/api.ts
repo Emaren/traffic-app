@@ -39,9 +39,10 @@ export function buildApiUrl(path: string): string {
   return base ? `${base}${path}` : path;
 }
 
-async function fetchJson<T>(path: string): Promise<T> {
+async function fetchJson<T>(path: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(buildApiUrl(path), {
     cache: "no-store",
+    signal,
   });
 
   if (!response.ok) {
@@ -73,10 +74,30 @@ export async function fetchOverview(): Promise<OverviewResponse> {
   return fetchJson<OverviewResponse>("/api/overview");
 }
 
+// Only dedupe simultaneous *browser* overview requests. Do not cache data here:
+// the API owns TTL and stale-response policy, and SSR requests must stay isolated.
+const browserOverviewInFlight = new Map<HistoryRangeKey, Promise<OverviewResponse>>();
+
 export async function fetchOverviewRange(
   rangeKey: HistoryRangeKey = "12h",
 ): Promise<OverviewResponse> {
-  return fetchJson<OverviewResponse>(`/api/overview?range_key=${rangeKey}`);
+  const path = `/api/overview?range_key=${rangeKey}`;
+  if (typeof window === "undefined") return fetchJson<OverviewResponse>(path);
+
+  const inFlight = browserOverviewInFlight.get(rangeKey);
+  if (inFlight) return inFlight;
+
+  // End an indefinitely pending browser request; the homepage offers bounded
+  // recovery while the backend warms. This does not cancel server-side work.
+  const request = fetchJson<OverviewResponse>(path, AbortSignal.timeout(25000));
+  browserOverviewInFlight.set(rangeKey, request);
+  const clear = () => {
+    if (browserOverviewInFlight.get(rangeKey) === request) {
+      browserOverviewInFlight.delete(rangeKey);
+    }
+  };
+  void request.then(clear, clear);
+  return request;
 }
 
 export async function fetchLiveVisitors(
